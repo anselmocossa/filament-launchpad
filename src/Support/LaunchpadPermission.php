@@ -1,0 +1,81 @@
+<?php
+
+namespace Filament\Launchpad\Support;
+
+use Illuminate\Contracts\Auth\Authenticatable;
+use Throwable;
+
+/**
+ * SOFT-integrated authorization gate for the plugin's Filament Pages
+ * (`Launchpad`, `EditHome`) and Resource models (Space/Page/Section/Card),
+ * bridging into bezhansalleh/filament-shield + spatie/laravel-permission
+ * WITHOUT ever requiring either package: absent spatie/laravel-permission,
+ * every ability is granted — exactly today's (pre-Phase E.2) behaviour.
+ *
+ * Once spatie/laravel-permission is present, an ability (e.g. `View:Space`,
+ * `View:Launchpad`) is granted when:
+ *   - the user holds the Shield `super_admin` role, or
+ *   - the user's own `can()` (bridged by spatie/laravel-permission's own
+ *     Gate::before, or by filament-shield's, when either is booted) grants
+ *     the named permission.
+ *
+ * The super_admin check is duplicated here (rather than relying solely on
+ * filament-shield's own Gate::before) because this class must also behave
+ * correctly in the plugin's own test suite, which exercises
+ * spatie/laravel-permission directly without filament-shield installed.
+ *
+ * A missing/guest user is granted too: a real Filament panel already sits
+ * behind its own `auth` middleware, so `auth()->user()` is only ever null
+ * here in contexts that never enforced login in the first place (e.g. the
+ * plugin's own test harness) — denying those would be a regression against
+ * today's (pre-Phase E.2) behaviour, not a new security boundary.
+ */
+class LaunchpadPermission
+{
+    public static function check(mixed $user, string $ability): bool
+    {
+        if (! LaunchpadVisibility::spatieAvailable()) {
+            return true;
+        }
+
+        if (! is_object($user)) {
+            return true;
+        }
+
+        if (static::isSuperAdmin($user)) {
+            return true;
+        }
+
+        if (! method_exists($user, 'can')) {
+            return true;
+        }
+
+        try {
+            return (bool) $user->can($ability);
+        } catch (Throwable) {
+            // Never let a misconfigured guard/permission take the panel
+            // down — degrade to "allowed", the same as if the ability were
+            // never checked at all.
+            return true;
+        }
+    }
+
+    protected static function isSuperAdmin(mixed $user): bool
+    {
+        if (! $user instanceof Authenticatable && ! is_object($user)) {
+            return false;
+        }
+
+        if (! method_exists($user, 'hasRole')) {
+            return false;
+        }
+
+        $superAdminRole = config('filament-shield.super_admin.name', 'super_admin');
+
+        try {
+            return (bool) $user->hasRole($superAdminRole);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+}

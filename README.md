@@ -1,121 +1,246 @@
 # Filament Launchpad
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/filamentphp/launchpad.svg?style=flat-square)](https://packagist.org/packages/filamentphp/launchpad)
-[![Total Downloads](https://img.shields.io/packagist/dt/filamentphp/launchpad.svg?style=flat-square)](https://packagist.org/packages/filamentphp/launchpad)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg?style=flat-square)](#)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE.md)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/anselmocossa/filament-launchpad.svg?style=flat-square)](https://packagist.org/packages/anselmocossa/filament-launchpad)
+[![Total Downloads](https://img.shields.io/packagist/dt/anselmocossa/filament-launchpad.svg?style=flat-square)](https://packagist.org/packages/anselmocossa/filament-launchpad)
+[![License](https://img.shields.io/packagist/l/anselmocossa/filament-launchpad.svg?style=flat-square)](LICENSE.md)
 
-Transform your Filament panel homepage into a Fiori-style launchpad: a grid of grouped tiles, each with an icon, a title, and a live counter — inspired by the SAP Fiori Launchpad experience.
+![Filament Launchpad](art/cover.png)
 
-## Introduction
+Turn your Filament panel's homepage into a SAP Fiori-style launchpad: Spaces, Pages, Sections and drag-and-drop KPI/shortcut/widget cards, with role-based visibility and a full builder UI — all rendered inside the native Filament shell.
 
-Filament Launchpad adds a launchpad home page to your panel — a sub-nav of tabs plus a grid of grouped, clickable KPI tiles — so users land on an at-a-glance overview of the areas and counters that matter to them.
+## Screenshots
 
-The launchpad renders **inside the native Filament page shell**: your panel's topbar, sidebar, user menu, breadcrumbs, and dark-mode toggle stay exactly as they are. The plugin only adds its tab sub-nav (a full-width second navbar glued directly under the topbar, holding the app tabs) and the tile grid to the page content area — it does not replace the panel chrome.
+![Launchpad — light mode](art/launchpad-light.png)
+*The launchpad home page in light mode: sub-nav tabs, sections and tile cards.*
+
+![Launchpad — dark mode](art/launchpad-dark.png)
+*The same home page in dark mode — panel chrome (topbar, sidebar) stays native.*
+
+![Drag-and-drop builder](art/builder.png)
+*The layout builder: drag cards from the library or existing sections to rearrange the page.*
+
+![Edit Home menu entry](art/user-menu.png)
+*"Edit Home" in the account/user menu — a one-click shortcut into the builder for the home page.*
+
+![Role-based permissions](art/permissions.png)
+*The "Permission" field on a Space/Page/Section/Card, restricting visibility to selected roles.*
+
+![Spaces management](art/spaces.png)
+*Managing Spaces, Pages and Sections through the plugin's Resources.*
+
+![Cards index and search](art/cards.png)
+*The flat Cards index, also reachable from Filament's global search.*
+
+![Native widgets as cards](art/widgets.png)
+*A native Filament widget (StatsOverviewWidget/ChartWidget) rendered in place of a card.*
+
+## Features
+
+- **Fiori-style launchpad home page** — sub-nav tabs, grouped sections, and a grid of clickable cards, rendered inside the native Filament page shell (topbar, sidebar, breadcrumbs and dark mode stay untouched).
+- **Space → Page → Section → Card hierarchy** — manage everything through dedicated Filament Resources and nested relation managers.
+- **Sub-nav navigation** — "☰ All Spaces" menu, a per-space Pages dropdown, and an automatic "More ▾" overflow (priority-nav) so the tab bar never scrolls.
+- **Three card types** — KPI (live value via a registered source), Shortcut (link to a Resource, Page or URL), and Widget (renders a native `StatsOverviewWidget`/`ChartWidget` in place of the card).
+- **Safe KPI sources** — closures registered by the developer, never `eval`'d, never user-controlled. A throwing source degrades the tile to `—` instead of breaking the page.
+- **Reusable card library** — draggable presets for the builder, defined once and dropped into as many sections as needed.
+- **Auto-discovered widget library** — widgets already registered on the panel are available in the builder out of the box; override label/icon/column span or add extra ones only when needed.
+- **Drag-and-drop layout builder** — native HTML5 Drag and Drop (Alpine-driven, no external JS library), with a searchable Card Library and Widgets panel.
+- **"Edit Home" shortcut** — a one-click entry in the account/user menu straight into the builder for the home page, without navigating the Spaces/Pages tree.
+- **Global search** — Cards are searchable from Filament's built-in global search, with the Section/Page/Space they live in shown as result details.
+- **Role-based visibility (Fiori-style permissions)** — a "Permission" field on every Space/Page/Section/Card, softly integrated with `bezhansalleh/filament-shield` and `spatie/laravel-permission`.
+- **Localization** — English, European Portuguese, Brazilian Portuguese and generic Portuguese translations included, fully overridable.
 
 ## Requirements
 
 - PHP 8.2+
-- Filament 4.0+ or 5.0+
+- Filament 5.0+ (4.0+ also supported)
 - Laravel (Illuminate contracts/support) 11.0+, 12.0+, or 13.0+
 
 ## Installation
 
-You can install the package via composer:
+Install the package via Composer:
 
 ```bash
-composer require filamentphp/launchpad
+composer require anselmocossa/filament-launchpad
 ```
 
-Optionally publish the config file:
+Run the installer — it publishes the config and migrations, then optionally runs them:
+
+```bash
+php artisan launchpad:install          # publish config + migrations
+php artisan launchpad:install --migrate # …and run the migrations (asks first)
+```
+
+Prefer to do it by hand? Run the migrations (Spaces, Pages, Sections, Cards and the role-visibility pivot) yourself:
+
+```bash
+php artisan migrate
+```
+
+Optionally publish the config file, views or translations:
 
 ```bash
 php artisan vendor:publish --tag="launchpad-config"
+php artisan vendor:publish --tag="launchpad-views"
+php artisan vendor:publish --tag="launchpad-lang"
 ```
 
-## Usage
-
-Register the plugin in your panel provider and describe your tabs, groups, and
-tiles with the fluent API — no Blade required on your side:
+Register the plugin in your panel provider:
 
 ```php
 use Filament\Launchpad\LaunchpadPlugin;
-use Filament\Launchpad\Launchpad\{LaunchpadTab, TileGroup, Tile};
 
 public function panel(Panel $panel): Panel
 {
     return $panel
         // ...
-        ->plugin(
-            LaunchpadPlugin::make()
-                ->accentColor('#16a34a')   // active tab underline
-                ->tileSize('normal')       // 'normal' (176px) | 'compact' (150px)
-                ->tabs([
-                    LaunchpadTab::make('Início')->groups([
-                        TileGroup::make('Favoritos')->tiles([
-                            // KPI variant: a tile becomes a KPI tile as soon as ->kpi() is set
-                            Tile::make('Sales Today')
-                                ->subtitle('Point of Sale')
-                                ->icon('heroicon-o-banknotes')
-                                ->kpi(fn () => Order::whereDate('created_at', today())->count())
-                                ->unit('orders')
-                                ->trend('+12% vs yesterday', 'success') // success|danger|warning|gray
-                                ->url('/admin/orders'),
-
-                            // Icon-only variant: no ->kpi()
-                            Tile::make('Products')
-                                ->subtitle('Catalog')
-                                ->icon('heroicon-o-cube')
-                                ->badge('24')
-                                ->resource(ProductResource::class),
-                        ]),
-                    ]),
-                ]),
-        );
+        ->plugin(LaunchpadPlugin::make());
 }
 ```
 
-The plugin registers a `Launchpad` page at the panel root (`/`), so it becomes
-the panel home. If your panel also registers the default `Dashboard` page,
-remove it (or give it another slug) so the launchpad can own `/`.
+The plugin registers a `Launchpad` page at the panel root (`/`), so it becomes the panel home. If your panel also registers the default `Dashboard` page, remove it (or give it another slug) so the launchpad can own `/`.
 
-### Tile targets
+After installing, build the launchpad from the UI: create a Space, a Page inside it, a Section inside that, and Cards inside the Section — or use the drag-and-drop builder (see below) instead of the plain forms.
 
-Each tile can point at a destination, resolved when the tile is clicked:
+## Usage
 
-- `->url('/path')` or `->url(fn () => ...)`
-- `->resource(MyResource::class)` → the resource index URL
-- `->page(MyPage::class)` → the page URL
-- `->action(fn () => ...)` → run a closure instead of navigating
+### Spaces, Pages, Sections and Cards
 
-A tile with no target is inert (it dispatches a Filament notification). KPI
-closures are resolved safely on render: if one throws, the tile degrades to
-`—` rather than breaking the page (no fabricated data).
+The launchpad is database-driven by default. The hierarchy is:
+
+- **Space** — a top-level entry in the sub-nav. A Space with a single Page renders as a plain button; with several Pages it shows a dropdown.
+- **Page** — lives inside a Space and holds Sections. Selecting a Page swaps which Sections render.
+- **Section** — a titled group of Cards on a Page.
+- **Card** — a single tile: KPI, Shortcut, or Widget.
+
+Manage all four through the plugin's Filament Resources (**Spaces**, reachable from the sidebar; **Pages**, **Sections** and **Cards** reachable through relation managers and the "Pages"/"Cards" header buttons), or build a Page visually with the drag-and-drop builder.
+
+### KPI sources
+
+Register named, closure-based KPI sources on the plugin — never raw strings, never `eval`, always a callable the developer controls:
+
+```php
+use Filament\Launchpad\LaunchpadPlugin;
+
+LaunchpadPlugin::make()->kpiSources([
+    'sales_today' => fn () => Sale::whereDate('created_at', today())->count(),
+    'open_tickets' => fn () => Ticket::whereNull('resolved_at')->count(),
+]);
+```
+
+A KPI Card then references a source by its key (from the "Source (Live)" select in the Card form) instead of embedding logic — if the closure throws, the tile degrades to `—` rather than breaking the page. A Card without a source can instead use a "Fixed Value" typed directly into the form.
+
+### Card library
+
+Register presets that show up in the builder's "Card Library" panel, ready to be dragged into any Section:
+
+```php
+LaunchpadPlugin::make()->cardLibrary([
+    [
+        'key' => 'sales-today',
+        'title' => 'Sales Today',
+        'icon' => 'heroicon-o-banknotes',
+        'type' => 'kpi',
+        'subtitle' => 'Point of Sale',
+        'kpi_value' => null,
+        'unit' => null,
+        'trend' => null,
+        'badge' => null,
+        'target_type' => 'url',
+        'target_value' => '/admin/sales',
+    ],
+]);
+```
+
+Presets are reusable — dropping the same preset into several Sections is expected; wire a `kpi_source` (or edit the value) on the created Card afterwards.
+
+### Widgets
+
+Any widget already registered on the panel through `widgets()` or `discoverWidgets()` is automatically available in the builder's "Widgets" library. Use `widgets()` on the plugin only to override the generated label/icon/column span, or to expose a widget that is not registered on the panel:
+
+```php
+use App\Filament\Widgets\RevenueChart;
+use Filament\Launchpad\LaunchpadPlugin;
+
+LaunchpadPlugin::make()->widgets([
+    [
+        'key' => 'revenue-chart',
+        'class' => RevenueChart::class,
+        'label' => 'Revenue',
+        'icon' => 'heroicon-o-chart-bar',
+        'columnSpan' => 'full',
+    ],
+]);
+```
+
+Dropping a widget from the library creates a Card of type `widget` that stores only its registered `key` — the class is resolved from the developer's registration at render time, never read from the database directly.
+
+### Drag-and-drop builder
+
+Open the builder from a Page's **Build** action (Spaces → a Space → Pages → a Page), or jump straight to the home page's builder via **Edit Home** in the account/user menu. From there you can:
+
+- Add, rename, reorder and delete Sections.
+- Drag a preset from the Card Library, or a widget from the Widgets panel, into any Section.
+- Drag existing Cards between Sections, or reorder them within a Section.
+- Click a Card to edit it in place (same form used by the Cards relation manager).
+
+### Global search
+
+Cards are registered as globally searchable (by title and subtitle) through Filament's built-in global search. A result shows which Section/Page/Space the Card lives in, and navigates to whatever the Card's target resolves to.
 
 ## Configuration
 
-The published config file (`config/launchpad.php`) exposes `branding`,
-`accent_color`, `dark_header`, and `tile_size`. Tabs/groups/tiles are defined
-preferably through the fluent API above, since tiles usually need closures
-(live KPIs, custom actions) that plain config arrays cannot express.
+The published config file (`config/launchpad.php`) exposes `branding`, `accent_color`, `dark_header`, and `tile_size`:
 
-### Deprecated / no-op methods
+```php
+return [
+    'branding' => [
+        'name' => 'Launchpad',
+        'logo' => null,
+    ],
+    'accent_color' => '#16a34a',
+    'dark_header' => false,
+    'tile_size' => 'normal', // 'normal' (176px tiles) or 'compact' (150px tiles)
+];
+```
 
-Because the launchpad lives inside the native shell, a few older fluent
-methods are **accepted but no longer render anything** (kept so existing
-configs don't break):
+Prefer the fluent plugin API for anything beyond these — `LaunchpadPlugin::make()->accentColor('#16a34a')->tileSize('compact')` — since the config file cannot express closures (live KPIs, widget mappings).
 
-- `->brand(name, logo, initials)` — the sub-nav no longer shows a brand block
-  (branding is left to the native Filament topbar). The name is still used for
-  the page `<title>`.
-- `->darkHeader(bool)` — light/dark theming is handled natively by Filament.
-- `->notificationCount(int)` — the bell lives in the native topbar.
+## Permissions & Shield
 
-## Roadmap / Coming soon
+Every Space, Page, Section and Card has a **Permission** field: the roles allowed to see it. Leave it empty and everyone can see the item — this is the default, unrestricted behaviour, with no dependency required.
 
-- [ ] Auto-discovery of resources to generate tiles
-- [ ] Per-user favorites and drag-to-reorder layouts
-- [ ] Authorization per tile/group
+Install [`bezhansalleh/filament-shield`](https://filamentphp.com/plugins/bezhansalleh-shield) (which pulls in `spatie/laravel-permission`) to turn the field into an active gate:
+
+```bash
+composer require bezhansalleh/filament-shield spatie/laravel-permission
+php artisan shield:install
+```
+
+Once installed:
+
+- A Space/Page/Section/Card restricted to one or more roles is hidden from any user who does not hold at least one of them — cascading down the hierarchy (an empty Space, Page or Section, once everything inside it is filtered out, is hidden too).
+- The Shield `super_admin` role always sees everything, regardless of restrictions.
+- The `Launchpad` (home) and `EditHome` pages are themselves gated (`View:Launchpad`, `View:EditHome`), and the Spaces/Pages/Sections/Cards Resources ship their own policies — Shield's convention-based policy discovery does not reach models under `Filament\Launchpad\Models\*`, so the plugin registers these policies itself.
+- A restricted Card is also excluded from Filament's global search results for users without the role.
+
+Without `spatie/laravel-permission` installed, none of the above applies: the "Permission" field is simply not rendered, and every ability is granted.
+
+## Localization
+
+Translation catalogs are included for:
+
+- English (`en`) — base language
+- Portuguese (`pt`)
+- European Portuguese (`pt_PT`)
+- Brazilian Portuguese (`pt_BR`)
+
+Publish and override the translation files with:
+
+```bash
+php artisan vendor:publish --tag="launchpad-lang"
+```
+
+Then edit `resources/lang/vendor/launchpad/{locale}/launchpad.php` — every string in the plugin (labels, buttons, builder copy, model names) is wrapped in `__('launchpad::launchpad.*')`, so any published locale immediately overrides the package default.
 
 ## Testing
 
@@ -127,13 +252,17 @@ composer test
 
 Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
 
+## Contributing
+
+Issues and pull requests are welcome. Please run `composer lint` and `composer test` before submitting a PR, and keep new strings translatable via `launchpad::launchpad.*`.
+
 ## Security Vulnerabilities
 
-Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
+If you discover any security-related issues, please email anselmo.cossa@enh.co.mz instead of using the issue tracker.
 
 ## Credits
 
-- [Anselmo Kossa](https://github.com/anselmocossa)
+- [Anselmo Cossa](https://github.com/anselmocossa)
 
 ## License
 

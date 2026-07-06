@@ -15,6 +15,8 @@ class LaunchpadSpace
 
     protected string $id;
 
+    protected ?string $icon = null;
+
     /**
      * @var array<LaunchpadPage>
      */
@@ -41,6 +43,13 @@ class LaunchpadSpace
         return $this;
     }
 
+    public function icon(?string $icon): static
+    {
+        $this->icon = $icon;
+
+        return $this;
+    }
+
     public function getId(): string
     {
         return $this->id;
@@ -49,6 +58,11 @@ class LaunchpadSpace
     public function getLabel(): string
     {
         return $this->label;
+    }
+
+    public function getIcon(): ?string
+    {
+        return $this->icon;
     }
 
     /**
@@ -67,6 +81,7 @@ class LaunchpadSpace
         return [
             'id' => $this->id,
             'label' => $this->label,
+            'icon' => $this->icon,
             'pages' => array_map(fn (LaunchpadPage $page): array => $page->toArray(), $this->pages),
         ];
     }

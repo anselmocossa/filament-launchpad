@@ -1,24 +1,28 @@
 {
-    "name": "filamentphp/launchpad",
-    "description": "Transform your Filament panel homepage into a Fiori-style launchpad with grouped KPI tiles.",
+    "name": "anselmocossa/filament-launchpad",
+    "description": "Transform your Filament v5 panel homepage into a SAP Fiori-style launchpad: Spaces, Pages, Sections and drag-and-drop KPI/shortcut/widget cards with role-based visibility.",
     "keywords": [
-        "laravel",
         "filament",
+        "filament-plugin",
+        "laravel",
         "launchpad",
-        "dashboard",
-        "tiles",
         "fiori",
-        "filament-plugin"
+        "dashboard",
+        "sap"
     ],
-    "homepage": "https://github.com/filamentphp/launchpad",
+    "homepage": "https://github.com/anselmocossa/filament-launchpad",
     "license": "MIT",
     "authors": [
         {
-            "name": "Anselmo Kossa",
+            "name": "Anselmo Cossa",
             "email": "anselmo.cossa@enh.co.mz",
             "role": "Developer"
         }
     ],
+    "support": {
+        "issues": "https://github.com/anselmocossa/filament-launchpad/issues",
+        "source": "https://github.com/anselmocossa/filament-launchpad"
+    },
     "require": {
         "php": "^8.2",
         "filament/filament": "^4.0|^5.0",
@@ -31,7 +35,12 @@
         "nunomaduro/collision": "^7.0|^8.0",
         "orchestra/testbench": "^9.0|^10.0|^11.0",
         "pestphp/pest": "^3.0|^4.0",
-        "pestphp/pest-plugin-laravel": "^2.0|^3.0"
+        "pestphp/pest-plugin-laravel": "^2.0|^3.0",
+        "spatie/laravel-permission": "^8.3"
+    },
+    "suggest": {
+        "bezhansalleh/filament-shield": "Required to manage the Permission field's roles from a Filament UI (Spatie roles/permissions admin).",
+        "spatie/laravel-permission": "Required for role-based visibility on Spaces/Pages/Sections/Cards; without it, everything is visible to everyone."
     },
     "autoload": {
         "psr-4": {

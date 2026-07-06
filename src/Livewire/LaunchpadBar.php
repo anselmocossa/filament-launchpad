@@ -6,6 +6,7 @@ use Filament\Launchpad\Launchpad\LaunchpadPage;
 use Filament\Launchpad\Launchpad\LaunchpadSpace;
 use Filament\Launchpad\LaunchpadPlugin;
 use Illuminate\Contracts\View\View;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
@@ -85,27 +86,59 @@ class LaunchpadBar extends Component
     }
 
     /**
+     * Steps ONE level up the launchpad breadcrumb path, like walking back a
+     * "Início / Space / Página" trail toward the root:
+     *   1. On a space's non-first page → go up to that space's first page.
+     *   2. On a space's first page (but not the root space) → go to the root
+     *      space (the first one) and its first page.
+     *   3. Already at the root → no-op.
+     * Triggered by the topbar "‹" button via the `launchpad-back` Livewire
+     * event (dispatched only when the launchpad bar is present on the page;
+     * elsewhere the button falls back to the browser history).
+     */
+    #[On('launchpad-back')]
+    public function goUp(): void
+    {
+        $space = $this->findSpace($this->activeSpace);
+
+        if ($space instanceof LaunchpadSpace) {
+            $firstPageId = $this->firstPageId($space);
+
+            if ($this->activePage !== '' && $this->activePage !== $firstPageId) {
+                $this->selectPage($this->activeSpace, $firstPageId);
+
+                return;
+            }
+        }
+
+        $rootSpace = $this->getPlugin()->getSpaces()[0] ?? null;
+
+        if ($rootSpace instanceof LaunchpadSpace && $rootSpace->getId() !== $this->activeSpace) {
+            $this->selectSpace($rootSpace->getId());
+        }
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     public function getSpacesData(): array
     {
         $plugin = $this->getPlugin();
-        $accent = $plugin->getAccentColor();
 
-        return array_map(function (LaunchpadSpace $space) use ($accent): array {
+        return array_map(function (LaunchpadSpace $space): array {
             $isActive = $space->getId() === $this->activeSpace;
             $pages = $space->getPages();
 
             return [
                 'id' => $space->getId(),
                 'label' => $space->getLabel(),
-                'weight' => $isActive ? 600 : 500,
+                'icon' => $space->getIcon(),
                 'active' => $isActive,
-                'border' => $isActive ? $accent : 'transparent',
                 'hasDropdown' => count($pages) > 1,
                 'pages' => array_map(fn (LaunchpadPage $page): array => [
                     'id' => $page->getId(),
                     'label' => $page->getLabel(),
+                    'icon' => $page->getIcon(),
                     'active' => $isActive && $page->getId() === $this->activePage,
                 ], $pages),
             ];

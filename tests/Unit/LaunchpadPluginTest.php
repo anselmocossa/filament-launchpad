@@ -100,3 +100,23 @@ it('tabs() normalizes legacy LaunchpadTab configs into spaces with a single defa
         ->and($spaces[0]->getPages()[0]->getSections())->toHaveCount(1)
         ->and($plugin->getTabs())->toBe($plugin->getSpaces()); // getTabs() is a deprecated alias
 });
+
+it('provides a sensible default card library (KPI + Atalho presets)', function () {
+    $library = LaunchpadPlugin::make()->getCardLibrary();
+
+    expect($library)->toHaveCount(2)
+        ->and(array_column($library, 'key'))->toBe(['kpi', 'atalho'])
+        ->and($library[0]['type'])->toBe('kpi')
+        ->and($library[1]['type'])->toBe('shortcut');
+});
+
+it('merges card library presets across calls, overriding the default', function () {
+    $plugin = LaunchpadPlugin::make()
+        ->cardLibrary([['key' => 'vendas', 'title' => 'Vendas', 'type' => 'kpi']])
+        ->cardLibrary([['key' => 'clientes', 'title' => 'Clientes', 'type' => 'shortcut']]);
+
+    $library = $plugin->getCardLibrary();
+
+    expect($library)->toHaveCount(2)
+        ->and(array_column($library, 'key'))->toBe(['vendas', 'clientes']);
+});

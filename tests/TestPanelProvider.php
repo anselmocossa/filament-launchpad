@@ -8,6 +8,7 @@ use Filament\Launchpad\Launchpad\LaunchpadTab;
 use Filament\Launchpad\Launchpad\Tile;
 use Filament\Launchpad\Launchpad\TileGroup;
 use Filament\Launchpad\LaunchpadPlugin;
+use Filament\Launchpad\Tests\Support\TestStatsWidget;
 use Filament\Panel;
 use Filament\PanelProvider;
 
@@ -19,9 +20,35 @@ class TestPanelProvider extends PanelProvider
             ->id('test')
             ->default()
             ->path('test')
+            ->widgets([
+                TestStatsWidget::class,
+            ])
             ->plugin(
                 LaunchpadPlugin::make()
-                    ->brand(name: 'Loja Demo', initials: 'LD')
+                    ->cardLibrary([
+                        [
+                            'key' => 'vendas_hoje',
+                            'title' => 'Vendas Hoje',
+                            'icon' => 'heroicon-o-banknotes',
+                            'type' => 'kpi',
+                            'subtitle' => 'Ponto de Venda',
+                            'kpi_value' => '0',
+                            'unit' => 'un',
+                            'trend' => '+0% vs ontem',
+                            'badge' => null,
+                            'target_type' => 'none',
+                            'target_value' => null,
+                        ],
+                        [
+                            'key' => 'pos',
+                            'title' => 'Ponto de Venda',
+                            'icon' => 'heroicon-o-computer-desktop',
+                            'type' => 'shortcut',
+                            'subtitle' => 'Terminal',
+                            'target_type' => 'none',
+                            'target_value' => null,
+                        ],
+                    ])
                     ->spaces([
                         // Retro-compat coverage: a legacy LaunchpadTab, still
                         // configured with ->groups() — becomes a one-page space.
@@ -61,23 +88,27 @@ class TestPanelProvider extends PanelProvider
                         ]),
                         // New API coverage: a multi-page space, to exercise
                         // the sub-nav's pages dropdown end-to-end.
-                        LaunchpadSpace::make('Ponto de Venda')->pages([
-                            LaunchpadPage::make('Visão Geral')->sections([
-                                TileGroup::make('Terminal')->tiles([
-                                    Tile::make('Abrir Caixa')
-                                        ->subtitle('Terminal POS')
-                                        ->icon('heroicon-o-computer-desktop'),
+                        LaunchpadSpace::make('Ponto de Venda')
+                            ->icon('heroicon-o-shopping-cart')
+                            ->pages([
+                                LaunchpadPage::make('Visão Geral')
+                                    ->icon('heroicon-o-home')
+                                    ->sections([
+                                        TileGroup::make('Terminal')->tiles([
+                                            Tile::make('Abrir Caixa')
+                                                ->subtitle('Terminal POS')
+                                                ->icon('heroicon-o-computer-desktop'),
+                                        ]),
+                                    ]),
+                                LaunchpadPage::make('Vendas')->sections([
+                                    TileGroup::make('Histórico')->tiles([
+                                        Tile::make('Vendas do Dia')
+                                            ->subtitle('Resumo')
+                                            ->icon('heroicon-o-banknotes')
+                                            ->kpi('12'),
+                                    ]),
                                 ]),
                             ]),
-                            LaunchpadPage::make('Vendas')->sections([
-                                TileGroup::make('Histórico')->tiles([
-                                    Tile::make('Vendas do Dia')
-                                        ->subtitle('Resumo')
-                                        ->icon('heroicon-o-banknotes')
-                                        ->kpi('12'),
-                                ]),
-                            ]),
-                        ]),
                     ])
             );
     }

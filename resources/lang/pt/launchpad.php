@@ -1,6 +1,167 @@
 <?php
 
 return [
-    'title' => 'Launchpad',
-    'empty' => 'Ainda não há tiles configurados.',
+    // ========== Field Labels ==========
+    'labels' => [
+        'nome' => 'Nome',
+        'icone' => 'Ícone',
+        'ordem' => 'Ordem',
+        'titulo' => 'Título',
+        'subtitulo' => 'Subtítulo',
+        'tipo' => 'Tipo',
+        'permissao' => 'Permissão',
+        'unidade' => 'Unidade',
+        'tendencia' => 'Tendência',
+        'cor_tendencia' => 'Cor da Tendência',
+        'badge' => 'Badge',
+        'alvo' => 'Alvo',
+        'url' => 'URL',
+        'recurso' => 'Recurso',
+        'pagina' => 'Página',
+        'widget' => 'Widget',
+        'largura' => 'Largura',
+        'largura_total' => 'Largura total',
+        'fonte_ao_vivo' => 'Fonte (ao vivo)',
+        'valor_fixo' => 'Valor fixo',
+    ],
+
+    // ========== Form Section Titles ==========
+    'sections' => [
+        'conteudo' => 'Conteúdo',
+        'widget' => 'Widget',
+        'indicador_kpi' => 'Indicador (KPI)',
+        'acao_ao_clicar' => 'Acção ao clicar',
+    ],
+
+    // ========== Section Descriptions ==========
+    'descriptions' => [
+        'conteudo' => 'Identificação e aparência do tile.',
+        'widget' => 'Mostra um gráfico ou quadro de indicadores dinâmico no lugar deste cartão.',
+        'indicador_kpi' => 'Valor dinâmico apresentado no tile.',
+        'acao_ao_clicar' => 'Para onde o tile navega.',
+    ],
+
+    // ========== Table Columns ==========
+    'table_columns' => [
+        'paginas' => 'Páginas',
+        'secoes' => 'Secções',
+        'cards' => 'Cards',
+        'space' => 'Space',
+    ],
+
+    // ========== Buttons ==========
+    'buttons' => [
+        'novo_space' => 'Novo Space',
+        'nova_pagina' => 'Nova Página',
+        'nova_secao' => 'Nova Secção',
+        'novo_card' => 'Novo Card',
+        'editar' => 'Editar',
+        'editar_card' => 'Editar Card',
+        'eliminar' => 'Eliminar',
+        'remover' => 'Remover',
+        'voltar' => 'Voltar',
+    ],
+
+    // ========== Messages ==========
+    'messages' => [
+        'card_actualizado' => 'Card actualizado',
+        'abrir' => 'Abrir',
+    ],
+
+    // ========== Placeholders ==========
+    'placeholders' => [
+        'todos_podem_ver' => 'Todos podem ver',
+        'valor_fixo' => 'Valor fixo',
+        'pesquisar_cards' => 'Pesquisar cards...',
+        'badge_exemplo' => 'ex: 2 pendentes',
+    ],
+
+    // ========== Helper Texts ==========
+    'helpers' => [
+        'permissao_vazia' => 'Deixe vazio para todos poderem ver.',
+        'fonte_ou_valor' => 'Se escolher uma fonte, o número é calculado ao vivo; senão usa o Valor fixo abaixo.',
+        'valor_sem_fonte' => 'Usado apenas se não houver fonte ao vivo seleccionada.',
+    ],
+
+    // ========== Builder (Drag-Drop Constructor) ==========
+    'builder' => [
+        'instrucao_principal' => 'Arraste presets da biblioteca para as secções, ou reordene/mova cards existentes.',
+        'titulo_biblioteca' => 'Biblioteca de Cards',
+        'titulo_widgets' => 'Widgets',
+        'label_pesquisa' => 'Pesquisar cards...',
+        'label_arrastar_secao' => 'Arrastar secção',
+        'confirmacao_eliminar_secao' => 'Eliminar esta secção e todos os seus cards?',
+        'confirm_delete_section_heading' => 'Eliminar esta secção?',
+        'confirm_delete_section_body' => 'Remove a secção e todos os seus cards.',
+        'texto_vazio_grid' => 'Arraste um card da biblioteca para aqui',
+        'texto_vazio_secoes' => 'Ainda não há secções. Clique em "Nova Secção" para começar.',
+        'sem_cards_pesquisa' => 'Nenhum card corresponde à pesquisa.',
+        'cards_ja_usados' => 'Todos os cards da biblioteca já foram usados nesta página.',
+        'sem_widgets_pesquisa' => 'Nenhum widget corresponde à pesquisa.',
+        'sem_widgets_registados' => 'Nenhum widget registado.',
+    ],
+
+    // ========== Navigation ==========
+    'nav' => [
+        'todos_os_spaces' => 'Todos os Spaces',
+        'mais' => 'Mais',
+        'paginas' => 'Páginas',
+        'cards' => 'Cards',
+        'construtor' => 'Construtor',
+        'editar_inicio' => 'Editar Início',
+        'spaces' => 'Spaces',
+    ],
+
+    // ========== Model Labels ==========
+    'models' => [
+        'space' => 'Space',
+        'spaces' => 'Spaces',
+        'pagina' => 'Página',
+        'paginas' => 'Páginas',
+        'secao' => 'Secção',
+        'secoes' => 'Secções',
+        'card' => 'Card',
+        'cards' => 'Cards',
+    ],
+
+    // ========== Opções de Ícone ==========
+    'icons' => [
+        'home' => 'Início',
+        'grid' => 'Grelha',
+        'notes' => 'Notas',
+        'chart' => 'Gráfico',
+        'cart' => 'Carrinho',
+        'cube' => 'Cubo',
+        'folder' => 'Pasta',
+        'settings' => 'Ajustes',
+        'users' => 'Utilizadores',
+        'card' => 'Cartão',
+        'terminal' => 'Terminal',
+        'document' => 'Documento',
+        'archive' => 'Arquivo',
+        'book' => 'Livro',
+        'alert' => 'Alerta',
+    ],
+
+    // ========== Card Types ==========
+    'card_types' => [
+        'kpi' => 'KPI',
+        'atalho' => 'Atalho',
+        'widget' => 'Widget',
+        'nenhuma' => 'Nenhuma',
+    ],
+
+    // ========== Trend Colors ==========
+    'trend_colors' => [
+        'success' => 'Sucesso',
+        'danger' => 'Perigo',
+        'warning' => 'Aviso',
+        'gray' => 'Neutro',
+    ],
+
+    // ========== General ==========
+    'general' => [
+        'title' => 'Launchpad',
+        'empty' => 'Ainda não há tiles configurados.',
+    ],
 ];

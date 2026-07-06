@@ -38,6 +38,12 @@ class Tile
 
     protected ?Closure $action = null;
 
+    protected bool $isWidget = false;
+
+    protected ?string $widgetClass = null;
+
+    protected string|int $widgetColumnSpan = 'full';
+
     /**
      * Logical trend color name => hex, per the design.
      *
@@ -138,6 +144,38 @@ class Tile
         $this->action = $action;
 
         return $this;
+    }
+
+    /**
+     * Marks this Tile as a native Filament widget block instead of a regular
+     * KPI/shortcut tile. $class MUST be a widget class already registered by
+     * the developer via LaunchpadPlugin::widgets() — callers (e.g.
+     * LaunchpadPlugin::mapCardToDto()) are responsible for that check; this
+     * DTO itself does no validation, it only carries the value through to
+     * the renderer.
+     */
+    public function asWidget(string $class, string|int|null $columnSpan = 'full'): static
+    {
+        $this->isWidget = true;
+        $this->widgetClass = $class;
+        $this->widgetColumnSpan = $columnSpan ?? 'full';
+
+        return $this;
+    }
+
+    public function isWidget(): bool
+    {
+        return $this->isWidget;
+    }
+
+    public function getWidgetClass(): ?string
+    {
+        return $this->widgetClass;
+    }
+
+    public function getWidgetColumnSpan(): string|int
+    {
+        return $this->widgetColumnSpan;
     }
 
     public function getTitle(): string
@@ -245,6 +283,9 @@ class Tile
             'trendColor' => $this->resolveTrendColor(),
             'nota' => $this->note,
             'href' => $this->getUrl(),
+            'isWidget' => $this->isWidget,
+            'widgetClass' => $this->widgetClass,
+            'widgetColumnSpan' => $this->widgetColumnSpan,
         ];
     }
 }

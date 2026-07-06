@@ -15,6 +15,8 @@ class LaunchpadPage
 
     protected string $id;
 
+    protected ?string $icon = null;
+
     /**
      * @var array<TileGroup>
      */
@@ -41,6 +43,13 @@ class LaunchpadPage
         return $this;
     }
 
+    public function icon(?string $icon): static
+    {
+        $this->icon = $icon;
+
+        return $this;
+    }
+
     public function getId(): string
     {
         return $this->id;
@@ -49,6 +58,11 @@ class LaunchpadPage
     public function getLabel(): string
     {
         return $this->label;
+    }
+
+    public function getIcon(): ?string
+    {
+        return $this->icon;
     }
 
     /**
@@ -67,6 +81,7 @@ class LaunchpadPage
         return [
             'id' => $this->id,
             'label' => $this->label,
+            'icon' => $this->icon,
             'sections' => array_map(fn (TileGroup $section): array => $section->toArray(), $this->sections),
         ];
     }

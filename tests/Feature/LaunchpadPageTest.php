@@ -3,6 +3,10 @@
 use Filament\Launchpad\Pages\Launchpad;
 use Livewire\Livewire;
 
+beforeEach(function () {
+    actingAsLaunchpadAdmin();
+});
+
 it('renders inside the default Filament page layout, keeping the native chrome', function () {
     // The launchpad must NOT replace the panel shell: it uses the default
     // Filament page layout (native topbar + sidebar), only adding the sub-nav
@@ -32,7 +36,7 @@ it('renders the launchpad sub-nav bar full-width, glued under the topbar, outsid
     // The bar must render BEFORE the <main> content region (i.e. via
     // CONTENT_BEFORE, outside the max-width/padded column), not inside it.
     $html = $response->getContent();
-    $barPosition = strpos($html, 'fi-launchpad-tab');
+    $barPosition = strpos($html, 'fi-launchpad-bar');
     $mainPosition = strpos($html, '<main');
 
     expect($barPosition)->not->toBeFalse()
@@ -59,8 +63,8 @@ it('actually compiles the heroicon svg for both tile variants without erroring',
     Livewire::test(Launchpad::class)
         ->assertOk()
         ->assertSeeHtml('<svg')
-        ->assertSeeHtml('width:20px;height:20px;flex:none;color:#d1d5db') // KPI variant icon
-        ->assertSeeHtml('width:28px;height:28px;color:#9ca3af');          // icon-only variant icon
+        ->assertSeeHtml('width:20px;height:20px;flex:none;color:var(--lp-icon-muted)') // KPI variant icon
+        ->assertSeeHtml('width:28px;height:28px;color:var(--lp-icon-muted)');          // icon-only variant icon
 });
 
 it('renders the kpi variant for tiles with a kpi and the icon-only variant otherwise', function () {

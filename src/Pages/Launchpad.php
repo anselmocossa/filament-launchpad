@@ -6,6 +6,7 @@ use Filament\Launchpad\Launchpad\LaunchpadSpace;
 use Filament\Launchpad\Launchpad\Tile;
 use Filament\Launchpad\Launchpad\TileGroup;
 use Filament\Launchpad\LaunchpadPlugin;
+use Filament\Launchpad\Support\LaunchpadPermission;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Livewire\Attributes\On;
@@ -15,6 +16,19 @@ class Launchpad extends Page
     protected static ?string $slug = '/';
 
     protected static bool $shouldRegisterNavigation = false;
+
+    /**
+     * Shield-aware gate for the home page itself: absent spatie/laravel-permission
+     * everyone keeps entering (today's behaviour). Present, only a user
+     * holding the `View:Launchpad` permission (or the Shield `super_admin`
+     * role) may open it — a role without it is denied the panel's home,
+     * which IS the intended effect of wiring the launchpad's own page into
+     * Shield's "Pages" permission tab.
+     */
+    public static function canAccess(): bool
+    {
+        return LaunchpadPermission::check(auth()->user(), 'View:Launchpad');
+    }
 
     /**
      * Uses the DEFAULT Filament Page layout on purpose: the native panel

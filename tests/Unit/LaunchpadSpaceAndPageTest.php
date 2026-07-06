@@ -70,3 +70,21 @@ it('degrades gracefully when a page has no sections', function () {
     expect($page->getSections())->toBe([])
         ->and($page->toArray()['sections'])->toBe([]);
 });
+
+it('defaults to a null icon and accepts one fluently for a space', function () {
+    $space = LaunchpadSpace::make('Ponto de Venda');
+    expect($space->getIcon())->toBeNull();
+
+    $space->icon('heroicon-o-shopping-cart');
+    expect($space->getIcon())->toBe('heroicon-o-shopping-cart')
+        ->and($space->toArray()['icon'])->toBe('heroicon-o-shopping-cart');
+});
+
+it('defaults to a null icon and accepts one fluently for a page', function () {
+    $page = LaunchpadPage::make('Visão Geral');
+    expect($page->getIcon())->toBeNull();
+
+    $page->icon('heroicon-o-home');
+    expect($page->getIcon())->toBe('heroicon-o-home')
+        ->and($page->toArray()['icon'])->toBe('heroicon-o-home');
+});

@@ -7,12 +7,9 @@ return [
     | Branding
     |--------------------------------------------------------------------------
     |
-    | Basic branding shown on the launchpad header: the panel/product name
-    | and an optional logo path/URL. When no logo is given, a badge with
-    | initials (derived from the name, or given explicitly) is shown instead.
-    |
-    | Prefer configuring branding through the fluent plugin API instead:
-    |     LaunchpadPlugin::make()->brand(name: 'Loja Demo', initials: 'LD')
+    | Legacy launchpad branding values kept for backwards compatibility.
+    | The visible panel brand should be configured through Filament's native
+    | panel branding APIs instead.
     |
     */
     'branding' => [
@@ -48,7 +45,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | 'normal' (176px square tiles) or 'compact' (150px square tiles).
-    | Prefer: LaunchpadPlugin::make()->tileSize('compact')
+    | Most applications can keep the default.
     |
     */
     'tile_size' => 'normal',

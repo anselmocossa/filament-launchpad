@@ -2,12 +2,30 @@
 
 namespace Filament\Launchpad;
 
+use Closure;
 use Filament\Contracts\Plugin;
+use Filament\Facades\Filament;
+use Filament\Launchpad\Filament\Resources\CardResource;
+use Filament\Launchpad\Filament\Resources\PageResource;
+use Filament\Launchpad\Filament\Resources\SectionResource;
+use Filament\Launchpad\Filament\Resources\SpaceResource;
+use Filament\Launchpad\Launchpad\LaunchpadPage;
 use Filament\Launchpad\Launchpad\LaunchpadSpace;
+use Filament\Launchpad\Launchpad\Tile;
+use Filament\Launchpad\Launchpad\TileGroup;
+use Filament\Launchpad\Models\Card as CardModel;
+use Filament\Launchpad\Models\Page as PageModel;
+use Filament\Launchpad\Models\Section as SectionModel;
+use Filament\Launchpad\Models\Space as SpaceModel;
+use Filament\Launchpad\Pages\EditHome;
 use Filament\Launchpad\Pages\Launchpad;
+use Filament\Launchpad\Support\LaunchpadVisibility;
+use Filament\Navigation\MenuItem;
 use Filament\Panel;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
+use Filament\Widgets\WidgetConfiguration;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class LaunchpadPlugin implements Plugin
@@ -33,6 +51,41 @@ class LaunchpadPlugin implements Plugin
 
     protected int $notificationCount = 0;
 
+    /**
+     * Card presets offered by the drag&drop Builder's "Biblioteca de Cards".
+     * Each entry is an array with keys: key,title,icon,type,subtitle,
+     * kpi_value,unit,trend,badge,target_type,target_value. Dragging a preset
+     * onto a Section creates a Card seeded with these values (no live data —
+     * developers wire kpi_source or edit the value afterwards).
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    protected array $cardLibrary = [];
+
+    /**
+     * Named, developer-registered KPI sources. Each entry is a callable
+     * (usually a Closure) invoked with no eval and no user-controlled code —
+     * only whatever the developer registered via kpiSources(). Cards in the
+     * admin merely reference a source by name.
+     *
+     * @var array<string, callable>
+     */
+    protected array $kpiSources = [];
+
+    /**
+     * Extra native Filament widgets (StatsOverviewWidget, ChartWidget,
+     * custom...) exposed in the drag&drop Builder's "Widgets" library group.
+     * The plugin also auto-reads widgets already registered on the current
+     * Filament panel via Filament::getWidgets(); this array is only for
+     * overrides/additions. Each entry: key,class,label,icon,columnSpan. The DB
+     * only ever stores the `key` on a Card (see Models/Card::widget_key) —
+     * never the class — so rendering only ever resolves registered classes,
+     * never an arbitrary string coming from the database.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    protected array $widgets = [];
+
     public static function make(): static
     {
         return app(static::class);
@@ -55,7 +108,40 @@ class LaunchpadPlugin implements Plugin
     {
         $panel->pages([
             Launchpad::class,
+            EditHome::class,
         ]);
+
+        $panel->resources([
+            SpaceResource::class,
+            PageResource::class,
+            SectionResource::class,
+            CardResource::class,
+        ]);
+
+        // A "Editar Início" entry in the account/user menu: a one-click shortcut
+        // to customize just the home page (the first space's first page) in the
+        // drag&drop builder, without hunting through the Spaces resource tree.
+        $panel->userMenuItems([
+            'launchpad-edit-home' => MenuItem::make()
+                ->label(__('launchpad::launchpad.nav.editar_inicio'))
+                ->icon('heroicon-o-pencil-square')
+                ->url(fn (): string => $this->getHomeBuilderUrl()),
+        ]);
+    }
+
+    /**
+     * URL of the standalone "Editar Início" builder page, which itself
+     * resolves and guards against the home page (the first space's first
+     * page) not existing yet — this just needs the tables to exist so the
+     * route/URL can be generated at all.
+     */
+    protected function getHomeBuilderUrl(): string
+    {
+        if (Schema::hasTable('launchpad_pages') && Schema::hasTable('launchpad_spaces')) {
+            return EditHome::getUrl();
+        }
+
+        return Launchpad::getUrl();
     }
 
     /**
@@ -72,6 +158,15 @@ class LaunchpadPlugin implements Plugin
             PanelsRenderHook::CONTENT_BEFORE,
             fn () => view('launchpad::hooks.launchpad-bar'),
             scopes: Launchpad::class,
+        );
+
+        // A "‹" back control placed right before the brand in the native
+        // Filament topbar (TOPBAR_LOGO_BEFORE). Returns to the previous page via
+        // the browser history — handy after drilling into a resource/page from a
+        // launchpad tile. Unscoped: shows on every panel page next to the brand.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::TOPBAR_LOGO_BEFORE,
+            fn () => view('launchpad::hooks.back-button'),
         );
     }
 
@@ -239,11 +334,204 @@ class LaunchpadPlugin implements Plugin
     }
 
     /**
+     * Config wins when set via ->spaces([...]); otherwise the launchpad is
+     * database-driven and spaces are built from the Models and mapped to the
+     * DTOs the renderer already consumes.
+     *
      * @return array<LaunchpadSpace>
      */
     public function getSpaces(): array
     {
-        return $this->spaces;
+        if (filled($this->spaces)) {
+            return $this->spaces;
+        }
+
+        return $this->getSpacesFromDatabase();
+    }
+
+    /**
+     * @return array<LaunchpadSpace>
+     */
+    protected function getSpacesFromDatabase(): array
+    {
+        if (! Schema::hasTable('launchpad_spaces')) {
+            return [];
+        }
+
+        return SpaceModel::query()
+            ->orderBy('sort')
+            ->with(['pages.sections.cards'])
+            ->get()
+            ->map(fn (SpaceModel $space): ?LaunchpadSpace => $this->mapSpaceToDto($space))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Gated in cascade: a restricted Space is omitted outright; one that
+     * originally had pages but ends up with none visible (every page either
+     * restricted or itself emptied out by the same cascade) disappears too
+     * — an empty Space is never shown. A Space with no pages at all (never
+     * had any to begin with) still renders, unchanged from today.
+     */
+    protected function mapSpaceToDto(SpaceModel $space): ?LaunchpadSpace
+    {
+        if (! LaunchpadVisibility::canView($space)) {
+            return null;
+        }
+
+        $pages = $space->pages
+            ->map(fn (PageModel $page): ?LaunchpadPage => $this->mapPageToDto($page))
+            ->filter()
+            ->values()
+            ->all();
+
+        if ($space->pages->isNotEmpty() && blank($pages)) {
+            return null;
+        }
+
+        return LaunchpadSpace::make($space->label, id: (string) $space->id)
+            ->icon($space->icon)
+            ->pages($pages);
+    }
+
+    /**
+     * Same cascade rule as mapSpaceToDto(), one level down: a restricted
+     * Page is omitted; a Page that had sections but none survive the
+     * cascade disappears too; a Page with no sections at all still renders.
+     */
+    protected function mapPageToDto(PageModel $page): ?LaunchpadPage
+    {
+        if (! LaunchpadVisibility::canView($page)) {
+            return null;
+        }
+
+        $sections = $page->sections
+            ->map(fn (SectionModel $section): ?TileGroup => $this->mapSectionToDto($section))
+            ->filter()
+            ->values()
+            ->all();
+
+        if ($page->sections->isNotEmpty() && blank($sections)) {
+            return null;
+        }
+
+        return LaunchpadPage::make($page->label, id: (string) $page->id)
+            ->icon($page->icon)
+            ->sections($sections);
+    }
+
+    /**
+     * Same cascade rule one level further down: a restricted Section is
+     * omitted; a Section that had cards but none survive (either gated out
+     * by role, or — same as before this feature — an unresolved widget
+     * card) disappears too; a Section with no cards at all still renders.
+     */
+    protected function mapSectionToDto(SectionModel $section): ?TileGroup
+    {
+        if (! LaunchpadVisibility::canView($section)) {
+            return null;
+        }
+
+        $tiles = $section->cards
+            ->map(fn (CardModel $card): ?Tile => $this->mapCardToDto($card))
+            ->filter()
+            ->values()
+            ->all();
+
+        if ($section->cards->isNotEmpty() && blank($tiles)) {
+            return null;
+        }
+
+        return TileGroup::make($section->title)->tiles($tiles);
+    }
+
+    /**
+     * Cards of type "widget" are mapped separately (see mapWidgetCardToDto())
+     * and may resolve to null (omitted) when their widget_key is not/no
+     * longer registered — hence the nullable return type here.
+     */
+    protected function mapCardToDto(CardModel $card): ?Tile
+    {
+        if (! LaunchpadVisibility::canView($card)) {
+            return null;
+        }
+
+        if ($card->type === 'widget') {
+            return $this->mapWidgetCardToDto($card);
+        }
+
+        $tile = Tile::make($card->title);
+
+        if (filled($card->subtitle)) {
+            $tile->subtitle($card->subtitle);
+        }
+
+        if (filled($card->icon)) {
+            $tile->icon($card->icon);
+        }
+
+        if ($card->type === 'kpi') {
+            if (filled($card->kpi_source) && $this->getKpiSource($card->kpi_source) !== null) {
+                $tile->kpi($this->getKpiSource($card->kpi_source));
+            } elseif (filled($card->kpi_value)) {
+                $tile->kpi($card->kpi_value);
+            }
+
+            if (filled($card->unit)) {
+                $tile->unit($card->unit);
+            }
+
+            if (filled($card->trend)) {
+                $tile->trend($card->trend, $card->trend_color ?? 'gray');
+            }
+        } elseif (filled($card->note)) {
+            $tile->note($card->note);
+        }
+
+        // Badge applies to both variants (KPI and shortcut tiles).
+        if (filled($card->badge)) {
+            $tile->badge(
+                $card->badge,
+                $card->badge_bg ?? '#f3f4f6',
+                $card->badge_color ?? '#374151',
+            );
+        }
+
+        match ($card->target_type) {
+            'url' => filled($card->target_value) ? $tile->url($card->target_value) : null,
+            'resource' => filled($card->target_value) ? $tile->resource($card->target_value) : null,
+            'page' => filled($card->target_value) ? $tile->page($card->target_value) : null,
+            default => null,
+        };
+
+        return $tile;
+    }
+
+    /**
+     * Maps a widget-type Card to a widget Tile, resolving its widget_key
+     * against the developer-registered widgets(). Returns null (meaning: the
+     * caller omits this tile entirely) when the key is blank or no longer
+     * resolves to a registered widget — this can legitimately happen if a
+     * widget was removed from the developer's registration after cards
+     * referencing it were already saved. Never renders a class straight from
+     * the database.
+     */
+    protected function mapWidgetCardToDto(CardModel $card): ?Tile
+    {
+        if (blank($card->widget_key)) {
+            return null;
+        }
+
+        $widget = $this->getWidget($card->widget_key);
+
+        if ($widget === null || blank($widget['class'] ?? null) || ! class_exists($widget['class'])) {
+            return null;
+        }
+
+        return Tile::make($card->title ?: ($widget['label'] ?? $widget['class']))
+            ->asWidget($widget['class'], $card->widget_column_span ?: ($widget['columnSpan'] ?? 'full'));
     }
 
     /**
@@ -259,5 +547,171 @@ class LaunchpadPlugin implements Plugin
     public function getNotificationCount(): int
     {
         return $this->notificationCount;
+    }
+
+    /**
+     * Registers named KPI sources. Callable multiple times — later calls are
+     * merged with (not replace) previously registered sources.
+     *
+     * @param  array<string, callable>  $sources
+     */
+    public function kpiSources(array $sources): static
+    {
+        $this->kpiSources = array_merge($this->kpiSources, $sources);
+
+        return $this;
+    }
+
+    /**
+     * @return array<string, callable>
+     */
+    public function getKpiSources(): array
+    {
+        return $this->kpiSources;
+    }
+
+    public function getKpiSource(string $name): ?Closure
+    {
+        if (! array_key_exists($name, $this->kpiSources)) {
+            return null;
+        }
+
+        return Closure::fromCallable($this->kpiSources[$name]);
+    }
+
+    /**
+     * Registers card presets for the drag&drop Builder's library. Callable
+     * multiple times — later calls are merged with (not replace) previously
+     * registered presets.
+     *
+     * @param  array<int, array<string, mixed>>  $presets
+     */
+    public function cardLibrary(array $presets): static
+    {
+        $this->cardLibrary = [...$this->cardLibrary, ...$presets];
+
+        return $this;
+    }
+
+    /**
+     * Adds/overrides native Filament widgets available in the drag&drop
+     * Builder's "Widgets" library group. Widgets already registered on the
+     * panel via Filament's native widgets()/discoverWidgets() are auto-loaded;
+     * this method is only needed for a custom label/icon/columnSpan or for a
+     * widget not registered on the panel. Callable multiple times — later
+     * calls are merged with (not replace) previously registered widgets. Each
+     * entry: key,class,label,icon,columnSpan ('full' or an int).
+     *
+     * @param  array<int, array<string, mixed>>  $widgets
+     */
+    public function widgets(array $widgets): static
+    {
+        $this->widgets = [...$this->widgets, ...$widgets];
+
+        return $this;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getWidgets(): array
+    {
+        return collect($this->getPanelWidgets())
+            ->merge($this->widgets)
+            ->filter(fn (array $widget): bool => filled($widget['key'] ?? null) && filled($widget['class'] ?? null))
+            ->keyBy('key')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function getWidget(string $key): ?array
+    {
+        foreach ($this->getWidgets() as $widget) {
+            if (($widget['key'] ?? null) === $key) {
+                return $widget;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function getPanelWidgets(): array
+    {
+        try {
+            return collect(Filament::getWidgets())
+                ->map(fn (string|WidgetConfiguration $widget): ?array => $this->normalizePanelWidget($widget))
+                ->filter()
+                ->values()
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function normalizePanelWidget(string|WidgetConfiguration $widget): ?array
+    {
+        $class = $widget instanceof WidgetConfiguration ? $widget->widget : $widget;
+
+        if (blank($class) || ! class_exists($class)) {
+            return null;
+        }
+
+        $properties = $widget instanceof WidgetConfiguration ? $widget->getProperties() : [];
+
+        return [
+            'key' => $properties['key'] ?? Str::of(class_basename($class))->kebab()->toString(),
+            'class' => $class,
+            'label' => $properties['label'] ?? Str::of(class_basename($class))->headline()->toString(),
+            'icon' => $properties['icon'] ?? 'heroicon-o-squares-2x2',
+            'columnSpan' => $properties['columnSpan'] ?? 'full',
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getCardLibrary(): array
+    {
+        if (filled($this->cardLibrary)) {
+            return $this->cardLibrary;
+        }
+
+        return [
+            [
+                'key' => 'kpi',
+                'title' => 'KPI',
+                'icon' => 'heroicon-o-chart-bar',
+                'type' => 'kpi',
+                'subtitle' => null,
+                'kpi_value' => null,
+                'unit' => null,
+                'trend' => null,
+                'badge' => null,
+                'target_type' => 'none',
+                'target_value' => null,
+            ],
+            [
+                'key' => 'atalho',
+                'title' => __('launchpad::launchpad.card_types.atalho'),
+                'icon' => 'heroicon-o-squares-2x2',
+                'type' => 'shortcut',
+                'subtitle' => null,
+                'kpi_value' => null,
+                'unit' => null,
+                'trend' => null,
+                'badge' => null,
+                'target_type' => 'none',
+                'target_value' => null,
+            ],
+        ];
     }
 }
