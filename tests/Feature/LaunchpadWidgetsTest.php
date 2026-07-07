@@ -286,6 +286,26 @@ it('renders consecutive half-width widgets side by side in one widget row', func
         ->assertSee('Widget de Teste');
 });
 
+it('stretches a single half-width widget to fill its row', function () {
+    LaunchpadPlugin::get()
+        ->spaces([]) // force the DB-driven path for this test
+        ->widgets([
+            ['key' => 'stats', 'class' => TestStatsWidget::class, 'label' => 'Estatísticas', 'columnSpan' => '6'],
+        ]);
+
+    $space = Space::query()->create(['label' => 'Início', 'sort' => 0]);
+    $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Início', 'sort' => 0]);
+    $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Secção', 'sort' => 0]);
+
+    $section->cards()->create(['title' => 'Widget A', 'type' => 'widget', 'widget_key' => 'stats', 'widget_column_span' => '6', 'target_type' => 'none']);
+
+    Livewire::test(Launchpad::class)
+        ->assertOk()
+        ->assertSeeHtml('lp-widget-row')
+        ->assertSeeHtml('grid-column:span 12 / span 12')
+        ->assertDontSeeHtml('grid-column:span 6 / span 6');
+});
+
 it('does not 500 when a widget card key is not registered, and still renders the rest of the page', function () {
     LaunchpadPlugin::get()->spaces([]); // force the DB-driven path for this test
 

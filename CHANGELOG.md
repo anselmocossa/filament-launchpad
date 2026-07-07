@@ -2,6 +2,11 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.1.2 - 2026-07-07
+
+### Fixed
+- A lone half-width widget in a widgets row now stretches to fill the full row width, instead of leaving the other half empty.
+
 ## 1.1.1 - 2026-07-07
 
 ### Changed

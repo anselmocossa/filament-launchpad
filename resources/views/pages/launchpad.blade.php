@@ -109,7 +109,8 @@
                     @if ($row['type'] === 'widgets')
                         <div class="lp-widget-row">
                             @foreach ($row['items'] as $item)
-                                <div class="lp-widget-wrap" style="grid-column:span {{ $item['span'] }} / span {{ $item['span'] }}" wire:key="lp-widget-wrap-{{ $groupIndex }}-{{ $item['tileIndex'] }}">
+                                @php $displaySpan = count($row['items']) === 1 ? 12 : $item['span']; @endphp
+                                <div class="lp-widget-wrap" style="grid-column:span {{ $displaySpan }} / span {{ $displaySpan }}" wire:key="lp-widget-wrap-{{ $groupIndex }}-{{ $item['tileIndex'] }}">
                                     @livewire($item['tile']['widgetClass'], [], 'lp-widget-'.$groupIndex.'-'.$item['tileIndex'])
                                 </div>
                             @endforeach
