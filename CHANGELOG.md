@@ -2,6 +2,11 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.1.1 - 2026-07-07
+
+### Changed
+- The builder's library panels (Card Library, Existing cards, Widgets) now cap their height at ~5 items with an internal scroll, revealing more in batches as you scroll (infinite-scroll style) so a large card catalog no longer stretches the sidebar.
+
 ## 1.1.0 - 2026-07-07
 
 ### Changed

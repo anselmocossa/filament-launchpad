@@ -67,6 +67,11 @@
         .lp-lib__tag--widget{background:rgba(37,99,235,.12);color:#2563eb}
         .lp-tile--widget{cursor:pointer}
         .lp-tile__widget-tag{align-self:flex-start;margin-top:auto}
+        .lp-lib__scroll{max-height:252px;overflow-y:auto;overflow-x:hidden;margin:0 -4px;padding:0 4px}
+        .lp-lib__scroll::-webkit-scrollbar{width:8px}
+        .lp-lib__scroll::-webkit-scrollbar-thumb{background:var(--lp-border);border-radius:999px;border:2px solid transparent;background-clip:content-box}
+        .lp-lib__scroll::-webkit-scrollbar-thumb:hover{background:var(--lp-icon-muted);background-clip:content-box}
+        .lp-lib__scroll{scrollbar-width:thin;scrollbar-color:var(--lp-border) transparent}
     </style>
 
     <div
@@ -235,31 +240,38 @@
                     autocomplete="off"
                 />
 
-                @forelse ($library as $preset)
-                    <div
-                        class="lp-lib__item"
-                        wire:key="preset-{{ $preset['key'] }}"
-                        draggable="true"
-                        x-on:dragstart="$store.lpDnd.startPreset('{{ $preset['key'] }}'); $event.dataTransfer.setData('text/plain','preset:{{ $preset['key'] }}')"
-                        x-on:dragend="$store.lpDnd.clear()"
-                    >
-                        @if (filled($preset['icon'] ?? null))
-                            @svg($preset['icon'], '', ['class' => 'lp-lib__ico', 'style' => 'width:18px;height:18px'])
-                        @endif
-                        <span class="lp-lib__name">{{ $preset['title'] ?? $preset['key'] }}</span>
-                        <span class="lp-lib__tag lp-lib__tag--{{ ($preset['type'] ?? 'kpi') === 'kpi' ? 'kpi' : 'shortcut' }}">
-                            {{ ($preset['type'] ?? 'kpi') === 'kpi' ? __('launchpad::launchpad.card_types.kpi') : __('launchpad::launchpad.card_types.atalho') }}
-                        </span>
-                    </div>
-                @empty
-                    <p class="lp-lib__empty">
-                        @if (filled(trim($this->librarySearch)))
-                            {{ __('launchpad::launchpad.builder.sem_cards_pesquisa') }}
-                        @else
-                            {{ __('launchpad::launchpad.builder.cards_ja_usados') }}
-                        @endif
-                    </p>
-                @endforelse
+                <div
+                    class="lp-lib__scroll"
+                    x-data="{ shown: 8 }"
+                    x-on:scroll.passive="if ($el.scrollTop + $el.clientHeight >= $el.scrollHeight - 24) shown += 8"
+                >
+                    @forelse ($library as $preset)
+                        <div
+                            class="lp-lib__item"
+                            x-show="{{ $loop->index }} < shown"
+                            wire:key="preset-{{ $preset['key'] }}"
+                            draggable="true"
+                            x-on:dragstart="$store.lpDnd.startPreset('{{ $preset['key'] }}'); $event.dataTransfer.setData('text/plain','preset:{{ $preset['key'] }}')"
+                            x-on:dragend="$store.lpDnd.clear()"
+                        >
+                            @if (filled($preset['icon'] ?? null))
+                                @svg($preset['icon'], '', ['class' => 'lp-lib__ico', 'style' => 'width:18px;height:18px'])
+                            @endif
+                            <span class="lp-lib__name">{{ $preset['title'] ?? $preset['key'] }}</span>
+                            <span class="lp-lib__tag lp-lib__tag--{{ ($preset['type'] ?? 'kpi') === 'kpi' ? 'kpi' : 'shortcut' }}">
+                                {{ ($preset['type'] ?? 'kpi') === 'kpi' ? __('launchpad::launchpad.card_types.kpi') : __('launchpad::launchpad.card_types.atalho') }}
+                            </span>
+                        </div>
+                    @empty
+                        <p class="lp-lib__empty">
+                            @if (filled(trim($this->librarySearch)))
+                                {{ __('launchpad::launchpad.builder.sem_cards_pesquisa') }}
+                            @else
+                                {{ __('launchpad::launchpad.builder.cards_ja_usados') }}
+                            @endif
+                        </p>
+                    @endforelse
+                </div>
             </div>
 
             {{-- Catálogo de cards existentes: qualquer Card já criado (em
@@ -269,63 +281,77 @@
             <div class="lp-lib" style="margin-top:14px">
                 <p class="lp-lib__title">{{ __('launchpad::launchpad.builder.titulo_catalogo') }}</p>
 
-                @forelse ($cardCatalog as $catalogCard)
-                    <div
-                        class="lp-lib__item"
-                        wire:key="catalog-card-{{ $catalogCard['id'] }}"
-                        draggable="true"
-                        x-on:dragstart="$store.lpDnd.startCatalogCard({{ $catalogCard['id'] }}); $event.dataTransfer.setData('text/plain','catalog-card:{{ $catalogCard['id'] }}')"
-                        x-on:dragend="$store.lpDnd.clear()"
-                    >
-                        @if (filled($catalogCard['icon'] ?? null))
-                            @svg($catalogCard['icon'], '', ['class' => 'lp-lib__ico', 'style' => 'width:18px;height:18px'])
-                        @endif
-                        <span class="lp-lib__name">{{ $catalogCard['title'] ?? $catalogCard['id'] }}</span>
-                        <span class="lp-lib__tag lp-lib__tag--{{ ($catalogCard['type'] ?? 'kpi') === 'kpi' ? 'kpi' : (($catalogCard['type'] ?? '') === 'widget' ? 'widget' : 'shortcut') }}">
-                            {{ match ($catalogCard['type'] ?? 'kpi') {
-                                'kpi' => __('launchpad::launchpad.card_types.kpi'),
-                                'widget' => __('launchpad::launchpad.card_types.widget'),
-                                default => __('launchpad::launchpad.card_types.atalho'),
-                            } }}
-                        </span>
-                    </div>
-                @empty
-                    <p class="lp-lib__empty">
-                        @if (filled(trim($this->librarySearch)))
-                            {{ __('launchpad::launchpad.builder.sem_cards_catalogo_pesquisa') }}
-                        @else
-                            {{ __('launchpad::launchpad.builder.sem_cards_catalogo') }}
-                        @endif
-                    </p>
-                @endforelse
+                <div
+                    class="lp-lib__scroll"
+                    x-data="{ shown: 8 }"
+                    x-on:scroll.passive="if ($el.scrollTop + $el.clientHeight >= $el.scrollHeight - 24) shown += 8"
+                >
+                    @forelse ($cardCatalog as $catalogCard)
+                        <div
+                            class="lp-lib__item"
+                            x-show="{{ $loop->index }} < shown"
+                            wire:key="catalog-card-{{ $catalogCard['id'] }}"
+                            draggable="true"
+                            x-on:dragstart="$store.lpDnd.startCatalogCard({{ $catalogCard['id'] }}); $event.dataTransfer.setData('text/plain','catalog-card:{{ $catalogCard['id'] }}')"
+                            x-on:dragend="$store.lpDnd.clear()"
+                        >
+                            @if (filled($catalogCard['icon'] ?? null))
+                                @svg($catalogCard['icon'], '', ['class' => 'lp-lib__ico', 'style' => 'width:18px;height:18px'])
+                            @endif
+                            <span class="lp-lib__name">{{ $catalogCard['title'] ?? $catalogCard['id'] }}</span>
+                            <span class="lp-lib__tag lp-lib__tag--{{ ($catalogCard['type'] ?? 'kpi') === 'kpi' ? 'kpi' : (($catalogCard['type'] ?? '') === 'widget' ? 'widget' : 'shortcut') }}">
+                                {{ match ($catalogCard['type'] ?? 'kpi') {
+                                    'kpi' => __('launchpad::launchpad.card_types.kpi'),
+                                    'widget' => __('launchpad::launchpad.card_types.widget'),
+                                    default => __('launchpad::launchpad.card_types.atalho'),
+                                } }}
+                            </span>
+                        </div>
+                    @empty
+                        <p class="lp-lib__empty">
+                            @if (filled(trim($this->librarySearch)))
+                                {{ __('launchpad::launchpad.builder.sem_cards_catalogo_pesquisa') }}
+                            @else
+                                {{ __('launchpad::launchpad.builder.sem_cards_catalogo') }}
+                            @endif
+                        </p>
+                    @endforelse
+                </div>
             </div>
 
             <div class="lp-lib" style="margin-top:14px">
                 <p class="lp-lib__title">{{ __('launchpad::launchpad.builder.titulo_widgets') }}</p>
 
-                @forelse ($widgetLibrary as $widget)
-                    <div
-                        class="lp-lib__item"
-                        wire:key="widget-{{ $widget['key'] }}"
-                        draggable="true"
-                        x-on:dragstart="$store.lpDnd.startWidget('{{ $widget['key'] }}'); $event.dataTransfer.setData('text/plain','widget:{{ $widget['key'] }}')"
-                        x-on:dragend="$store.lpDnd.clear()"
-                    >
-                        @if (filled($widget['icon'] ?? null))
-                            @svg($widget['icon'], '', ['class' => 'lp-lib__ico', 'style' => 'width:18px;height:18px'])
-                        @endif
-                        <span class="lp-lib__name">{{ $widget['label'] ?? $widget['key'] }}</span>
-                        <span class="lp-lib__tag lp-lib__tag--widget">{{ __('launchpad::launchpad.card_types.widget') }}</span>
-                    </div>
-                @empty
-                    <p class="lp-lib__empty">
-                        @if (filled(trim($this->librarySearch)))
-                            {{ __('launchpad::launchpad.builder.sem_widgets_pesquisa') }}
-                        @else
-                            {{ __('launchpad::launchpad.builder.sem_widgets_registados') }}
-                        @endif
-                    </p>
-                @endforelse
+                <div
+                    class="lp-lib__scroll"
+                    x-data="{ shown: 8 }"
+                    x-on:scroll.passive="if ($el.scrollTop + $el.clientHeight >= $el.scrollHeight - 24) shown += 8"
+                >
+                    @forelse ($widgetLibrary as $widget)
+                        <div
+                            class="lp-lib__item"
+                            x-show="{{ $loop->index }} < shown"
+                            wire:key="widget-{{ $widget['key'] }}"
+                            draggable="true"
+                            x-on:dragstart="$store.lpDnd.startWidget('{{ $widget['key'] }}'); $event.dataTransfer.setData('text/plain','widget:{{ $widget['key'] }}')"
+                            x-on:dragend="$store.lpDnd.clear()"
+                        >
+                            @if (filled($widget['icon'] ?? null))
+                                @svg($widget['icon'], '', ['class' => 'lp-lib__ico', 'style' => 'width:18px;height:18px'])
+                            @endif
+                            <span class="lp-lib__name">{{ $widget['label'] ?? $widget['key'] }}</span>
+                            <span class="lp-lib__tag lp-lib__tag--widget">{{ __('launchpad::launchpad.card_types.widget') }}</span>
+                        </div>
+                    @empty
+                        <p class="lp-lib__empty">
+                            @if (filled(trim($this->librarySearch)))
+                                {{ __('launchpad::launchpad.builder.sem_widgets_pesquisa') }}
+                            @else
+                                {{ __('launchpad::launchpad.builder.sem_widgets_registados') }}
+                            @endif
+                        </p>
+                    @endforelse
+                </div>
             </div>
         </div>
     </div>
