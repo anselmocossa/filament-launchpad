@@ -44,8 +44,10 @@ class CardsRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('title')
-            ->reorderable('sort')
-            ->defaultSort('sort')
+            // `sort` vive na pivot `launchpad_section_card` (não em `launchpad_cards`);
+            // qualificar a tabela evita "Column 'sort' is ambiguous" com o orderByPivot da relação.
+            ->reorderable('launchpad_section_card.sort')
+            ->defaultSort('launchpad_section_card.sort')
             ->columns([
                 IconColumn::make('icon')
                     ->label(__('launchpad::launchpad.labels.icone'))
