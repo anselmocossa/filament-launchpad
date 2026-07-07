@@ -36,6 +36,7 @@ it('returns an empty array without crashing when the database is empty', functio
 });
 
 it('returns an empty array without crashing when the launchpad tables do not exist', function () {
+    Schema::dropIfExists('launchpad_section_card');
     Schema::dropIfExists('launchpad_cards');
     Schema::dropIfExists('launchpad_sections');
     Schema::dropIfExists('launchpad_pages');

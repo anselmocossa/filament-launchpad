@@ -40,18 +40,19 @@ it('operates on the home page (first page of the first space) when adding a card
     Livewire::test(EditHome::class)
         ->call('addCardFromLibrary', $section->id, 'vendas_hoje', null);
 
-    expect(Card::query()->where('section_id', $section->id)->count())->toBe(1);
+    expect($section->cards()->count())->toBe(1);
 });
 
-it('removes a card from the home page', function () {
+it('removes a card from the home page (detach), without deleting it', function () {
     $home = homePage();
     $section = Section::query()->create(['page_id' => $home->id, 'title' => 'S', 'sort' => 0]);
-    $card = Card::query()->create(['section_id' => $section->id, 'title' => 'A', 'type' => 'kpi', 'sort' => 0]);
+    $card = $section->cards()->create(['title' => 'A', 'type' => 'kpi']);
 
     Livewire::test(EditHome::class)
-        ->call('removeCard', $card->id);
+        ->call('removeCard', $section->id, $card->id);
 
-    expect(Card::query()->whereKey($card->id)->exists())->toBeFalse();
+    expect($section->cards()->whereKey($card->id)->exists())->toBeFalse()
+        ->and(Card::query()->whereKey($card->id)->exists())->toBeTrue();
 });
 
 it('does not crash when there is no home page yet', function () {

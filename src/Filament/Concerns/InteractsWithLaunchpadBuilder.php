@@ -17,11 +17,19 @@ use Illuminate\Support\Str;
 /**
  * The drag&drop "Construtor de Layout" behaviour: a canvas showing every
  * Section of a Page with its Cards as mosaics (left) and a "Biblioteca de
- * Cards" of presets to drag in (right). Drag&drop is implemented with the
- * native HTML5 Drag and Drop API (Alpine-driven, no external JS library),
- * which calls straight back into these Livewire methods. All mutations
- * validate the section/card belongs to THIS page before touching the
- * database, so a stray id (e.g. from another page) is always a safe no-op.
+ * Cards" of presets + the reusable card catalog to drag in (right). Drag&drop
+ * is implemented with the native HTML5 Drag and Drop API (Alpine-driven, no
+ * external JS library), which calls straight back into these Livewire
+ * methods. All mutations validate the section belongs to THIS page before
+ * touching the database, so a stray id (e.g. from another page) is always a
+ * safe no-op.
+ *
+ * Cards are a reusable catalog (belongsToMany with Section, see
+ * Models/Card::sections() / Models/Section::cards()): the same Card can sit
+ * in several sections at once. Removing a card from a section's canvas (the
+ * "×") only ever DETACHES the pivot row — it never deletes the Card itself.
+ * The Card is only ever permanently deleted from /admin/cards
+ * (CardResource), which cascades the pivot via its FK.
  *
  * Shared between the Resource-context BuildLayout page (route-bound to any
  * Page record, breadcrumbed through Spaces) and the standalone EditHome page
@@ -36,8 +44,8 @@ trait InteractsWithLaunchpadBuilder
 
     /**
      * Live-bound search term for the "Biblioteca de Cards" panel. Filters the
-     * preset list by title/subtitle so a large library (hundreds/thousands of
-     * presets) stays usable.
+     * preset list and the card catalog by title/subtitle so a large library
+     * (hundreds/thousands of presets or cards) stays usable.
      */
     public string $librarySearch = '';
 
@@ -56,7 +64,8 @@ trait InteractsWithLaunchpadBuilder
 
         return [
             'page' => $page,
-            'library' => $this->getLibrary($page),
+            'library' => $this->getLibrary(),
+            'cardCatalog' => $this->getCardCatalog(),
             'widgetLibrary' => $this->getWidgetLibrary(),
         ];
     }
@@ -83,15 +92,17 @@ trait InteractsWithLaunchpadBuilder
     }
 
     /**
-     * The card library, narrowed by the live search term (matched against
-     * title + subtitle). Presets are REUSABLE: the same preset can be dropped
-     * into as many sections as wanted — the design places e.g. "Vendas Hoje"
-     * several times — so nothing is ever hidden after use. (library_key is
-     * still recorded on each card as provenance, just not used to hide presets.)
+     * The card PRESET library, narrowed by the live search term (matched
+     * against title + subtitle). Presets are REUSABLE: the same preset can be
+     * dropped into as many sections as wanted — the design places e.g.
+     * "Vendas Hoje" several times — so nothing is ever hidden after use.
+     * Dropping a preset always CREATES a brand new Card (see
+     * addCardFromLibrary()); dropping an existing catalog card (see
+     * getCardCatalog()) instead attaches the SAME Card record.
      *
      * @return array<int, array<string, mixed>>
      */
-    protected function getLibrary(PageModel $page): array
+    protected function getLibrary(): array
     {
         $search = trim($this->librarySearch);
 
@@ -105,10 +116,44 @@ trait InteractsWithLaunchpadBuilder
             ->all();
     }
 
+    /**
+     * The full reusable Card catalog (every Card that exists, regardless of
+     * which section(s) it is already attached to), narrowed by the same live
+     * search term. Shown in the Builder's sidebar alongside the presets and
+     * widgets so an existing card can be dragged into another section
+     * instead of recreated. Dropping one calls attachCardFromCatalog(), which
+     * attaches the SAME Card record to the target section (a card can live in
+     * several sections at once).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function getCardCatalog(): array
+    {
+        $search = trim($this->librarySearch);
+
+        return Card::query()
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('title', 'like', "%{$search}%")
+                        ->orWhere('subtitle', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('title')
+            ->get()
+            ->map(fn (Card $card): array => [
+                'id' => $card->id,
+                'title' => $card->title,
+                'subtitle' => $card->subtitle,
+                'icon' => $card->icon,
+                'type' => $card->type,
+            ])
+            ->all();
+    }
+
     protected function getPageModel(): PageModel
     {
         return $this->builderPage()->load(['sections' => function ($query) {
-            $query->orderBy('sort')->with(['cards' => fn ($q) => $q->orderBy('sort')]);
+            $query->orderBy('sort')->with(['cards' => fn ($q) => $q->orderByPivot('sort')]);
         }]);
     }
 
@@ -152,6 +197,9 @@ trait InteractsWithLaunchpadBuilder
             return;
         }
 
+        // A Section owns no Cards anymore (they are global catalog items) —
+        // deleting it only detaches the pivot rows (via the FK cascade on
+        // launchpad_section_card), the Cards themselves survive untouched.
         $section->delete();
 
         $this->reindexSections();
@@ -215,6 +263,11 @@ trait InteractsWithLaunchpadBuilder
     // Cards
     // ------------------------------------------------------------------
 
+    /**
+     * Drops a preset from the "Biblioteca de Cards" onto a Section: creates a
+     * brand new Card seeded from the preset's fields, then attaches it to the
+     * section's pivot at the given index.
+     */
     public function addCardFromLibrary(int|string $sectionId, string $presetKey, ?int $index = null): void
     {
         $section = $this->ownedSection($sectionId);
@@ -233,7 +286,6 @@ trait InteractsWithLaunchpadBuilder
         }
 
         $card = Card::query()->create([
-            'section_id' => $section->id,
             'library_key' => $preset['key'] ?? null,
             'title' => $preset['title'] ?? 'Novo Card',
             'subtitle' => $preset['subtitle'] ?? null,
@@ -246,10 +298,30 @@ trait InteractsWithLaunchpadBuilder
             'badge' => $preset['badge'] ?? null,
             'target_type' => $preset['target_type'] ?? 'none',
             'target_value' => $preset['target_value'] ?? null,
-            'sort' => 0,
         ]);
 
-        $this->insertCardAt($section->id, $card->id, $index);
+        $this->attachCardAt($section->id, $card->id, $index);
+    }
+
+    /**
+     * Drops an EXISTING card from the Builder's reusable catalog onto a
+     * Section: attaches the SAME Card record (no new row created) — this is
+     * how the same card ends up referenced by several sections. A no-op when
+     * the section is not owned by this page or the card does not exist.
+     */
+    public function attachCardFromCatalog(int|string $sectionId, int|string $cardId, ?int $index = null): void
+    {
+        $section = $this->ownedSection($sectionId);
+
+        if (! $section) {
+            return;
+        }
+
+        if (! Card::query()->whereKey($cardId)->exists()) {
+            return;
+        }
+
+        $this->attachCardAt($section->id, $cardId, $index);
     }
 
     /**
@@ -274,37 +346,45 @@ trait InteractsWithLaunchpadBuilder
         }
 
         $card = Card::query()->create([
-            'section_id' => $section->id,
             'widget_key' => $widgetKey,
             'widget_column_span' => (string) ($widget['columnSpan'] ?? 'full'),
             'title' => $widget['label'] ?? 'Widget',
             'icon' => $widget['icon'] ?? null,
             'type' => 'widget',
             'target_type' => 'none',
-            'sort' => 0,
         ]);
 
-        $this->insertCardAt($section->id, $card->id, $index);
+        $this->attachCardAt($section->id, $card->id, $index);
     }
 
-    public function moveCard(int|string $cardId, int|string $toSectionId, ?int $index = null): void
+    /**
+     * Moves a card TILE from one section to another on the canvas. Because
+     * cards are a shared catalog, "moving" the instance rendered under
+     * $fromSectionId means: detach the pivot row that placed it there, and
+     * attach (or re-place) it under $toSectionId at the given index. If the
+     * card also happens to be referenced by other sections, those pivot rows
+     * are untouched. When both sections are the same, this is just a
+     * same-section reorder.
+     */
+    public function moveCard(int|string $cardId, int|string $fromSectionId, int|string $toSectionId, ?int $index = null): void
     {
-        $card = $this->ownedCard($cardId);
+        $fromSection = $this->ownedSection($fromSectionId);
         $toSection = $this->ownedSection($toSectionId);
 
-        if (! $card || ! $toSection) {
+        if (! $fromSection || ! $toSection) {
             return;
         }
 
-        $fromSectionId = $card->section_id;
+        if ((int) $fromSection->id === (int) $toSection->id) {
+            $this->attachCardAt($toSection->id, $cardId, $index);
 
-        $card->update(['section_id' => $toSection->id]);
-
-        $this->insertCardAt($toSection->id, $card->id, $index);
-
-        if ((int) $fromSectionId !== (int) $toSection->id) {
-            $this->reindexCardsInSection($fromSectionId);
+            return;
         }
+
+        $fromSection->cards()->detach($cardId);
+        $this->reindexCardsInSection($fromSection->id);
+
+        $this->attachCardAt($toSection->id, $cardId, $index);
     }
 
     /**
@@ -318,61 +398,96 @@ trait InteractsWithLaunchpadBuilder
             return;
         }
 
-        $ownedIds = Card::query()->where('section_id', $section->id)->pluck('id')->all();
+        $ownedIds = $section->cards()->pluck('launchpad_cards.id')->all();
         $orderedIds = array_values(array_intersect(array_map('intval', $orderedIds), $ownedIds));
 
         foreach ($orderedIds as $index => $id) {
-            Card::query()->whereKey($id)->update(['sort' => $index]);
+            $section->cards()->updateExistingPivot($id, ['sort' => $index]);
         }
     }
 
-    public function removeCard(int|string $cardId): void
+    /**
+     * The × on a card tile: REMOVES the card from THIS section only (detach
+     * from the pivot). Non-destructive, so no confirmation is asked — the
+     * Card itself, and any other section referencing it, is untouched. The
+     * Card is only ever permanently deleted from /admin/cards.
+     */
+    public function removeCard(int|string $sectionId, int|string $cardId): void
     {
-        $card = $this->ownedCard($cardId);
+        $section = $this->ownedSection($sectionId);
 
-        if (! $card) {
+        if (! $section) {
             return;
         }
 
-        $sectionId = $card->section_id;
-        $card->delete();
+        $section->cards()->detach($cardId);
 
-        $this->reindexCardsInSection($sectionId);
+        $this->reindexCardsInSection($section->id);
     }
 
-    protected function ownedCard(int|string $cardId): ?Card
+    /**
+     * Any Card referenced by a Section of this page — used to guard the
+     * edit-by-click modal (editCardAction()) so a stray id from another page
+     * cannot be edited through this builder instance.
+     */
+    protected function cardOnThisPage(int|string $cardId): ?Card
     {
-        $card = Card::query()->with('section')->find($cardId);
+        $card = Card::query()->find($cardId);
 
-        if (! $card || ! $card->section || $card->section->page_id !== $this->builderPage()->id) {
+        if (! $card) {
             return null;
         }
 
-        return $card;
+        $belongsHere = $card->sections()
+            ->where('page_id', $this->builderPage()->id)
+            ->exists();
+
+        return $belongsHere ? $card : null;
     }
 
-    protected function insertCardAt(int|string $sectionId, int|string $cardId, ?int $index): void
+    /**
+     * Attaches $cardId to $sectionId's pivot at $index (or the end, when
+     * null), shifting the sort of every other card already in the section.
+     * A no-op when the section is not owned by this page.
+     */
+    protected function attachCardAt(int|string $sectionId, int|string $cardId, ?int $index): void
     {
+        $section = $this->ownedSection($sectionId);
+
+        if (! $section) {
+            return;
+        }
+
         /** @var Collection<int, int> $ids */
-        $ids = Card::query()->where('section_id', $sectionId)->orderBy('sort')->pluck('id');
+        $ids = $section->cards()->pluck('launchpad_cards.id');
         $ids = $ids->reject(fn ($id) => (int) $id === (int) $cardId)->values()->all();
 
         $index = $index === null ? count($ids) : max(0, min($index, count($ids)));
         array_splice($ids, $index, 0, [$cardId]);
 
+        $sync = [];
+
         foreach ($ids as $position => $id) {
-            Card::query()->whereKey($id)->update(['sort' => $position]);
+            $sync[$id] = ['sort' => $position];
         }
+
+        // syncWithoutDetaching both creates the new pivot row (with its
+        // `sort`) and updates the `sort` of every already-attached row that
+        // shifted position — a single statement, no separate update loop.
+        $section->cards()->syncWithoutDetaching($sync);
     }
 
     protected function reindexCardsInSection(int|string $sectionId): void
     {
-        Card::query()
-            ->where('section_id', $sectionId)
-            ->orderBy('sort')
-            ->pluck('id')
-            ->each(function ($id, int $index) {
-                Card::query()->whereKey($id)->update(['sort' => $index]);
+        $section = $this->ownedSection($sectionId);
+
+        if (! $section) {
+            return;
+        }
+
+        $section->cards()->orderByPivot('sort')->pluck('launchpad_cards.id')
+            ->each(function ($id, int $index) use ($section) {
+                $section->cards()->updateExistingPivot($id, ['sort' => $index]);
             });
     }
 
@@ -393,15 +508,15 @@ trait InteractsWithLaunchpadBuilder
             // mounted action, not just Resource Create/EditRecord pages)
             // resolves its model from Action::getRecord(), which reads
             // this ->record() binding.
-            ->record(fn (array $arguments): ?Card => $this->ownedCard($arguments['card'] ?? null))
+            ->record(fn (array $arguments): ?Card => $this->cardOnThisPage($arguments['card'] ?? null))
             ->schema(fn (): array => static::cardFormComponents())
             ->fillForm(function (array $arguments): array {
-                $card = $this->ownedCard($arguments['card'] ?? null);
+                $card = $this->cardOnThisPage($arguments['card'] ?? null);
 
                 return $card?->toArray() ?? [];
             })
             ->action(function (array $data, array $arguments): void {
-                $card = $this->ownedCard($arguments['card'] ?? null);
+                $card = $this->cardOnThisPage($arguments['card'] ?? null);
 
                 if (! $card) {
                     return;

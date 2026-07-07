@@ -2,6 +2,19 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.1.0 - 2026-07-07
+
+### Changed
+- **Cards are now a reusable catalog (many-to-many).** A card is global (it lives in the Cards resource) and can be placed in several sections at once, through the new `launchpad_section_card` pivot. Removing a card from a section now *detaches* it — the card survives — and a card is only ever permanently deleted from the Cards list. A bundled migration backfills existing single-section cards into the pivot automatically.
+
+### Added
+- **Card catalog in the drag-and-drop builder**: an "Existing cards" library lets you drag any existing card into a section, next to the KPI/Shortcut presets.
+- **Attach / Detach** on a section's cards relation manager — reference an existing catalog card, or remove a reference without deleting the card.
+- Empty sections (no visible cards) are hidden from the rendered launchpad while staying editable in the builder.
+
+### Fixed
+- The builder's card "×" now removes the card from that section only, instead of permanently deleting it.
+
 ## 1.0.0 - 2026-07-07
 
 ### Added

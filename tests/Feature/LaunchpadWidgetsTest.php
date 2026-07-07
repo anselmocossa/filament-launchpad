@@ -33,7 +33,8 @@ it('auto-loads widgets already registered on the Filament panel', function () {
 
     expect($plugin->getWidget('test-stats-widget'))->not->toBeNull()
         ->and($plugin->getWidget('test-stats-widget')['class'])->toBe(TestStatsWidget::class)
-        ->and($plugin->getWidget('test-stats-widget')['label'])->toBe('Test Stats Widget');
+        ->and($plugin->getWidget('test-stats-widget')['label'])->toBe('Test Stats Widget')
+        ->and($plugin->getWidget('test-stats-widget')['columnSpan'])->toBe('6');
 });
 
 it('lets explicit widget metadata override the auto-loaded panel widget', function () {
@@ -67,13 +68,11 @@ it('merges widgets registered across multiple calls', function () {
 
 function widgetCardIn(Section $section, string $widgetKey, string $title = 'Widget'): Card
 {
-    return Card::query()->create([
-        'section_id' => $section->id,
+    return $section->cards()->create([
         'title' => $title,
         'type' => 'widget',
         'widget_key' => $widgetKey,
         'target_type' => 'none',
-        'sort' => 0,
     ]);
 }
 
@@ -136,13 +135,11 @@ it('omits a widget card with a blank widget_key, without throwing', function () 
     $space = Space::query()->create(['label' => 'Início', 'sort' => 0]);
     $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Início', 'sort' => 0]);
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Secção', 'sort' => 0]);
-    $card = Card::query()->create([
-        'section_id' => $section->id,
+    $card = $section->cards()->create([
         'title' => 'Sem key',
         'type' => 'widget',
         'widget_key' => null,
         'target_type' => 'none',
-        'sort' => 0,
     ]);
 
     $method = new ReflectionMethod(LaunchpadPlugin::class, 'mapCardToDto');
@@ -160,7 +157,7 @@ it('filters out omitted widget tiles from the section mapping, keeping normal ti
     $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Início', 'sort' => 0]);
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Secção', 'sort' => 0]);
 
-    Card::query()->create(['section_id' => $section->id, 'title' => 'KPI Normal', 'type' => 'kpi', 'kpi_value' => '10', 'target_type' => 'none', 'sort' => 0]);
+    $section->cards()->create(['title' => 'KPI Normal', 'type' => 'kpi', 'kpi_value' => '10', 'target_type' => 'none']);
     widgetCardIn($section, 'inexistente', 'Fantasma');
     widgetCardIn($section, 'stats', 'Estatísticas');
 
@@ -188,29 +185,29 @@ it('adds a widget from the library into a section, persisting type=widget and wi
         ->assertSeeHtml('widget:test-stats-widget')
         ->call('addWidgetFromLibrary', $section->id, 'test-stats-widget', null);
 
-    $card = Card::query()->where('section_id', $section->id)->first();
+    $card = $section->cards()->first();
 
     expect($card)->not->toBeNull()
         ->and($card->type)->toBe('widget')
         ->and($card->widget_key)->toBe('test-stats-widget')
-        ->and($card->widget_column_span)->toBe('full')
+        ->and($card->widget_column_span)->toBe('6')
         ->and($card->title)->toBe('Test Stats Widget')
-        ->and($card->sort)->toBe(0);
+        ->and(pivotSort($section, $card))->toBe(0);
 });
 
 it('adds a widget at a specific index and shifts the rest', function () {
     $space = Space::query()->create(['label' => 'Ponto de Venda', 'sort' => 0]);
     $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Vendas', 'sort' => 0]);
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'S', 'sort' => 0]);
-    $existing = Card::query()->create(['section_id' => $section->id, 'title' => 'Existente', 'type' => 'kpi', 'sort' => 0]);
+    $existing = $section->cards()->create(['title' => 'Existente', 'type' => 'kpi']);
 
     Livewire::test(BuildLayout::class, ['record' => $page->id])
         ->call('addWidgetFromLibrary', $section->id, 'test-stats-widget', 0);
 
-    $new = Card::query()->where('section_id', $section->id)->where('widget_key', 'test-stats-widget')->first();
+    $new = $section->cards()->where('widget_key', 'test-stats-widget')->first();
 
-    expect($new->sort)->toBe(0)
-        ->and($existing->refresh()->sort)->toBe(1);
+    expect(pivotSort($section, $new))->toBe(0)
+        ->and(pivotSort($section, $existing))->toBe(1);
 });
 
 it('does not add a widget whose key is not registered', function () {
@@ -221,7 +218,7 @@ it('does not add a widget whose key is not registered', function () {
     Livewire::test(BuildLayout::class, ['record' => $page->id])
         ->call('addWidgetFromLibrary', $section->id, 'inexistente', null);
 
-    expect(Card::query()->where('section_id', $section->id)->count())->toBe(0);
+    expect($section->cards()->count())->toBe(0);
 });
 
 it('does not add a widget to a section belonging to another page', function () {
@@ -239,7 +236,7 @@ it('does not add a widget to a section belonging to another page', function () {
     Livewire::test(BuildLayout::class, ['record' => $page->id])
         ->call('addWidgetFromLibrary', $otherSection->id, 'stats', null);
 
-    expect(Card::query()->where('section_id', $otherSection->id)->count())->toBe(0);
+    expect($otherSection->cards()->count())->toBe(0);
 });
 
 // ---------------------------------------------------------------------
@@ -258,7 +255,7 @@ it('renders a registered widget natively between tiles, without breaking the gri
     $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Início', 'sort' => 0]);
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Secção', 'sort' => 0]);
 
-    Card::query()->create(['section_id' => $section->id, 'title' => 'Tile Normal', 'type' => 'kpi', 'kpi_value' => '5', 'target_type' => 'none', 'sort' => 0]);
+    $section->cards()->create(['title' => 'Tile Normal', 'type' => 'kpi', 'kpi_value' => '5', 'target_type' => 'none']);
     widgetCardIn($section, 'stats', 'Estatísticas');
 
     Livewire::test(Launchpad::class)
@@ -279,8 +276,8 @@ it('renders consecutive half-width widgets side by side in one widget row', func
     $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Início', 'sort' => 0]);
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Secção', 'sort' => 0]);
 
-    Card::query()->create(['section_id' => $section->id, 'title' => 'Widget A', 'type' => 'widget', 'widget_key' => 'stats', 'widget_column_span' => '6', 'target_type' => 'none', 'sort' => 0]);
-    Card::query()->create(['section_id' => $section->id, 'title' => 'Widget B', 'type' => 'widget', 'widget_key' => 'stats', 'widget_column_span' => '6', 'target_type' => 'none', 'sort' => 1]);
+    $section->cards()->create(['title' => 'Widget A', 'type' => 'widget', 'widget_key' => 'stats', 'widget_column_span' => '6', 'target_type' => 'none']);
+    $section->cards()->create(['title' => 'Widget B', 'type' => 'widget', 'widget_key' => 'stats', 'widget_column_span' => '6', 'target_type' => 'none']);
 
     Livewire::test(Launchpad::class)
         ->assertOk()
@@ -297,7 +294,7 @@ it('does not 500 when a widget card key is not registered, and still renders the
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Secção', 'sort' => 0]);
 
     widgetCardIn($section, 'inexistente', 'Fantasma');
-    Card::query()->create(['section_id' => $section->id, 'title' => 'Tile Normal', 'type' => 'kpi', 'kpi_value' => '5', 'target_type' => 'none', 'sort' => 1]);
+    $section->cards()->create(['title' => 'Tile Normal', 'type' => 'kpi', 'kpi_value' => '5', 'target_type' => 'none']);
 
     Livewire::test(Launchpad::class)
         ->assertOk()

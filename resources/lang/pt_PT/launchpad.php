@@ -59,6 +59,8 @@ return [
         'editar_card' => 'Editar Card',
         'eliminar' => 'Eliminar',
         'remover' => 'Remover',
+        'anexar_card' => 'Anexar Card',
+        'remover_da_seccao' => 'Remover da Secção',
         'voltar' => 'Voltar',
     ],
 
@@ -87,6 +89,7 @@ return [
     'builder' => [
         'instrucao_principal' => 'Arraste presets da biblioteca para as secções, ou reordene/mova os cards existentes.',
         'titulo_biblioteca' => 'Biblioteca de Cards',
+        'titulo_catalogo' => 'Cards Existentes',
         'titulo_widgets' => 'Widgets',
         'label_pesquisa' => 'Pesquisar cards…',
         'label_arrastar_secao' => 'Arrastar secção',
@@ -99,6 +102,8 @@ return [
         'cards_ja_usados' => 'Todos os cards da biblioteca já foram usados nesta página.',
         'sem_widgets_pesquisa' => 'Nenhum widget corresponde à pesquisa.',
         'sem_widgets_registados' => 'Nenhum widget registado.',
+        'sem_cards_catalogo_pesquisa' => 'Nenhum card existente corresponde à pesquisa.',
+        'sem_cards_catalogo' => 'Ainda não há cards criados.',
     ],
 
     // ========== Navegação ==========

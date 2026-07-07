@@ -59,6 +59,8 @@ return [
         'editar_card' => 'Edit Card',
         'eliminar' => 'Delete',
         'remover' => 'Remove',
+        'anexar_card' => 'Attach Card',
+        'remover_da_seccao' => 'Remove from Section',
         'voltar' => 'Back',
     ],
 
@@ -87,6 +89,7 @@ return [
     'builder' => [
         'instrucao_principal' => 'Drag presets from the library into sections, or reorder/move existing cards.',
         'titulo_biblioteca' => 'Card Library',
+        'titulo_catalogo' => 'Existing Cards',
         'titulo_widgets' => 'Widgets',
         'label_pesquisa' => 'Search cards…',
         'label_arrastar_secao' => 'Drag section',
@@ -99,6 +102,8 @@ return [
         'cards_ja_usados' => 'All cards in the library have already been used on this page.',
         'sem_widgets_pesquisa' => 'No widgets match the search.',
         'sem_widgets_registados' => 'No widgets registered.',
+        'sem_cards_catalogo_pesquisa' => 'No existing cards match the search.',
+        'sem_cards_catalogo' => 'No cards created yet.',
     ],
 
     // ========== Navigation ==========

@@ -423,10 +423,13 @@ class LaunchpadPlugin implements Plugin
     }
 
     /**
-     * Same cascade rule one level further down: a restricted Section is
-     * omitted; a Section that had cards but none survive (either gated out
-     * by role, or — same as before this feature — an unresolved widget
-     * card) disappears too; a Section with no cards at all still renders.
+     * Same cascade rule one level further down, PLUS an authentic-Fiori rule
+     * of its own: a restricted Section is omitted; a Section whose cards end
+     * up with zero VISIBLE tiles is omitted too — whether that's because it
+     * never referenced any card, every referenced card was gated out by
+     * role, or a widget card's key no longer resolves. An empty section is
+     * only ever meaningful in the Builder (where it's still a drop target);
+     * on the rendered launchpad it simply does not exist.
      */
     protected function mapSectionToDto(SectionModel $section): ?TileGroup
     {
@@ -440,7 +443,7 @@ class LaunchpadPlugin implements Plugin
             ->values()
             ->all();
 
-        if ($section->cards->isNotEmpty() && blank($tiles)) {
+        if (blank($tiles)) {
             return null;
         }
 
@@ -672,7 +675,7 @@ class LaunchpadPlugin implements Plugin
             'class' => $class,
             'label' => $properties['label'] ?? Str::of(class_basename($class))->headline()->toString(),
             'icon' => $properties['icon'] ?? 'heroicon-o-squares-2x2',
-            'columnSpan' => $properties['columnSpan'] ?? 'full',
+            'columnSpan' => $properties['columnSpan'] ?? '6',
         ];
     }
 

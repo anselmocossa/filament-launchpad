@@ -2,6 +2,7 @@
 
 namespace Filament\Launchpad\Filament\Resources;
 
+use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Launchpad\Filament\Resources\CardResource\Pages\ListCards;
 use Filament\Launchpad\Filament\Resources\Concerns\HasCardForm;
@@ -18,11 +19,16 @@ use Throwable;
 
 /**
  * Never shown in the sidebar — reached only via a flat index page (from the
- * Spaces list header) or Filament's global search. Searching a Card's
- * title/subtitle surfaces it in the search results, and clicking it
- * navigates to whatever the Card's own target_type/target_value resolves
- * to (mirroring Tile::getUrl()'s semantics), falling back to the Launchpad
- * page itself when the Card has no target (or an invalid one).
+ * Spaces list header) or Filament's global search. This is also the ONLY
+ * place a Card is permanently deleted: cards are a reusable catalog
+ * (belongsToMany with Section), so removing one from a section's canvas or
+ * from the CardsRelationManager only ever detaches it — the record itself,
+ * and its cascade to `launchpad_section_card`, is only ever destroyed here.
+ * Searching a Card's title/subtitle surfaces it in global search results,
+ * and clicking it navigates to whatever the Card's own
+ * target_type/target_value resolves to (mirroring Tile::getUrl()'s
+ * semantics), falling back to the Launchpad page itself when the Card has no
+ * target (or an invalid one).
  */
 class CardResource extends Resource
 {
@@ -58,21 +64,30 @@ class CardResource extends Resource
 
     /**
      * Shows where the card lives so identically-named cards are told apart
-     * (e.g. several "Receita do Mês" across different pages).
+     * (e.g. several "Receita do Mês" across different pages). A card is a
+     * reusable catalog item that can be referenced by several sections at
+     * once, so this lists ALL of them (comma-separated) rather than a single
+     * section/page/space.
      *
      * @return array<string, string>
      */
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         /** @var Card $record */
-        $section = $record->section;
-        $page = $section?->page;
-        $space = $page?->space;
+        $sections = $record->sections()->with('page.space')->get();
+
+        if ($sections->isEmpty()) {
+            return [];
+        }
 
         return array_filter([
-            __('launchpad::launchpad.models.secao') => $section?->title,
-            __('launchpad::launchpad.models.pagina') => $page?->label,
-            __('launchpad::launchpad.models.space') => $space?->label,
+            __('launchpad::launchpad.table_columns.secoes') => $sections
+                ->map(fn ($section): string => trim(
+                    ($section->page?->space?->label ? $section->page->space->label.' › ' : '')
+                    .($section->page?->label ? $section->page->label.' › ' : '')
+                    .$section->title
+                ))
+                ->implode(', '),
         ]);
     }
 
@@ -125,7 +140,7 @@ class CardResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('section_id')
+            ->defaultSort('title')
             ->columns([
                 IconColumn::make('icon')
                     ->label(__('launchpad::launchpad.labels.icone'))
@@ -140,23 +155,17 @@ class CardResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => $state === 'kpi' ? __('launchpad::launchpad.card_types.kpi') : __('launchpad::launchpad.card_types.atalho'))
                     ->color(fn (string $state): string => $state === 'kpi' ? 'success' : 'gray'),
-                TextColumn::make('section.title')
+                TextColumn::make('sections')
                     ->label(__('launchpad::launchpad.table_columns.secoes'))
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('section.page.label')
-                    ->label(__('launchpad::launchpad.labels.pagina'))
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('section.page.space.label')
-                    ->label(__('launchpad::launchpad.models.space'))
-                    ->searchable()
-                    ->sortable(),
+                    ->getStateUsing(fn (Card $record): string => $record->sections->pluck('title')->join(', ') ?: '—'),
             ])
             ->recordActions([
                 EditAction::make()
                     ->slideOver()
                     ->schema(fn (): array => static::cardFormComponents()),
+                // The ONLY place a Card is permanently destroyed — cascades
+                // its `launchpad_section_card` pivot rows via the FK.
+                DeleteAction::make(),
             ]);
     }
 

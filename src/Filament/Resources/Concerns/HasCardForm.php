@@ -16,6 +16,11 @@ use Filament\Schemas\Components\Utilities\Get;
  * between the CardsRelationManager (native table CRUD) and the drag&drop
  * BuildLayout page (edit-by-click), so the two entry points never drift.
  * Requires HasLaunchpadIconOptions on the consuming class for the icon list.
+ *
+ * Cards are a reusable catalog (belongsToMany with Section): this schema
+ * never includes a Section picker — a Card is created/edited on its own, and
+ * placed into section(s) via the drag&drop Builder or the
+ * CardsRelationManager's Attach action.
  */
 trait HasCardForm
 {
@@ -24,7 +29,7 @@ trait HasCardForm
     /**
      * @return array<int, Component>
      */
-    protected static function cardFormComponents(): array
+    public static function cardFormComponents(): array
     {
         return [
             FormSection::make(__('launchpad::launchpad.sections.conteudo'))

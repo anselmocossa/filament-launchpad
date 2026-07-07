@@ -13,6 +13,7 @@ it('runs the full launchpad migration stack in the consuming app', function () {
         'launchpad_sections',
         'launchpad_cards',
         'launchpad_role_visibility',
+        'launchpad_section_card',
     ] as $table) {
         expect(Schema::hasTable($table))->toBeTrue("Expected {$table} to exist.");
     }
@@ -47,7 +48,6 @@ it('runs the full launchpad migration stack in the consuming app', function () {
 
     expect(Schema::hasColumns('launchpad_cards', [
         'id',
-        'section_id',
         'library_key',
         'widget_key',
         'widget_column_span',
@@ -76,6 +76,15 @@ it('runs the full launchpad migration stack in the consuming app', function () {
         'visible_type',
         'visible_id',
         'role_id',
+    ]))->toBeTrue();
+
+    expect(Schema::hasColumns('launchpad_section_card', [
+        'id',
+        'section_id',
+        'card_id',
+        'sort',
+        'created_at',
+        'updated_at',
     ]))->toBeTrue();
 });
 

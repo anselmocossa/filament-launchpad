@@ -64,5 +64,5 @@ it('creates a kpi card through the CardsRelationManager', function () {
     expect($card)->not->toBeNull()
         ->and($card->type)->toBe('kpi')
         ->and($card->kpi_value)->toBe('128')
-        ->and($card->section_id)->toBe($section->id);
+        ->and($section->cards()->whereKey($card->id)->exists())->toBeTrue();
 });

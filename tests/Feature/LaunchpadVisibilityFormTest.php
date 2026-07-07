@@ -71,12 +71,10 @@ it('saves visibility roles on a card edited through the flat CardResource list',
     $space = Space::query()->create(['label' => 'Ponto de Venda', 'sort' => 0]);
     $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Vendas', 'sort' => 0]);
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Histórico', 'sort' => 0]);
-    $card = Card::query()->create([
-        'section_id' => $section->id,
+    $card = $section->cards()->create([
         'title' => 'Vendas Hoje',
         'type' => 'kpi',
         'target_type' => 'none',
-        'sort' => 0,
     ]);
 
     Livewire::test(ListCards::class)
@@ -97,12 +95,10 @@ it('saves visibility roles on a card edited through the CardsRelationManager', f
     $space = Space::query()->create(['label' => 'Ponto de Venda', 'sort' => 0]);
     $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Vendas', 'sort' => 0]);
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Histórico', 'sort' => 0]);
-    $card = Card::query()->create([
-        'section_id' => $section->id,
+    $card = $section->cards()->create([
         'title' => 'Vendas Hoje',
         'type' => 'kpi',
         'target_type' => 'none',
-        'sort' => 0,
     ]);
 
     Livewire::test(CardsRelationManager::class, [
@@ -126,7 +122,7 @@ it('saves visibility roles on a card edited through the drag&drop Builder modal'
     $space = Space::query()->create(['label' => 'Ponto de Venda', 'sort' => 0]);
     $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Vendas', 'sort' => 0]);
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'S', 'sort' => 0]);
-    $card = Card::query()->create(['section_id' => $section->id, 'title' => 'Card', 'type' => 'kpi', 'sort' => 0]);
+    $card = $section->cards()->create(['title' => 'Card', 'type' => 'kpi']);
 
     Livewire::test(BuildLayout::class, ['record' => $page->id])
         ->callAction('editCard', data: [
@@ -150,12 +146,10 @@ it('omits a restricted card from global search results for a user without the ro
     $space = Space::query()->create(['label' => 'Ponto de Venda', 'sort' => 0]);
     $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Vendas', 'sort' => 0]);
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Histórico', 'sort' => 0]);
-    $card = Card::query()->create([
-        'section_id' => $section->id,
+    $card = $section->cards()->create([
         'title' => 'Vendas Secretas',
         'type' => 'kpi',
         'target_type' => 'none',
-        'sort' => 0,
     ]);
     $card->visibilityRoles()->sync([$vendedor->id]);
 

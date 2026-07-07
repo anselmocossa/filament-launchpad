@@ -6,9 +6,16 @@
          Drag&drop = HTML5 Drag and Drop API NATIVA (sem SortableJS nem
          nenhuma lib externa — evita CDN/CSP e build). Todo o estado do
          arrasto vive num pequeno store Alpine (`$store.lpDnd`): o dragstart
-         guarda o payload (preset da biblioteca OU card a mover); o drop
-         calcula o índice-alvo pela posição do rato e chama o método
-         Livewire correspondente. O componente re-renderiza a partir da BD.
+         guarda o payload (preset da biblioteca, card do catálogo, OU card a
+         mover dentro do canvas); o drop calcula o índice-alvo pela posição
+         do rato e chama o método Livewire correspondente. O componente
+         re-renderiza a partir da BD.
+
+         Cards são um catálogo reutilizável (belongsToMany com Section): o
+         mesmo Card pode estar em várias secções. O "×" de um tile faz apenas
+         DETACH da secção actual (removeCard(sectionId, cardId)) — nunca
+         apaga o Card, por isso não pede confirmação (é instantâneo,
+         não-destrutivo). O Card só é apagado definitivamente em /admin/cards.
     ================================================================= --}}
     <style>
         :root{
@@ -68,12 +75,13 @@
         x-init="
             if (! Alpine.store('lpDnd')) {
                 Alpine.store('lpDnd', {
-                    kind:null, presetKey:null, widgetKey:null, cardId:null, sectionId:null,
-                    startPreset(key){ this.kind='preset'; this.presetKey=key; this.widgetKey=null; this.cardId=null; this.sectionId=null; },
-                    startWidget(key){ this.kind='widget'; this.widgetKey=key; this.presetKey=null; this.cardId=null; this.sectionId=null; },
-                    startCard(id){ this.kind='card'; this.cardId=id; this.presetKey=null; this.widgetKey=null; this.sectionId=null; },
-                    startSection(id){ this.kind='section'; this.sectionId=id; this.presetKey=null; this.widgetKey=null; this.cardId=null; },
-                    clear(){ this.kind=null; this.presetKey=null; this.widgetKey=null; this.cardId=null; this.sectionId=null; },
+                    kind:null, presetKey:null, widgetKey:null, cardId:null, sectionId:null, catalogCardId:null,
+                    startPreset(key){ this.kind='preset'; this.presetKey=key; this.widgetKey=null; this.cardId=null; this.sectionId=null; this.catalogCardId=null; },
+                    startWidget(key){ this.kind='widget'; this.widgetKey=key; this.presetKey=null; this.cardId=null; this.sectionId=null; this.catalogCardId=null; },
+                    startCard(id, sectionId){ this.kind='card'; this.cardId=id; this.sectionId=sectionId; this.presetKey=null; this.widgetKey=null; this.catalogCardId=null; },
+                    startSection(id){ this.kind='section'; this.sectionId=id; this.presetKey=null; this.widgetKey=null; this.cardId=null; this.catalogCardId=null; },
+                    startCatalogCard(id){ this.kind='catalogCard'; this.catalogCardId=id; this.presetKey=null; this.widgetKey=null; this.cardId=null; this.sectionId=null; },
+                    clear(){ this.kind=null; this.presetKey=null; this.widgetKey=null; this.cardId=null; this.sectionId=null; this.catalogCardId=null; },
                 });
             }
         "
@@ -115,8 +123,10 @@
                             $wire.addCardFromLibrary({{ $section->id }}, s.presetKey, index);
                         } else if (s.kind === 'widget') {
                             $wire.addWidgetFromLibrary({{ $section->id }}, s.widgetKey, index);
+                        } else if (s.kind === 'catalogCard') {
+                            $wire.attachCardFromCatalog({{ $section->id }}, s.catalogCardId, index);
                         } else if (s.kind === 'card') {
-                            $wire.moveCard(s.cardId, {{ $section->id }}, index);
+                            $wire.moveCard(s.cardId, s.sectionId, {{ $section->id }}, index);
                         }
                         s.clear();
                     "
@@ -144,15 +154,18 @@
                         @forelse ($section->cards as $card)
                             <div
                                 class="lp-tile @if ($card->type === 'widget') lp-tile--widget @endif"
-                                wire:key="card-{{ $card->id }}"
+                                wire:key="card-{{ $section->id }}-{{ $card->id }}"
                                 data-card-id="{{ $card->id }}"
                                 draggable="true"
-                                x-on:dragstart="$store.lpDnd.startCard({{ $card->id }}); $event.dataTransfer.setData('text/plain','card:{{ $card->id }}'); $el.classList.add('lp-tile--dragging')"
+                                x-on:dragstart="$store.lpDnd.startCard({{ $card->id }}, {{ $section->id }}); $event.dataTransfer.setData('text/plain','card:{{ $card->id }}'); $el.classList.add('lp-tile--dragging')"
                                 x-on:dragend="$el.classList.remove('lp-tile--dragging')"
                                 wire:click="mountAction('editCard', { card: {{ $card->id }} })"
                             >
+                                {{-- Non-destructive: only detaches this card from THIS
+                                     section (removeCard), never deletes the Card — so no
+                                     confirmation modal, the removal is instant. --}}
                                 <button type="button" class="lp-tile__x"
-                                        x-on:click.stop="$wire.removeCard({{ $card->id }})"
+                                        x-on:click.stop="$wire.removeCard({{ $section->id }}, {{ $card->id }})"
                                         title="{{ __('launchpad::launchpad.buttons.remover') }}">&times;</button>
 
                                 @if (filled($card->badge))
@@ -244,6 +257,44 @@
                             {{ __('launchpad::launchpad.builder.sem_cards_pesquisa') }}
                         @else
                             {{ __('launchpad::launchpad.builder.cards_ja_usados') }}
+                        @endif
+                    </p>
+                @endforelse
+            </div>
+
+            {{-- Catálogo de cards existentes: qualquer Card já criado (em
+                 qualquer secção, de qualquer página) pode ser arrastado para
+                 outra secção — attachCardFromCatalog() liga o MESMO registo,
+                 nunca cria um novo. --}}
+            <div class="lp-lib" style="margin-top:14px">
+                <p class="lp-lib__title">{{ __('launchpad::launchpad.builder.titulo_catalogo') }}</p>
+
+                @forelse ($cardCatalog as $catalogCard)
+                    <div
+                        class="lp-lib__item"
+                        wire:key="catalog-card-{{ $catalogCard['id'] }}"
+                        draggable="true"
+                        x-on:dragstart="$store.lpDnd.startCatalogCard({{ $catalogCard['id'] }}); $event.dataTransfer.setData('text/plain','catalog-card:{{ $catalogCard['id'] }}')"
+                        x-on:dragend="$store.lpDnd.clear()"
+                    >
+                        @if (filled($catalogCard['icon'] ?? null))
+                            @svg($catalogCard['icon'], '', ['class' => 'lp-lib__ico', 'style' => 'width:18px;height:18px'])
+                        @endif
+                        <span class="lp-lib__name">{{ $catalogCard['title'] ?? $catalogCard['id'] }}</span>
+                        <span class="lp-lib__tag lp-lib__tag--{{ ($catalogCard['type'] ?? 'kpi') === 'kpi' ? 'kpi' : (($catalogCard['type'] ?? '') === 'widget' ? 'widget' : 'shortcut') }}">
+                            {{ match ($catalogCard['type'] ?? 'kpi') {
+                                'kpi' => __('launchpad::launchpad.card_types.kpi'),
+                                'widget' => __('launchpad::launchpad.card_types.widget'),
+                                default => __('launchpad::launchpad.card_types.atalho'),
+                            } }}
+                        </span>
+                    </div>
+                @empty
+                    <p class="lp-lib__empty">
+                        @if (filled(trim($this->librarySearch)))
+                            {{ __('launchpad::launchpad.builder.sem_cards_catalogo_pesquisa') }}
+                        @else
+                            {{ __('launchpad::launchpad.builder.sem_cards_catalogo') }}
                         @endif
                     </p>
                 @endforelse

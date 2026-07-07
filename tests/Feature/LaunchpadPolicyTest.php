@@ -20,13 +20,11 @@ function makeLaunchpadHierarchy(): array
     $space = Space::query()->create(['label' => 'Ponto de Venda', 'sort' => 0]);
     $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Vendas', 'sort' => 0]);
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Histórico', 'sort' => 0]);
-    $card = Card::query()->create([
-        'section_id' => $section->id,
+    $card = $section->cards()->create([
         'title' => 'Vendas Hoje',
         'type' => 'kpi',
         'kpi_value' => '10',
         'target_type' => 'none',
-        'sort' => 0,
     ]);
 
     return compact('space', 'page', 'section', 'card');

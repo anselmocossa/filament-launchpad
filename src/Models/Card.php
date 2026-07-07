@@ -4,7 +4,7 @@ namespace Filament\Launchpad\Models;
 
 use Filament\Launchpad\Models\Concerns\HasLaunchpadVisibility;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Card extends Model
 {
@@ -18,8 +18,19 @@ class Card extends Model
         'sort' => 'integer',
     ];
 
-    public function section(): BelongsTo
+    /**
+     * Cards are a reusable catalog: the same Card can be referenced by
+     * several Sections (authentic Fiori model). `sort` lives on the pivot
+     * (`launchpad_section_card`) — it is per-section placement, not a
+     * property of the card itself.
+     *
+     * @return BelongsToMany<Section, static>
+     */
+    public function sections(): BelongsToMany
     {
-        return $this->belongsTo(Section::class, 'section_id');
+        return $this->belongsToMany(Section::class, 'launchpad_section_card')
+            ->withPivot('sort')
+            ->withTimestamps()
+            ->orderByPivot('sort');
     }
 }

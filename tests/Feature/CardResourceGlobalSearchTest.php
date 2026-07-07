@@ -20,13 +20,11 @@ function makeCard(array $overrides = []): Card
     $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Vendas', 'sort' => 0]);
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Histórico', 'sort' => 0]);
 
-    return Card::query()->create(array_merge([
-        'section_id' => $section->id,
+    return $section->cards()->create(array_merge([
         'title' => 'Vendas Hoje',
         'subtitle' => 'Ponto de Venda',
         'type' => 'kpi',
         'target_type' => 'none',
-        'sort' => 0,
     ], $overrides));
 }
 
@@ -106,15 +104,25 @@ it('shows where the card lives in the global search result details', function ()
     $card = makeCard();
 
     expect(CardResource::getGlobalSearchResultDetails($card))->toBe([
-        'Secção' => 'Histórico',
-        'Página' => 'Vendas',
-        'Space' => 'Ponto de Venda',
+        'Secções' => 'Ponto de Venda › Vendas › Histórico',
     ]);
 });
 
-it('omits missing context from the details', function () {
+it('lists every section when the card is referenced by more than one', function () {
     $card = makeCard();
-    $card->setRelation('section', null);
+
+    $space = Space::query()->create(['label' => 'Outro Space', 'sort' => 1]);
+    $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Outra Página', 'sort' => 0]);
+    $otherSection = Section::query()->create(['page_id' => $page->id, 'title' => 'Outra Secção', 'sort' => 0]);
+    $otherSection->cards()->attach($card->id, ['sort' => 0]);
+
+    expect(CardResource::getGlobalSearchResultDetails($card))->toBe([
+        'Secções' => 'Ponto de Venda › Vendas › Histórico, Outro Space › Outra Página › Outra Secção',
+    ]);
+});
+
+it('omits missing context from the details when the card has no sections', function () {
+    $card = Card::query()->create(['title' => 'Órfão', 'type' => 'kpi', 'target_type' => 'none']);
 
     expect(CardResource::getGlobalSearchResultDetails($card))->toBe([]);
 });
