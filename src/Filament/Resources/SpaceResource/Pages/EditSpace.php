@@ -4,6 +4,7 @@ namespace Filament\Launchpad\Filament\Resources\SpaceResource\Pages;
 
 use Filament\Actions\DeleteAction;
 use Filament\Launchpad\Filament\Resources\SpaceResource;
+use Filament\Launchpad\Models\Space;
 use Filament\Resources\Pages\EditRecord;
 
 class EditSpace extends EditRecord
@@ -13,7 +14,8 @@ class EditSpace extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->hidden(fn (Space $record): bool => $record->is_default),
         ];
     }
 }

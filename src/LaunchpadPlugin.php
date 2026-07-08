@@ -358,9 +358,18 @@ class LaunchpadPlugin implements Plugin
             return [];
         }
 
+        $userId = auth()->id();
+
         return SpaceModel::query()
             ->orderBy('sort')
-            ->with(['pages.sections.cards'])
+            ->with([
+                'pages.sections.cards',
+                // Only the viewing user's own personalisation rows are loaded,
+                // so each user's launchpad renders their own added cards.
+                'pages.sections.userCards' => fn ($query) => $query
+                    ->when($userId !== null, fn ($q) => $q->where('user_id', $userId), fn ($q) => $q->whereRaw('1 = 0'))
+                    ->with('card'),
+            ])
             ->get()
             ->map(fn (SpaceModel $space): ?LaunchpadSpace => $this->mapSpaceToDto($space))
             ->filter()
@@ -437,7 +446,18 @@ class LaunchpadPlugin implements Plugin
             return null;
         }
 
-        $tiles = $section->cards
+        // A section renders, for the viewing user, the admin's PINNED cards
+        // (fixed, shown to everyone, in the admin's order) followed by the
+        // user's OWN added cards (from launchpad_user_cards, in their order).
+        $pinned = $section->cards
+            ->filter(fn (CardModel $card): bool => (bool) ($card->pivot->is_pinned ?? true));
+
+        $userCards = $section->userCards
+            ->sortBy('sort')
+            ->map(fn ($userCard): ?CardModel => $userCard->card)
+            ->filter();
+
+        $tiles = $pinned->concat($userCards)
             ->map(fn (CardModel $card): ?Tile => $this->mapCardToDto($card))
             ->filter()
             ->values()

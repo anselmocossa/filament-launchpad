@@ -5,6 +5,7 @@ namespace Filament\Launchpad\Models;
 use Filament\Launchpad\Models\Concerns\HasLaunchpadVisibility;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use RuntimeException;
 
 class Space extends Model
 {
@@ -16,7 +17,22 @@ class Space extends Model
 
     protected $casts = [
         'sort' => 'integer',
+        'is_default' => 'boolean',
     ];
+
+    /**
+     * The default "Início" Space is the launchpad home and can never be
+     * deleted — the guard here backs up the UI (hidden delete buttons) and the
+     * policy so it holds even from tinker or a stray forceDelete.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (Space $space): void {
+            if ($space->is_default) {
+                throw new RuntimeException('The default Launchpad home Space cannot be deleted.');
+            }
+        });
+    }
 
     public function pages(): HasMany
     {

@@ -9,6 +9,7 @@ use Filament\Launchpad\LaunchpadPlugin;
 use Filament\Launchpad\Models\Card;
 use Filament\Launchpad\Models\Page as PageModel;
 use Filament\Launchpad\Models\Section;
+use Filament\Launchpad\Models\UserCard;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
@@ -50,10 +51,40 @@ trait InteractsWithLaunchpadBuilder
     public string $librarySearch = '';
 
     /**
+     * Live-bound search term for the "Cards Existentes" (reusable catalog)
+     * panel. Independent from the preset library so each panel filters on its
+     * own.
+     */
+    public string $catalogSearch = '';
+
+    /**
+     * Live-bound search term for the "Widgets" panel. Independent from the
+     * preset library so each panel filters on its own.
+     */
+    public string $widgetSearch = '';
+
+    /**
      * The Page record the builder mutates. BuildLayout resolves it from the
      * route (getRecord()); EditHome always resolves the home page.
      */
     abstract protected function builderPage(): PageModel;
+
+    /**
+     * Whether the builder runs in PERSONAL mode (the end-user personalising
+     * their own home) rather than ADMIN mode (full authoring). Personal mode
+     * hides card creation/editing/section management and only lets the user
+     * add catalog cards to their own layer, reorder and remove their own.
+     * EditHome overrides this to true; BuildLayout (admin) keeps it false.
+     */
+    protected function isPersonalMode(): bool
+    {
+        return false;
+    }
+
+    protected function currentUserId(): ?int
+    {
+        return auth()->id();
+    }
 
     /**
      * @return array<string, mixed>
@@ -64,9 +95,83 @@ trait InteractsWithLaunchpadBuilder
 
         return [
             'page' => $page,
-            'library' => $this->getLibrary(),
+            'mode' => $this->isPersonalMode() ? 'user' : 'admin',
+            'builderSections' => $this->builderSections($page),
+            'library' => $this->isPersonalMode() ? [] : $this->getLibrary(),
             'cardCatalog' => $this->getCardCatalog(),
-            'widgetLibrary' => $this->getWidgetLibrary(),
+            'widgetLibrary' => $this->isPersonalMode() ? [] : $this->getWidgetLibrary(),
+        ];
+    }
+
+    /**
+     * Uniform per-section view-model shared by both modes. Each card carries
+     * `pinned` (admin fixed), `locked` (user cannot remove/reorder it) and
+     * `origin` (admin|user). In ADMIN mode every card is an editable admin
+     * card; in PERSONAL mode the list is the admin's pinned cards (locked)
+     * followed by the current user's own added cards (editable by them).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function builderSections(PageModel $page): array
+    {
+        $personal = $this->isPersonalMode();
+        $userId = $this->currentUserId();
+
+        return $page->sections->map(function (Section $section) use ($personal, $userId): array {
+            $cards = [];
+
+            if ($personal) {
+                foreach ($section->cards as $card) {
+                    if (! (bool) ($card->pivot->is_pinned ?? true)) {
+                        continue; // available/catalog card — not shown until the user adds it
+                    }
+                    $cards[] = $this->builderCardData($card, pinned: true, locked: true, origin: 'admin');
+                }
+
+                if ($userId !== null) {
+                    foreach ($section->userCards()->where('user_id', $userId)->with('card')->get() as $userCard) {
+                        if ($userCard->card) {
+                            $cards[] = $this->builderCardData($userCard->card, pinned: false, locked: false, origin: 'user');
+                        }
+                    }
+                }
+            } else {
+                foreach ($section->cards as $card) {
+                    $cards[] = $this->builderCardData(
+                        $card,
+                        pinned: (bool) ($card->pivot->is_pinned ?? true),
+                        locked: false,
+                        origin: 'admin',
+                    );
+                }
+            }
+
+            return [
+                'id' => $section->id,
+                'title' => $section->title,
+                'cards' => $cards,
+            ];
+        })->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function builderCardData(Card $card, bool $pinned, bool $locked, string $origin): array
+    {
+        return [
+            'id' => $card->id,
+            'title' => $card->title,
+            'subtitle' => $card->subtitle,
+            'icon' => $card->icon,
+            'type' => $card->type,
+            'kpi_value' => $card->kpi_value,
+            'unit' => $card->unit,
+            'trend' => $card->trend,
+            'badge' => $card->badge,
+            'pinned' => $pinned,
+            'locked' => $locked,
+            'origin' => $origin,
         ];
     }
 
@@ -79,7 +184,7 @@ trait InteractsWithLaunchpadBuilder
      */
     protected function getWidgetLibrary(): array
     {
-        $search = trim($this->librarySearch);
+        $search = trim($this->widgetSearch);
 
         return collect(LaunchpadPlugin::get()->getWidgets())
             ->when($search !== '', fn ($widgets) => $widgets->filter(function (array $widget) use ($search): bool {
@@ -129,15 +234,33 @@ trait InteractsWithLaunchpadBuilder
      */
     protected function getCardCatalog(): array
     {
-        $search = trim($this->librarySearch);
+        $search = trim($this->catalogSearch);
 
-        return Card::query()
+        $query = Card::query()
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
                     $query->where('title', 'like', "%{$search}%")
                         ->orWhere('subtitle', 'like', "%{$search}%");
                 });
-            })
+            });
+
+        if ($this->isPersonalMode()) {
+            // The user may only add AVAILABLE (non-pinned) cards that the admin
+            // placed on this page's sections — never widgets, never pinned
+            // cards, never arbitrary cards from other pages.
+            $sectionIds = $this->getPageModel()->sections->pluck('id');
+
+            $query->where('type', '!=', 'widget')
+                ->whereExists(function ($sub) use ($sectionIds) {
+                    $sub->selectRaw('1')
+                        ->from('launchpad_section_card')
+                        ->whereColumn('launchpad_section_card.card_id', 'launchpad_cards.id')
+                        ->whereIn('launchpad_section_card.section_id', $sectionIds)
+                        ->where('launchpad_section_card.is_pinned', false);
+                });
+        }
+
+        return $query
             ->orderBy('title')
             ->get()
             ->map(fn (Card $card): array => [
@@ -423,6 +546,204 @@ trait InteractsWithLaunchpadBuilder
         $section->cards()->detach($cardId);
 
         $this->reindexCardsInSection($section->id);
+    }
+
+    // ------------------------------------------------------------------
+    // Admin: pin / unpin a card in a section
+    // ------------------------------------------------------------------
+
+    /**
+     * Toggles whether a card is PINNED (injected for every user, fixed) or
+     * AVAILABLE (only in the catalog for users to add themselves). Admin-only
+     * — a no-op in personal mode or when the section is not owned by this page.
+     */
+    public function togglePinned(int|string $sectionId, int|string $cardId): void
+    {
+        if ($this->isPersonalMode()) {
+            return;
+        }
+
+        $section = $this->ownedSection($sectionId);
+
+        if (! $section) {
+            return;
+        }
+
+        $current = $section->cards()->whereKey($cardId)->first();
+
+        if (! $current) {
+            return;
+        }
+
+        $section->cards()->updateExistingPivot($cardId, [
+            'is_pinned' => ! (bool) ($current->pivot->is_pinned ?? true),
+        ]);
+    }
+
+    // ------------------------------------------------------------------
+    // Personal mode: the user's own card layer (launchpad_user_cards)
+    // ------------------------------------------------------------------
+
+    /**
+     * Adds an AVAILABLE catalog card to the current user's own layer for a
+     * section, at $index. Personal mode only. Ignores cards that are not
+     * available in this section (only admin "available" cards can be added),
+     * and is idempotent (a card the user already added is just re-placed).
+     */
+    public function addUserCard(int|string $sectionId, int|string $cardId, ?int $index = null): void
+    {
+        $userId = $this->currentUserId();
+
+        if (! $this->isPersonalMode() || $userId === null) {
+            return;
+        }
+
+        $section = $this->ownedSection($sectionId);
+
+        if (! $section) {
+            return;
+        }
+
+        $available = $section->cards()
+            ->whereKey($cardId)
+            ->wherePivot('is_pinned', false)
+            ->exists();
+
+        if (! $available) {
+            return;
+        }
+
+        UserCard::query()->firstOrCreate(
+            ['user_id' => $userId, 'section_id' => $section->id, 'card_id' => $cardId],
+            ['sort' => 0],
+        );
+
+        $this->reorderUserCardsAt($section->id, $cardId, $index);
+    }
+
+    /**
+     * Removes a card the user themselves added (their own row only). Personal
+     * mode only; never touches pinned admin cards.
+     */
+    public function removeUserCard(int|string $sectionId, int|string $cardId): void
+    {
+        $userId = $this->currentUserId();
+
+        if (! $this->isPersonalMode() || $userId === null) {
+            return;
+        }
+
+        UserCard::query()
+            ->where('user_id', $userId)
+            ->where('section_id', $sectionId)
+            ->where('card_id', $cardId)
+            ->delete();
+
+        $this->reindexUserCards($sectionId);
+    }
+
+    /**
+     * @param  array<int, int|string>  $orderedIds
+     */
+    public function reorderUserCards(int|string $sectionId, array $orderedIds): void
+    {
+        $userId = $this->currentUserId();
+
+        if (! $this->isPersonalMode() || $userId === null) {
+            return;
+        }
+
+        $ownIds = UserCard::query()
+            ->where('user_id', $userId)
+            ->where('section_id', $sectionId)
+            ->pluck('card_id')
+            ->all();
+
+        $orderedIds = array_values(array_intersect(array_map('intval', $orderedIds), array_map('intval', $ownIds)));
+
+        foreach ($orderedIds as $position => $cardId) {
+            UserCard::query()
+                ->where('user_id', $userId)
+                ->where('section_id', $sectionId)
+                ->where('card_id', $cardId)
+                ->update(['sort' => $position]);
+        }
+    }
+
+    /**
+     * Repositions a card the user owns within its section to $index (drag to
+     * reorder). Personal mode only; a no-op if the user does not own that row.
+     */
+    public function moveUserCard(int|string $sectionId, int|string $cardId, ?int $index = null): void
+    {
+        $userId = $this->currentUserId();
+
+        if (! $this->isPersonalMode() || $userId === null) {
+            return;
+        }
+
+        $owns = UserCard::query()
+            ->where('user_id', $userId)
+            ->where('section_id', $sectionId)
+            ->where('card_id', $cardId)
+            ->exists();
+
+        if (! $owns) {
+            return;
+        }
+
+        $this->reorderUserCardsAt($sectionId, $cardId, $index);
+    }
+
+    protected function reorderUserCardsAt(int|string $sectionId, int|string $cardId, ?int $index): void
+    {
+        $userId = $this->currentUserId();
+
+        if ($userId === null) {
+            return;
+        }
+
+        $ids = UserCard::query()
+            ->where('user_id', $userId)
+            ->where('section_id', $sectionId)
+            ->orderBy('sort')
+            ->pluck('card_id')
+            ->reject(fn ($id) => (int) $id === (int) $cardId)
+            ->values()
+            ->all();
+
+        $index = $index === null ? count($ids) : max(0, min($index, count($ids)));
+        array_splice($ids, $index, 0, [$cardId]);
+
+        foreach ($ids as $position => $id) {
+            UserCard::query()
+                ->where('user_id', $userId)
+                ->where('section_id', $sectionId)
+                ->where('card_id', $id)
+                ->update(['sort' => $position]);
+        }
+    }
+
+    protected function reindexUserCards(int|string $sectionId): void
+    {
+        $userId = $this->currentUserId();
+
+        if ($userId === null) {
+            return;
+        }
+
+        UserCard::query()
+            ->where('user_id', $userId)
+            ->where('section_id', $sectionId)
+            ->orderBy('sort')
+            ->pluck('card_id')
+            ->each(function ($cardId, int $index) use ($userId, $sectionId) {
+                UserCard::query()
+                    ->where('user_id', $userId)
+                    ->where('section_id', $sectionId)
+                    ->where('card_id', $cardId)
+                    ->update(['sort' => $index]);
+            });
     }
 
     /**

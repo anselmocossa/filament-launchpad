@@ -89,7 +89,8 @@ class SpaceResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->hidden(fn (Space $record): bool => $record->is_default),
             ]);
     }
 

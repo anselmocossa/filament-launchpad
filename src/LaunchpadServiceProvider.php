@@ -39,6 +39,10 @@ class LaunchpadServiceProvider extends PackageServiceProvider
                 '2024_01_01_000004_create_launchpad_cards_table',
                 '2024_01_01_000009_create_launchpad_role_visibility_table',
                 '2024_01_01_000010_create_launchpad_section_card_table',
+                '2024_01_01_000011_add_is_default_to_launchpad_spaces_table',
+                '2024_01_01_000012_add_is_pinned_to_launchpad_section_card_table',
+                '2024_01_01_000013_create_launchpad_user_cards_table',
+                '2024_01_01_000014_seed_default_launchpad_home',
             ])
             ->runsMigrations();
     }

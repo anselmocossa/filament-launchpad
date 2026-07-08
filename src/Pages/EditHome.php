@@ -43,6 +43,21 @@ class EditHome extends Page
         return LaunchpadPermission::check(auth()->user(), 'View:EditHome');
     }
 
+    /**
+     * The mode is driven by PERMISSION, not by the page: a user allowed to
+     * author the launchpad (super_admin, or holding the launchpad management
+     * permission) gets the FULL builder here too — presets library, card
+     * catalog, widgets, edit-on-click, pin/unpin, section management. Only a
+     * user WITHOUT that permission gets the stripped personal view (add
+     * available cards to their own home, reorder/remove their own). Absent
+     * spatie/laravel-permission, everyone keeps the full builder (today's
+     * behaviour).
+     */
+    protected function isPersonalMode(): bool
+    {
+        return ! LaunchpadPermission::check(auth()->user(), 'Update:Card');
+    }
+
     public function mount(): void
     {
         if (! $this->resolveHomePage() instanceof PageModel) {

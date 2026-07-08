@@ -1,21 +1,21 @@
 <x-filament-panels::page>
     {{-- ================================================================
-         Construtor de Layout (drag&drop). UI inerente do plugin, por isso
-         custom HTML/CSS é aceitável aqui (como na grelha do launchpad).
+         Construtor de Layout (drag&drop) com DOIS modos:
 
-         Drag&drop = HTML5 Drag and Drop API NATIVA (sem SortableJS nem
-         nenhuma lib externa — evita CDN/CSP e build). Todo o estado do
-         arrasto vive num pequeno store Alpine (`$store.lpDnd`): o dragstart
-         guarda o payload (preset da biblioteca, card do catálogo, OU card a
-         mover dentro do canvas); o drop calcula o índice-alvo pela posição
-         do rato e chama o método Livewire correspondente. O componente
-         re-renderiza a partir da BD.
+         - ADMIN ($mode==='admin'): autoria completa. Criar/editar/eliminar
+           cards e secções, arrastar presets/catálogo/widgets, e marcar cada
+           card como FIXO (injectado para todos) ou DISPONÍVEL (fica no
+           catálogo para o utilizador adicionar).
 
-         Cards são um catálogo reutilizável (belongsToMany com Section): o
-         mesmo Card pode estar em várias secções. O "×" de um tile faz apenas
-         DETACH da secção actual (removeCard(sectionId, cardId)) — nunca
-         apaga o Card, por isso não pede confirmação (é instantâneo,
-         não-destrutivo). O Card só é apagado definitivamente em /admin/cards.
+         - PESSOAL ($mode==='user', EditHome): o utilizador final personaliza
+           o SEU Início. NÃO cria nem edita cards, NÃO gere secções. Só:
+           adicionar cards DISPONÍVEIS do catálogo (grava em
+           launchpad_user_cards), reordenar e remover os SEUS. Os cards fixos
+           do admin aparecem bloqueados (sem ×, sem arrastar, sem editar).
+
+         Drag&drop = HTML5 Drag and Drop API nativa (sem libs). O store Alpine
+         `$store.lpDnd` guarda o payload; o drop calcula o índice e chama o
+         método Livewire certo conforme o modo.
     ================================================================= --}}
     <style>
         :root{
@@ -37,6 +37,7 @@
         .lp-handle{cursor:grab;color:var(--lp-icon-muted);font-size:16px;line-height:1;user-select:none}
         .lp-section__title{flex:1;font-size:14px;font-weight:600;color:var(--lp-text);background:transparent;border:1px solid transparent;border-radius:6px;padding:3px 6px;font-family:inherit}
         .lp-section__title:hover,.lp-section__title:focus{border-color:var(--lp-border);outline:none}
+        .lp-section__title--static{flex:1;font-size:14px;font-weight:600;color:var(--lp-text);padding:3px 6px}
         .lp-count{font-size:11px;color:var(--lp-muted);background:var(--lp-badge-bg);padding:2px 8px;border-radius:999px}
         .lp-del{font-size:11px;color:#ef4444;background:transparent;border:none;cursor:pointer;padding:3px 6px;font-family:inherit}
         .lp-grid{display:flex;flex-wrap:wrap;gap:12px;min-height:64px}
@@ -44,9 +45,12 @@
         .lp-tile{position:relative;width:168px;height:168px;background:var(--lp-surface);border:1px solid var(--lp-border);border-radius:12px;padding:14px;display:flex;flex-direction:column;text-align:left;cursor:grab;transition:box-shadow .15s,border-color .15s}
         .lp-tile:hover{border-color:var(--lp-drop);box-shadow:0 4px 14px rgba(0,0,0,.08)}
         .lp-tile--dragging{opacity:.4}
+        .lp-tile--locked{cursor:default;border-style:dashed}
+        .lp-tile--locked:hover{border-color:var(--lp-border);box-shadow:none}
         .lp-tile__x{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:999px;border:none;background:var(--lp-badge-bg);color:var(--lp-muted);cursor:pointer;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;z-index:2}
         .lp-tile__x:hover{background:#ef4444;color:#fff}
-        .lp-tile__title{font-size:13.5px;font-weight:600;color:var(--lp-text);line-height:1.3;padding-right:22px}
+        .lp-tile__lock{position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:999px;background:rgba(22,163,74,.12);color:#16a34a;z-index:2;display:flex;align-items:center;justify-content:center}
+        .lp-tile__title{font-size:13.5px;font-weight:600;color:var(--lp-text);line-height:1.3;padding-right:22px;margin-top:14px}
         .lp-tile__sub{font-size:11.5px;color:var(--lp-muted);margin-top:2px}
         .lp-tile__kpi{font-size:26px;font-weight:700;color:var(--lp-text);letter-spacing:-.02em}
         .lp-tile__unit{font-size:12px;font-weight:600;color:var(--lp-muted)}
@@ -76,17 +80,19 @@
 
     <div
         class="lp-build"
-        x-data
+        x-data="{ mode: '{{ $mode }}' }"
         x-init="
             if (! Alpine.store('lpDnd')) {
                 Alpine.store('lpDnd', {
                     kind:null, presetKey:null, widgetKey:null, cardId:null, sectionId:null, catalogCardId:null,
-                    startPreset(key){ this.kind='preset'; this.presetKey=key; this.widgetKey=null; this.cardId=null; this.sectionId=null; this.catalogCardId=null; },
-                    startWidget(key){ this.kind='widget'; this.widgetKey=key; this.presetKey=null; this.cardId=null; this.sectionId=null; this.catalogCardId=null; },
-                    startCard(id, sectionId){ this.kind='card'; this.cardId=id; this.sectionId=sectionId; this.presetKey=null; this.widgetKey=null; this.catalogCardId=null; },
-                    startSection(id){ this.kind='section'; this.sectionId=id; this.presetKey=null; this.widgetKey=null; this.cardId=null; this.catalogCardId=null; },
-                    startCatalogCard(id){ this.kind='catalogCard'; this.catalogCardId=id; this.presetKey=null; this.widgetKey=null; this.cardId=null; this.sectionId=null; },
-                    clear(){ this.kind=null; this.presetKey=null; this.widgetKey=null; this.cardId=null; this.sectionId=null; this.catalogCardId=null; },
+                    startPreset(key){ this.reset(); this.kind='preset'; this.presetKey=key; },
+                    startWidget(key){ this.reset(); this.kind='widget'; this.widgetKey=key; },
+                    startCard(id, sectionId){ this.reset(); this.kind='card'; this.cardId=id; this.sectionId=sectionId; },
+                    startUserCard(id, sectionId){ this.reset(); this.kind='userCard'; this.cardId=id; this.sectionId=sectionId; },
+                    startSection(id){ this.reset(); this.kind='section'; this.sectionId=id; },
+                    startCatalogCard(id){ this.reset(); this.kind='catalogCard'; this.catalogCardId=id; },
+                    reset(){ this.kind=null; this.presetKey=null; this.widgetKey=null; this.cardId=null; this.sectionId=null; this.catalogCardId=null; },
+                    clear(){ this.reset(); },
                 });
             }
         "
@@ -95,29 +101,47 @@
         <div class="lp-build__canvas">
             <div style="display:flex;align-items:center;justify-content:space-between">
                 <p style="font-size:12.5px;color:var(--lp-muted);margin:0">
-                    {{ __('launchpad::launchpad.builder.instrucao_principal') }}
+                    @if ($mode === 'user')
+                        {{ __('launchpad::launchpad.builder.instrucao_pessoal') }}
+                    @else
+                        {{ __('launchpad::launchpad.builder.instrucao_principal') }}
+                    @endif
                 </p>
-                <x-filament::button size="sm" icon="heroicon-o-plus" wire:click="addSection">
-                    {{ __('launchpad::launchpad.buttons.nova_secao') }}
-                </x-filament::button>
+                @if ($mode === 'admin')
+                    <x-filament::button size="sm" icon="heroicon-o-plus" wire:click="addSection">
+                        {{ __('launchpad::launchpad.buttons.nova_secao') }}
+                    </x-filament::button>
+                @endif
             </div>
 
-            @forelse ($page->sections as $section)
+            @forelse ($builderSections as $section)
                 <div
                     class="lp-section"
-                    wire:key="section-{{ $section->id }}"
+                    wire:key="section-{{ $section['id'] }}"
                     x-data="{ over:false }"
                     :class="over && 'lp-section--over'"
-                    data-section-id="{{ $section->id }}"
+                    data-section-id="{{ $section['id'] }}"
                     draggable="false"
                     x-on:dragover.prevent="over = true"
                     x-on:dragleave="over = false"
                     x-on:drop.prevent="
                         over = false;
                         const s = $store.lpDnd;
+                        const sectionId = {{ $section['id'] }};
+                        if (mode === 'user') {
+                            const grid = $el.querySelector('.lp-grid');
+                            const index = window.lpDropIndex(grid, $event.clientX, $event.clientY);
+                            if (s.kind === 'catalogCard') {
+                                $wire.addUserCard(sectionId, s.catalogCardId, index);
+                            } else if (s.kind === 'userCard' && s.sectionId === sectionId) {
+                                $wire.moveUserCard(sectionId, s.cardId, index);
+                            }
+                            s.clear();
+                            return;
+                        }
                         if (s.kind === 'section') {
-                            if (s.sectionId !== {{ $section->id }}) {
-                                $wire.reorderSections(window.lpSectionOrder($el.closest('.lp-build__canvas'), s.sectionId, {{ $section->id }}));
+                            if (s.sectionId !== sectionId) {
+                                $wire.reorderSections(window.lpSectionOrder($el.closest('.lp-build__canvas'), s.sectionId, sectionId));
                             }
                             s.clear();
                             return;
@@ -125,98 +149,129 @@
                         const grid = $el.querySelector('.lp-grid');
                         const index = window.lpDropIndex(grid, $event.clientX, $event.clientY);
                         if (s.kind === 'preset') {
-                            $wire.addCardFromLibrary({{ $section->id }}, s.presetKey, index);
+                            $wire.addCardFromLibrary(sectionId, s.presetKey, index);
                         } else if (s.kind === 'widget') {
-                            $wire.addWidgetFromLibrary({{ $section->id }}, s.widgetKey, index);
+                            $wire.addWidgetFromLibrary(sectionId, s.widgetKey, index);
                         } else if (s.kind === 'catalogCard') {
-                            $wire.attachCardFromCatalog({{ $section->id }}, s.catalogCardId, index);
+                            $wire.attachCardFromCatalog(sectionId, s.catalogCardId, index);
                         } else if (s.kind === 'card') {
-                            $wire.moveCard(s.cardId, s.sectionId, {{ $section->id }}, index);
+                            $wire.moveCard(s.cardId, s.sectionId, sectionId, index);
                         }
                         s.clear();
                     "
                 >
                     <div class="lp-section__head">
-                        <span class="lp-handle"
-                              draggable="true"
-                              title="{{ __('launchpad::launchpad.builder.label_arrastar_secao') }}"
-                              x-on:dragstart="$store.lpDnd.startSection({{ $section->id }}); $event.dataTransfer.setData('text/plain','section:{{ $section->id }}')"
-                              x-on:dragend="$store.lpDnd.clear()"
-                        >⠿</span>
-                        <input
-                            type="text"
-                            class="lp-section__title"
-                            value="{{ $section->title }}"
-                            x-on:change="$wire.renameSection({{ $section->id }}, $event.target.value)"
-                            x-on:keydown.enter.prevent="$event.target.blur()"
-                        />
-                        <span class="lp-count">{{ $section->cards->count() }} {{ Str::plural('card', $section->cards->count()) }}</span>
-                        <button type="button" class="lp-del"
-                                wire:click="mountAction('deleteSection', { section: {{ $section->id }} })">{{ __('launchpad::launchpad.buttons.eliminar') }}</button>
+                        @if ($mode === 'admin')
+                            <span class="lp-handle"
+                                  draggable="true"
+                                  title="{{ __('launchpad::launchpad.builder.label_arrastar_secao') }}"
+                                  x-on:dragstart="$store.lpDnd.startSection({{ $section['id'] }}); $event.dataTransfer.setData('text/plain','section:{{ $section['id'] }}')"
+                                  x-on:dragend="$store.lpDnd.clear()"
+                            >⠿</span>
+                            <input
+                                type="text"
+                                class="lp-section__title"
+                                value="{{ $section['title'] }}"
+                                x-on:change="$wire.renameSection({{ $section['id'] }}, $event.target.value)"
+                                x-on:keydown.enter.prevent="$event.target.blur()"
+                            />
+                        @else
+                            <span class="lp-section__title--static">{{ $section['title'] }}</span>
+                        @endif
+                        <span class="lp-count">{{ count($section['cards']) }} {{ Str::plural('card', count($section['cards'])) }}</span>
+                        @if ($mode === 'admin')
+                            <button type="button" class="lp-del"
+                                    wire:click="mountAction('deleteSection', { section: {{ $section['id'] }} })">{{ __('launchpad::launchpad.buttons.eliminar') }}</button>
+                        @endif
                     </div>
 
-                    <div class="lp-grid" data-section-id="{{ $section->id }}">
-                        @forelse ($section->cards as $card)
+                    <div class="lp-grid" data-section-id="{{ $section['id'] }}">
+                        @forelse ($section['cards'] as $card)
+                            @php
+                                $locked = $card['locked'] ?? false;
+                                $isWidget = ($card['type'] ?? null) === 'widget';
+                                $draggable = ! $locked;
+                            @endphp
                             <div
-                                class="lp-tile @if ($card->type === 'widget') lp-tile--widget @endif"
-                                wire:key="card-{{ $section->id }}-{{ $card->id }}"
-                                data-card-id="{{ $card->id }}"
-                                draggable="true"
-                                x-on:dragstart="$store.lpDnd.startCard({{ $card->id }}, {{ $section->id }}); $event.dataTransfer.setData('text/plain','card:{{ $card->id }}'); $el.classList.add('lp-tile--dragging')"
-                                x-on:dragend="$el.classList.remove('lp-tile--dragging')"
-                                wire:click="mountAction('editCard', { card: {{ $card->id }} })"
+                                class="lp-tile @if ($isWidget) lp-tile--widget @endif @if ($locked) lp-tile--locked @endif"
+                                wire:key="card-{{ $section['id'] }}-{{ $card['origin'] }}-{{ $card['id'] }}"
+                                data-card-id="{{ $card['id'] }}"
+                                draggable="{{ $draggable ? 'true' : 'false' }}"
+                                @if ($draggable && $mode === 'admin')
+                                    x-on:dragstart="$store.lpDnd.startCard({{ $card['id'] }}, {{ $section['id'] }}); $event.dataTransfer.setData('text/plain','card:{{ $card['id'] }}'); $el.classList.add('lp-tile--dragging')"
+                                    x-on:dragend="$el.classList.remove('lp-tile--dragging')"
+                                @elseif ($draggable && $mode === 'user')
+                                    x-on:dragstart="$store.lpDnd.startUserCard({{ $card['id'] }}, {{ $section['id'] }}); $event.dataTransfer.setData('text/plain','user-card:{{ $card['id'] }}'); $el.classList.add('lp-tile--dragging')"
+                                    x-on:dragend="$el.classList.remove('lp-tile--dragging')"
+                                @endif
+                                @if ($mode === 'admin')
+                                    wire:click="mountAction('editCard', { card: {{ $card['id'] }} })"
+                                @endif
                             >
-                                {{-- Non-destructive: only detaches this card from THIS
-                                     section (removeCard), never deletes the Card — so no
-                                     confirmation modal, the removal is instant. --}}
-                                <button type="button" class="lp-tile__x"
-                                        x-on:click.stop="$wire.removeCard({{ $section->id }}, {{ $card->id }})"
-                                        title="{{ __('launchpad::launchpad.buttons.remover') }}">&times;</button>
-
-                                @if (filled($card->badge))
-                                    <span class="lp-tile__badge">{{ $card->badge }}</span>
+                                @if ($mode === 'admin')
+                                    <button type="button" class="lp-tile__x"
+                                            x-on:click.stop="$wire.removeCard({{ $section['id'] }}, {{ $card['id'] }})"
+                                            title="{{ __('launchpad::launchpad.buttons.remover') }}">&times;</button>
+                                @elseif ($locked)
+                                    {{-- Utilizador: card fixo do admin — bloqueado --}}
+                                    <span class="lp-tile__lock" title="{{ __('launchpad::launchpad.builder.tag_fixo') }}">@svg('heroicon-s-lock-closed', '', ['style' => 'width:12px;height:12px'])</span>
+                                @else
+                                    {{-- Utilizador: card que ele adicionou — pode remover --}}
+                                    <button type="button" class="lp-tile__x"
+                                            x-on:click.stop="$wire.removeUserCard({{ $section['id'] }}, {{ $card['id'] }})"
+                                            title="{{ __('launchpad::launchpad.buttons.remover') }}">&times;</button>
                                 @endif
 
-                                <div class="lp-tile__title">{{ $card->title }}</div>
-                                @if (filled($card->subtitle))
-                                    <div class="lp-tile__sub">{{ $card->subtitle }}</div>
+                                @if (filled($card['badge'] ?? null))
+                                    <span class="lp-tile__badge">{{ $card['badge'] }}</span>
+                                @endif
+
+                                <div class="lp-tile__title">{{ $card['title'] }}</div>
+                                @if (filled($card['subtitle'] ?? null))
+                                    <div class="lp-tile__sub">{{ $card['subtitle'] }}</div>
                                 @endif
                                 <div style="flex:1"></div>
 
-                                @if ($card->type === 'widget')
+                                @if ($isWidget)
                                     <div style="display:flex;align-items:flex-end;justify-content:space-between">
-                                        @if (filled($card->icon))
-                                            @svg($card->icon, '', ['style' => 'width:24px;height:24px;color:var(--lp-icon-muted)'])
+                                        @if (filled($card['icon'] ?? null))
+                                            @svg($card['icon'], '', ['style' => 'width:24px;height:24px;color:var(--lp-icon-muted)'])
                                         @endif
                                         <span class="lp-lib__tag lp-lib__tag--widget lp-tile__widget-tag">{{ __('launchpad::launchpad.card_types.widget') }}</span>
                                     </div>
-                                @elseif ($card->type === 'kpi')
+                                @elseif (($card['type'] ?? null) === 'kpi')
                                     <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px">
                                         <div style="min-width:0">
                                             <div style="display:flex;align-items:baseline;gap:4px">
-                                                <span class="lp-tile__kpi">{{ $card->kpi_value ?: '—' }}</span>
-                                                @if (filled($card->unit))
-                                                    <span class="lp-tile__unit">{{ $card->unit }}</span>
+                                                <span class="lp-tile__kpi">{{ $card['kpi_value'] ?: '—' }}</span>
+                                                @if (filled($card['unit'] ?? null))
+                                                    <span class="lp-tile__unit">{{ $card['unit'] }}</span>
                                                 @endif
                                             </div>
-                                            @if (filled($card->trend))
-                                                <div class="lp-tile__trend" style="color:var(--lp-muted)">{{ $card->trend }}</div>
+                                            @if (filled($card['trend'] ?? null))
+                                                <div class="lp-tile__trend" style="color:var(--lp-muted)">{{ $card['trend'] }}</div>
                                             @endif
                                         </div>
-                                        @if (filled($card->icon))
-                                            @svg($card->icon, '', ['style' => 'width:20px;height:20px;flex:none;color:var(--lp-icon-muted)'])
+                                        @if (filled($card['icon'] ?? null))
+                                            @svg($card['icon'], '', ['style' => 'width:20px;height:20px;flex:none;color:var(--lp-icon-muted)'])
                                         @endif
                                     </div>
                                 @else
                                     <div style="display:flex;align-items:flex-end;justify-content:space-between">
-                                        @if (filled($card->icon))
-                                            @svg($card->icon, '', ['style' => 'width:28px;height:28px;color:var(--lp-icon-muted)'])
+                                        @if (filled($card['icon'] ?? null))
+                                            @svg($card['icon'], '', ['style' => 'width:28px;height:28px;color:var(--lp-icon-muted)'])
                                         @endif
                                     </div>
                                 @endif
                             </div>
                         @empty
-                            <div class="lp-empty">{{ __('launchpad::launchpad.builder.texto_vazio_grid') }}</div>
+                            <div class="lp-empty">
+                                @if ($mode === 'user')
+                                    {{ __('launchpad::launchpad.builder.texto_vazio_grid_pessoal') }}
+                                @else
+                                    {{ __('launchpad::launchpad.builder.texto_vazio_grid') }}
+                                @endif
+                            </div>
                         @endforelse
                     </div>
                 </div>
@@ -229,57 +284,72 @@
 
         {{-- ========================= BIBLIOTECA ======================= --}}
         <div class="lp-build__library">
-            <div class="lp-lib">
-                <p class="lp-lib__title">{{ __('launchpad::launchpad.builder.titulo_biblioteca') }}</p>
+            @if ($mode === 'admin')
+                {{-- Presets: CRIAR um card novo (admin only) --}}
+                <div class="lp-lib">
+                    <p class="lp-lib__title">{{ __('launchpad::launchpad.builder.titulo_biblioteca') }}</p>
+
+                    <input
+                        type="search"
+                        class="lp-lib__search"
+                        placeholder="{{ __('launchpad::launchpad.builder.label_pesquisa') }}"
+                        wire:model.live.debounce.300ms="librarySearch"
+                        autocomplete="off"
+                    />
+
+                    <div
+                        class="lp-lib__scroll"
+                        x-data="{ shown: 8 }"
+                        x-on:scroll.passive="if ($el.scrollTop + $el.clientHeight >= $el.scrollHeight - 24) shown += 8"
+                    >
+                        @forelse ($library as $preset)
+                            <div
+                                class="lp-lib__item"
+                                x-show="{{ $loop->index }} < shown"
+                                wire:key="preset-{{ $preset['key'] }}"
+                                draggable="true"
+                                x-on:dragstart="$store.lpDnd.startPreset('{{ $preset['key'] }}'); $event.dataTransfer.setData('text/plain','preset:{{ $preset['key'] }}')"
+                                x-on:dragend="$store.lpDnd.clear()"
+                            >
+                                @if (filled($preset['icon'] ?? null))
+                                    @svg($preset['icon'], '', ['class' => 'lp-lib__ico', 'style' => 'width:18px;height:18px'])
+                                @endif
+                                <span class="lp-lib__name">{{ $preset['title'] ?? $preset['key'] }}</span>
+                                <span class="lp-lib__tag lp-lib__tag--{{ ($preset['type'] ?? 'kpi') === 'kpi' ? 'kpi' : 'shortcut' }}">
+                                    {{ ($preset['type'] ?? 'kpi') === 'kpi' ? __('launchpad::launchpad.card_types.kpi') : __('launchpad::launchpad.card_types.atalho') }}
+                                </span>
+                            </div>
+                        @empty
+                            <p class="lp-lib__empty">
+                                @if (filled(trim($this->librarySearch)))
+                                    {{ __('launchpad::launchpad.builder.sem_cards_pesquisa') }}
+                                @else
+                                    {{ __('launchpad::launchpad.builder.cards_ja_usados') }}
+                                @endif
+                            </p>
+                        @endforelse
+                    </div>
+                </div>
+            @endif
+
+            {{-- Cards Existentes / disponíveis: arrastar para adicionar.
+                 Admin → attachCardFromCatalog; Utilizador → addUserCard. --}}
+            <div class="lp-lib" @if ($mode === 'admin') style="margin-top:14px" @endif>
+                <p class="lp-lib__title">
+                    @if ($mode === 'user')
+                        {{ __('launchpad::launchpad.builder.titulo_disponiveis') }}
+                    @else
+                        {{ __('launchpad::launchpad.builder.titulo_catalogo') }}
+                    @endif
+                </p>
 
                 <input
                     type="search"
                     class="lp-lib__search"
                     placeholder="{{ __('launchpad::launchpad.builder.label_pesquisa') }}"
-                    wire:model.live.debounce.300ms="librarySearch"
+                    wire:model.live.debounce.300ms="catalogSearch"
                     autocomplete="off"
                 />
-
-                <div
-                    class="lp-lib__scroll"
-                    x-data="{ shown: 8 }"
-                    x-on:scroll.passive="if ($el.scrollTop + $el.clientHeight >= $el.scrollHeight - 24) shown += 8"
-                >
-                    @forelse ($library as $preset)
-                        <div
-                            class="lp-lib__item"
-                            x-show="{{ $loop->index }} < shown"
-                            wire:key="preset-{{ $preset['key'] }}"
-                            draggable="true"
-                            x-on:dragstart="$store.lpDnd.startPreset('{{ $preset['key'] }}'); $event.dataTransfer.setData('text/plain','preset:{{ $preset['key'] }}')"
-                            x-on:dragend="$store.lpDnd.clear()"
-                        >
-                            @if (filled($preset['icon'] ?? null))
-                                @svg($preset['icon'], '', ['class' => 'lp-lib__ico', 'style' => 'width:18px;height:18px'])
-                            @endif
-                            <span class="lp-lib__name">{{ $preset['title'] ?? $preset['key'] }}</span>
-                            <span class="lp-lib__tag lp-lib__tag--{{ ($preset['type'] ?? 'kpi') === 'kpi' ? 'kpi' : 'shortcut' }}">
-                                {{ ($preset['type'] ?? 'kpi') === 'kpi' ? __('launchpad::launchpad.card_types.kpi') : __('launchpad::launchpad.card_types.atalho') }}
-                            </span>
-                        </div>
-                    @empty
-                        <p class="lp-lib__empty">
-                            @if (filled(trim($this->librarySearch)))
-                                {{ __('launchpad::launchpad.builder.sem_cards_pesquisa') }}
-                            @else
-                                {{ __('launchpad::launchpad.builder.cards_ja_usados') }}
-                            @endif
-                        </p>
-                    @endforelse
-                </div>
-            </div>
-
-            {{-- Catálogo de cards existentes: qualquer Card já criado (em
-                 qualquer secção, de qualquer página) pode ser arrastado para
-                 outra secção — attachCardFromCatalog() liga o MESMO registo,
-                 nunca cria um novo. --}}
-            <div class="lp-lib" style="margin-top:14px">
-                <p class="lp-lib__title">{{ __('launchpad::launchpad.builder.titulo_catalogo') }}</p>
 
                 <div
                     class="lp-lib__scroll"
@@ -309,8 +379,10 @@
                         </div>
                     @empty
                         <p class="lp-lib__empty">
-                            @if (filled(trim($this->librarySearch)))
+                            @if (filled(trim($this->catalogSearch)))
                                 {{ __('launchpad::launchpad.builder.sem_cards_catalogo_pesquisa') }}
+                            @elseif ($mode === 'user')
+                                {{ __('launchpad::launchpad.builder.sem_cards_disponiveis') }}
                             @else
                                 {{ __('launchpad::launchpad.builder.sem_cards_catalogo') }}
                             @endif
@@ -319,40 +391,50 @@
                 </div>
             </div>
 
-            <div class="lp-lib" style="margin-top:14px">
-                <p class="lp-lib__title">{{ __('launchpad::launchpad.builder.titulo_widgets') }}</p>
+            @if ($mode === 'admin')
+                <div class="lp-lib" style="margin-top:14px">
+                    <p class="lp-lib__title">{{ __('launchpad::launchpad.builder.titulo_widgets') }}</p>
 
-                <div
-                    class="lp-lib__scroll"
-                    x-data="{ shown: 8 }"
-                    x-on:scroll.passive="if ($el.scrollTop + $el.clientHeight >= $el.scrollHeight - 24) shown += 8"
-                >
-                    @forelse ($widgetLibrary as $widget)
-                        <div
-                            class="lp-lib__item"
-                            x-show="{{ $loop->index }} < shown"
-                            wire:key="widget-{{ $widget['key'] }}"
-                            draggable="true"
-                            x-on:dragstart="$store.lpDnd.startWidget('{{ $widget['key'] }}'); $event.dataTransfer.setData('text/plain','widget:{{ $widget['key'] }}')"
-                            x-on:dragend="$store.lpDnd.clear()"
-                        >
-                            @if (filled($widget['icon'] ?? null))
-                                @svg($widget['icon'], '', ['class' => 'lp-lib__ico', 'style' => 'width:18px;height:18px'])
-                            @endif
-                            <span class="lp-lib__name">{{ $widget['label'] ?? $widget['key'] }}</span>
-                            <span class="lp-lib__tag lp-lib__tag--widget">{{ __('launchpad::launchpad.card_types.widget') }}</span>
-                        </div>
-                    @empty
-                        <p class="lp-lib__empty">
-                            @if (filled(trim($this->librarySearch)))
-                                {{ __('launchpad::launchpad.builder.sem_widgets_pesquisa') }}
-                            @else
-                                {{ __('launchpad::launchpad.builder.sem_widgets_registados') }}
-                            @endif
-                        </p>
-                    @endforelse
+                    <input
+                        type="search"
+                        class="lp-lib__search"
+                        placeholder="{{ __('launchpad::launchpad.builder.label_pesquisa') }}"
+                        wire:model.live.debounce.300ms="widgetSearch"
+                        autocomplete="off"
+                    />
+
+                    <div
+                        class="lp-lib__scroll"
+                        x-data="{ shown: 8 }"
+                        x-on:scroll.passive="if ($el.scrollTop + $el.clientHeight >= $el.scrollHeight - 24) shown += 8"
+                    >
+                        @forelse ($widgetLibrary as $widget)
+                            <div
+                                class="lp-lib__item"
+                                x-show="{{ $loop->index }} < shown"
+                                wire:key="widget-{{ $widget['key'] }}"
+                                draggable="true"
+                                x-on:dragstart="$store.lpDnd.startWidget('{{ $widget['key'] }}'); $event.dataTransfer.setData('text/plain','widget:{{ $widget['key'] }}')"
+                                x-on:dragend="$store.lpDnd.clear()"
+                            >
+                                @if (filled($widget['icon'] ?? null))
+                                    @svg($widget['icon'], '', ['class' => 'lp-lib__ico', 'style' => 'width:18px;height:18px'])
+                                @endif
+                                <span class="lp-lib__name">{{ $widget['label'] ?? $widget['key'] }}</span>
+                                <span class="lp-lib__tag lp-lib__tag--widget">{{ __('launchpad::launchpad.card_types.widget') }}</span>
+                            </div>
+                        @empty
+                            <p class="lp-lib__empty">
+                                @if (filled(trim($this->widgetSearch)))
+                                    {{ __('launchpad::launchpad.builder.sem_widgets_pesquisa') }}
+                                @else
+                                    {{ __('launchpad::launchpad.builder.sem_widgets_registados') }}
+                                @endif
+                            </p>
+                        @endforelse
+                    </div>
                 </div>
-            </div>
+            @endif
         </div>
     </div>
 

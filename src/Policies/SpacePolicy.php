@@ -42,6 +42,10 @@ class SpacePolicy
 
     public function delete(mixed $user, Space $space): bool
     {
+        if ($space->is_default) {
+            return false;
+        }
+
         return LaunchpadPermission::check($user, 'Delete:Space');
     }
 
@@ -57,6 +61,10 @@ class SpacePolicy
 
     public function forceDelete(mixed $user, Space $space): bool
     {
+        if ($space->is_default) {
+            return false;
+        }
+
         return LaunchpadPermission::check($user, 'ForceDelete:Space');
     }
 }
