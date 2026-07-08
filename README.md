@@ -189,7 +189,7 @@ Cards are registered as globally searchable (by title and subtitle) through Fila
 
 ## Configuration
 
-The published config file (`config/launchpad.php`) exposes `branding`, `accent_color`, `dark_header`, and `tile_size`:
+The published config file (`config/launchpad.php`) exposes `branding`, `accent_color`, `dark_header`, and `tile_sizing`:
 
 ```php
 return [
@@ -199,11 +199,16 @@ return [
     ],
     'accent_color' => '#16a34a',
     'dark_header' => false,
-    'tile_size' => 'normal', // 'normal' (176px tiles) or 'compact' (150px tiles)
+    'tile_sizing' => 'fluid', // 'fixed' (6 equal columns, 1/6 row width each) or 'fluid' (auto-fit, minmax 176px)
 ];
 ```
 
-Prefer the fluent plugin API for anything beyond these — `LaunchpadPlugin::make()->accentColor('#16a34a')->tileSize('compact')` — since the config file cannot express closures (live KPIs, widget mappings).
+- **`fixed`**: `repeat(6, 1fr)` — always 6 equal columns, each card exactly 1/6 of row width, no empty space, no stretching.
+- **`fluid`**: `auto-fit minmax(176px, 1fr)` — tiles stretch equally to fill the row, more tiles per row on wider screens.
+
+Both modes use `auto-fit` so empty grid tracks collapse when fewer tiles than columns.
+
+Prefer the fluent plugin API for anything beyond these — `LaunchpadPlugin::make()->accentColor('#16a34a')->tileSizing('fixed')` — since the config file cannot express closures (live KPIs, widget mappings).
 
 ## Permissions & Shield
 
