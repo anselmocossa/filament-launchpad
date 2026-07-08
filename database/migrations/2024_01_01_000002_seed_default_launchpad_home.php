@@ -5,13 +5,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Guarantees exactly one default "Início" Space exists and is non-deletable.
+ * Guarantees exactly one default "Home" Space exists and is non-deletable.
  *
  * Idempotent and upgrade-safe:
  *   - if a default Space already exists, nothing happens;
  *   - if Spaces exist but none is default, the lowest-sorted one is promoted
  *     (so an existing home like "Home" simply becomes the protected default);
- *   - if there are no Spaces at all, a fresh "Início" Space + Page + Section
+ *   - if there are no Spaces at all, a fresh "Home" Space + Page + Section
  *     is created.
  */
 return new class extends Migration
@@ -37,7 +37,7 @@ return new class extends Migration
         $now = now();
 
         $spaceId = DB::table('launchpad_spaces')->insertGetId([
-            'label' => 'Início',
+            'label' => 'Home',
             'icon' => 'heroicon-o-home',
             'is_default' => true,
             'sort' => 0,
@@ -47,7 +47,7 @@ return new class extends Migration
 
         $pageId = DB::table('launchpad_pages')->insertGetId([
             'space_id' => $spaceId,
-            'label' => 'Início',
+            'label' => 'Home',
             'icon' => 'heroicon-o-home',
             'sort' => 0,
             'created_at' => $now,
@@ -56,7 +56,7 @@ return new class extends Migration
 
         DB::table('launchpad_sections')->insert([
             'page_id' => $pageId,
-            'title' => 'Início',
+            'title' => 'Home',
             'sort' => 0,
             'created_at' => $now,
             'updated_at' => $now,
