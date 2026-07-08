@@ -5,8 +5,10 @@ namespace Filament\Launchpad\Pages;
 use Filament\Launchpad\Filament\Concerns\InteractsWithLaunchpadBuilder;
 use Filament\Launchpad\Models\Page as PageModel;
 use Filament\Launchpad\Models\Space as SpaceModel;
+use Filament\Launchpad\Support\LaunchpadPanel;
 use Filament\Launchpad\Support\LaunchpadPermission;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * A standalone shortcut to the drag&drop Builder, always bound to the HOME
@@ -95,11 +97,18 @@ class EditHome extends Page
      */
     protected function resolveHomePage(): ?PageModel
     {
-        return SpaceModel::query()
+        $query = SpaceModel::query()->orderBy('sort');
+
+        if (Schema::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
+            $query->forPanel($panelId);
+        }
+
+        $space = (clone $query)->where('is_default', true)->first()
+            ?? $query->first();
+
+        return $space
+            ?->pages()
             ->orderBy('sort')
-            ->with(['pages' => fn ($query) => $query->orderBy('sort')])
-            ->first()
-            ?->pages
             ->first();
     }
 }

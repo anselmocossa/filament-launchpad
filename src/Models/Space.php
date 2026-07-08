@@ -38,4 +38,13 @@ class Space extends Model
     {
         return $this->hasMany(Page::class, 'space_id')->orderBy('sort');
     }
+
+    public function scopeForPanel($query, ?string $panelId)
+    {
+        if (blank($panelId)) {
+            return $query;
+        }
+
+        return $query->where('panel_id', $panelId);
+    }
 }

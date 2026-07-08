@@ -13,8 +13,21 @@ it('defaults to the design accent color, normal tile size and light header', fun
     expect($plugin->getAccentColor())->toBe('#16a34a')
         ->and($plugin->getTileSize())->toBe('normal')
         ->and($plugin->getTileWidth())->toBe(176)
+        ->and($plugin->getTileSizing())->toBe('fixed')
         ->and($plugin->isDarkHeader())->toBeFalse()
         ->and($plugin->getNotificationCount())->toBe(0);
+});
+
+it('allows KPI/shortcut tiles to stretch across a row when tileSizing is fluid', function () {
+    $plugin = LaunchpadPlugin::make()->tileSizing('fluid');
+
+    expect($plugin->getTileSizing())->toBe('fluid');
+});
+
+it('falls back to fixed tile sizing for unknown values', function () {
+    $plugin = LaunchpadPlugin::make()->tileSizing('invalid');
+
+    expect($plugin->getTileSizing())->toBe('fixed');
 });
 
 it('applies theming overrides fluently', function () {

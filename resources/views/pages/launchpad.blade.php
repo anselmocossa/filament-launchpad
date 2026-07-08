@@ -116,7 +116,15 @@
                             @endforeach
                         </div>
                     @else
-                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax({{ $theme['tileW'] }}px,1fr));gap:14px;margin-bottom:14px">
+                        @php
+                            $tileSizing = $theme['tileSizing'] ?? 'fixed';
+                            $tileW = $theme['tileW'];
+                            $gridColumns = $tileSizing === 'fluid'
+                                ? "repeat(auto-fit,minmax({$tileW}px,1fr))"
+                                : "repeat(auto-fill,{$tileW}px)";
+                            $tileWidth = $tileSizing === 'fluid' ? '100%' : "{$tileW}px";
+                        @endphp
+                        <div style="display:grid;grid-template-columns:{{ $gridColumns }};gap:14px;margin-bottom:14px">
                     @foreach ($row['items'] as $item)
                         @php $tile = $item['tile']; $tileIndex = $item['tileIndex']; @endphp
                         @php $tileTag = filled($tile['href']) ? 'a' : 'button'; @endphp
@@ -128,7 +136,7 @@
                             x-on:mouseleave="hover = false; active = false"
                             x-on:mousedown="active = true"
                             x-on:mouseup="active = false"
-                            x-bind:style="'position:relative;width:100%;box-sizing:border-box;height:{{ $theme['tileW'] }}px;background:var(--lp-surface);border:0;border-radius:12px;padding:14px;display:flex;flex-direction:column;align-items:stretch;text-align:left;cursor:pointer;font-family:inherit;text-decoration:none;transition:box-shadow .15s,transform .15s;box-shadow:' + (hover ? 'var(--lp-shadow-hover)' : 'var(--lp-shadow)') + ';transform:' + (active ? 'scale(.97)' : 'scale(1)')"
+                            x-bind:style="'position:relative;width:{{ $tileWidth }};box-sizing:border-box;height:{{ $tileW }}px;background:var(--lp-surface);border:0;border-radius:12px;padding:14px;display:flex;flex-direction:column;align-items:stretch;text-align:left;cursor:pointer;font-family:inherit;text-decoration:none;transition:box-shadow .15s,transform .15s;box-shadow:' + (hover ? 'var(--lp-shadow-hover)' : 'var(--lp-shadow)') + ';transform:' + (active ? 'scale(.97)' : 'scale(1)')"
                         >
                             @if ($tile['badge'])
                                 @php

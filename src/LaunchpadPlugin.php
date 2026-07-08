@@ -19,6 +19,7 @@ use Filament\Launchpad\Models\Section as SectionModel;
 use Filament\Launchpad\Models\Space as SpaceModel;
 use Filament\Launchpad\Pages\EditHome;
 use Filament\Launchpad\Pages\Launchpad;
+use Filament\Launchpad\Support\LaunchpadPanel;
 use Filament\Launchpad\Support\LaunchpadVisibility;
 use Filament\Navigation\MenuItem;
 use Filament\Panel;
@@ -43,6 +44,13 @@ class LaunchpadPlugin implements Plugin
     protected bool $darkHeader = false;
 
     protected string $tileSize = 'normal';
+
+    /**
+     * KPI/shortcut tile width behaviour: 'fixed' keeps every tile at the
+     * configured square size even when alone in a row; 'fluid' stretches
+     * tiles to share the full row width (legacy behaviour).
+     */
+    protected string $tileSizing = 'fixed';
 
     /**
      * @var array<LaunchpadSpace>
@@ -228,6 +236,24 @@ class LaunchpadPlugin implements Plugin
     }
 
     /**
+     * Controls whether KPI/shortcut tiles keep a fixed square size ('fixed',
+     * default) or stretch to fill the available row width ('fluid').
+     *
+     * Prefer: LaunchpadPlugin::make()->tileSizing('fixed')
+     */
+    public function tileSizing(string $sizing): static
+    {
+        $this->tileSizing = in_array($sizing, ['fixed', 'fluid'], true) ? $sizing : 'fixed';
+
+        return $this;
+    }
+
+    public function getTileSizing(): string
+    {
+        return $this->tileSizing;
+    }
+
+    /**
      * @param  array<LaunchpadSpace>  $spaces
      */
     public function spaces(array $spaces): static
@@ -360,8 +386,13 @@ class LaunchpadPlugin implements Plugin
 
         $userId = auth()->id();
 
-        return SpaceModel::query()
-            ->orderBy('sort')
+        $query = SpaceModel::query()->orderBy('sort');
+
+        if (Schema::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
+            $query->forPanel($panelId);
+        }
+
+        return $query
             ->with([
                 'pages.sections' => fn ($query) => $query
                     ->where(function ($query) use ($userId) {

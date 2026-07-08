@@ -35,6 +35,7 @@ class LaunchpadServiceProvider extends PackageServiceProvider
             ->hasMigrations([
                 '2024_01_01_000001_create_launchpad_tables',
                 '2024_01_01_000002_seed_default_launchpad_home',
+                '2024_01_01_000003_add_panel_id_to_launchpad_spaces_table',
             ])
             ->runsMigrations();
     }

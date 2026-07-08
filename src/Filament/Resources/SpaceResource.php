@@ -13,6 +13,7 @@ use Filament\Launchpad\Filament\Resources\SpaceResource\Pages\EditSpace;
 use Filament\Launchpad\Filament\Resources\SpaceResource\Pages\ListSpaces;
 use Filament\Launchpad\Filament\Resources\SpaceResource\RelationManagers\PagesRelationManager;
 use Filament\Launchpad\Models\Space;
+use Filament\Launchpad\Support\LaunchpadPanel;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -20,6 +21,8 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema as SchemaFacade;
 
 class SpaceResource extends Resource
 {
@@ -31,6 +34,8 @@ class SpaceResource extends Resource
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedSquares2x2;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Launchpad';
+
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function getModelLabel(): string
     {
@@ -99,6 +104,17 @@ class SpaceResource extends Resource
         return [
             PagesRelationManager::class,
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (SchemaFacade::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
+            $query->where('panel_id', $panelId);
+        }
+
+        return $query;
     }
 
     public static function getPages(): array

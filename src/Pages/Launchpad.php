@@ -189,6 +189,7 @@ class Launchpad extends Page
         return [
             'accent' => $plugin->getAccentColor(),
             'tileW' => $plugin->getTileWidth(),
+            'tileSizing' => $plugin->getTileSizing(),
         ];
     }
 
