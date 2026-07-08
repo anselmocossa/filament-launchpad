@@ -119,7 +119,9 @@
                         @php
                             $tileSizing = $theme['tileSizing'] ?? 'fixed';
                             $tileW = $theme['tileW'];
-                            $gridColumns = "repeat(6,1fr)";
+                            $gridColumns = $tileSizing === 'fluid'
+                                ? "repeat(auto-fit,minmax({$tileW}px,1fr))"
+                                : "repeat(6,1fr)";
                             $tileWidth = '100%';
                         @endphp
                         <div style="display:grid;grid-template-columns:{{ $gridColumns }};gap:14px;margin-bottom:14px">
