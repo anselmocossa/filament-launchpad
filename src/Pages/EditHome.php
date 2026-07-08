@@ -7,6 +7,7 @@ use Filament\Launchpad\Models\Page as PageModel;
 use Filament\Launchpad\Models\Space as SpaceModel;
 use Filament\Launchpad\Support\LaunchpadPanel;
 use Filament\Launchpad\Support\LaunchpadPermission;
+use Filament\Launchpad\Support\LaunchpadUrl;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Schema;
 
@@ -59,7 +60,7 @@ class EditHome extends Page
     public function mount(): void
     {
         if (! $this->resolveHomePage() instanceof PageModel) {
-            $this->redirect(Launchpad::getUrl());
+            $this->redirect(LaunchpadUrl::panelHome());
         }
     }
 

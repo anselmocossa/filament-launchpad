@@ -8,7 +8,7 @@ use Filament\Launchpad\Filament\Resources\CardResource\Pages\ListCards;
 use Filament\Launchpad\Filament\Resources\Concerns\HasCardForm;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadIconOptions;
 use Filament\Launchpad\Models\Card;
-use Filament\Launchpad\Pages\Launchpad;
+use Filament\Launchpad\Support\LaunchpadUrl;
 use Filament\Launchpad\Support\LaunchpadVisibility;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\IconColumn;
@@ -122,7 +122,7 @@ class CardResource extends Resource
         }
 
         try {
-            return Launchpad::getUrl();
+            return LaunchpadUrl::panelHome();
         } catch (Throwable) {
             return null;
         }

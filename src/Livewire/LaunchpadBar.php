@@ -5,7 +5,7 @@ namespace Filament\Launchpad\Livewire;
 use Filament\Launchpad\Launchpad\LaunchpadPage;
 use Filament\Launchpad\Launchpad\LaunchpadSpace;
 use Filament\Launchpad\LaunchpadPlugin;
-use Filament\Launchpad\Pages\Launchpad;
+use Filament\Launchpad\Support\LaunchpadUrl;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -106,7 +106,7 @@ class LaunchpadBar extends Component
 
     protected function redirectToLaunchpadWhenNeeded(): void
     {
-        $url = Launchpad::getUrl([
+        $url = LaunchpadUrl::panelHome([
             'space' => $this->activeSpace,
             'page' => $this->activePage,
         ]);

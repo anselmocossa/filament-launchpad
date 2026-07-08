@@ -111,7 +111,7 @@ class SpaceResource extends Resource
         $query = parent::getEloquentQuery();
 
         if (SchemaFacade::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
-            $query->where('panel_id', $panelId);
+            $query->forPanel($panelId);
         }
 
         return $query;

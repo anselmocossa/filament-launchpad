@@ -8,6 +8,7 @@ use Filament\Launchpad\Models\Page;
 use Filament\Launchpad\Models\Section;
 use Filament\Launchpad\Models\Space;
 use Filament\Launchpad\Pages\Launchpad;
+use Filament\Launchpad\Support\LaunchpadUrl;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -54,16 +55,16 @@ it('never registers navigation', function () {
     expect(CardResource::shouldRegisterNavigation())->toBeFalse();
 });
 
-it('resolves the launchpad url when target_type is none', function () {
+it('resolves the panel home url when target_type is none', function () {
     $card = makeCard(['target_type' => 'none', 'target_value' => null]);
 
-    expect(CardResource::getGlobalSearchResultUrl($card))->toBe(Launchpad::getUrl());
+    expect(CardResource::getGlobalSearchResultUrl($card))->toBe(LaunchpadUrl::panelHome());
 });
 
-it('resolves the launchpad url when target_value is blank', function () {
+it('resolves the panel home url when target_value is blank', function () {
     $card = makeCard(['target_type' => 'url', 'target_value' => null]);
 
-    expect(CardResource::getGlobalSearchResultUrl($card))->toBe(Launchpad::getUrl());
+    expect(CardResource::getGlobalSearchResultUrl($card))->toBe(LaunchpadUrl::panelHome());
 });
 
 it('resolves a plain url target', function () {
@@ -91,13 +92,13 @@ it('resolves a page target via its url', function () {
     expect(CardResource::getGlobalSearchResultUrl($card))->toBe(Launchpad::getUrl());
 });
 
-it('falls back to the launchpad url when the target class does not exist', function () {
+it('falls back to the panel home url when the target class does not exist', function () {
     $card = makeCard([
         'target_type' => 'resource',
         'target_value' => 'App\\Filament\\Resources\\DoesNotExistResource',
     ]);
 
-    expect(CardResource::getGlobalSearchResultUrl($card))->toBe(Launchpad::getUrl());
+    expect(CardResource::getGlobalSearchResultUrl($card))->toBe(LaunchpadUrl::panelHome());
 });
 
 it('shows where the card lives in the global search result details', function () {

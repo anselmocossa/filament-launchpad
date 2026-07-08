@@ -45,6 +45,9 @@ class Space extends Model
             return $query;
         }
 
-        return $query->where('panel_id', $panelId);
+        return $query->where(function ($query) use ($panelId): void {
+            $query->where('panel_id', $panelId)
+                ->orWhereNull('panel_id');
+        });
     }
 }

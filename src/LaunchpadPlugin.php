@@ -20,6 +20,7 @@ use Filament\Launchpad\Models\Space as SpaceModel;
 use Filament\Launchpad\Pages\EditHome;
 use Filament\Launchpad\Pages\Launchpad;
 use Filament\Launchpad\Support\LaunchpadPanel;
+use Filament\Launchpad\Support\LaunchpadUrl;
 use Filament\Launchpad\Support\LaunchpadVisibility;
 use Filament\Navigation\MenuItem;
 use Filament\Panel;
@@ -149,7 +150,7 @@ class LaunchpadPlugin implements Plugin
             return EditHome::getUrl();
         }
 
-        return Launchpad::getUrl();
+        return LaunchpadUrl::panelHome();
     }
 
     /**
