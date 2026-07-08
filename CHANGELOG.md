@@ -8,6 +8,7 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 - Avoided `Route [filament.{panel}.pages..] not defined` when the Launchpad page uses the root `/` slug and another panel page owns the panel home route.
 - The global sub-nav and fallback card URLs now use the current Filament panel root URL instead of the generated Launchpad page route name.
 - `Edit Home` now treats legacy `launchpad_spaces.panel_id = null` rows as global fallback rows for the current panel, preventing false "no home page" redirects after upgrading existing installations.
+- Page access remains allowed until the corresponding Shield permission row is generated, preventing `403 Forbidden` immediately after installing/updating the plugin.
 
 ## 1.2.1 - 2026-07-08
 

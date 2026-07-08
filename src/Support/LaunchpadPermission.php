@@ -12,12 +12,16 @@ use Throwable;
  * WITHOUT ever requiring either package: absent spatie/laravel-permission,
  * every ability is granted — exactly today's (pre-Phase E.2) behaviour.
  *
- * Once spatie/laravel-permission is present, an ability (e.g. `View:Space`,
- * `View:Launchpad`) is granted when:
+ * Once spatie/laravel-permission is present and the ability exists in the
+ * permissions table, an ability (e.g. `View:Space`, `View:Launchpad`) is
+ * granted when:
  *   - the user holds the Shield `super_admin` role, or
  *   - the user's own `can()` (bridged by spatie/laravel-permission's own
  *     Gate::before, or by filament-shield's, when either is booted) grants
  *     the named permission.
+ *
+ * If the permission row has not been generated yet, access stays allowed.
+ * This keeps upgrades safe until the host app regenerates Shield permissions.
  *
  * The super_admin check is duplicated here (rather than relying solely on
  * filament-shield's own Gate::before) because this class must also behave
@@ -50,6 +54,10 @@ class LaunchpadPermission
             return true;
         }
 
+        if (! static::permissionExists($ability)) {
+            return true;
+        }
+
         try {
             return (bool) $user->can($ability);
         } catch (Throwable) {
@@ -57,6 +65,23 @@ class LaunchpadPermission
             // down — degrade to "allowed", the same as if the ability were
             // never checked at all.
             return true;
+        }
+    }
+
+    protected static function permissionExists(string $ability): bool
+    {
+        $permissionClass = config('permission.models.permission');
+
+        if (! is_string($permissionClass) || ! class_exists($permissionClass) || ! method_exists($permissionClass, 'query')) {
+            return false;
+        }
+
+        try {
+            return (bool) $permissionClass::query()
+                ->where('name', $ability)
+                ->exists();
+        } catch (Throwable) {
+            return false;
         }
     }
 

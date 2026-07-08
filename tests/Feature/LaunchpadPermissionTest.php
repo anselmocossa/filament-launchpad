@@ -26,6 +26,12 @@ it('grants a guest (no user) even once spatie/laravel-permission is available, m
     expect(LaunchpadPermission::check(null, 'View:Space'))->toBeTrue();
 });
 
+it('grants a user when the requested permission has not been generated yet', function () {
+    $user = TestUser::create(['name' => 'Sem Permissão Gerada']);
+
+    expect(LaunchpadPermission::check($user, 'View:EditHome'))->toBeTrue();
+});
+
 it('grants a user holding the permission and denies one who does not', function () {
     Permission::create(['name' => 'View:Space', 'guard_name' => 'web']);
 
