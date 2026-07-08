@@ -296,6 +296,10 @@ trait InteractsWithLaunchpadBuilder
 
     public function addSection(): void
     {
+        if ($this->isPersonalMode()) {
+            return;
+        }
+
         $nextSort = ((int) Section::query()->where('page_id', $this->builderPage()->id)->max('sort')) + 1;
 
         Section::query()->create([
@@ -307,6 +311,10 @@ trait InteractsWithLaunchpadBuilder
 
     public function renameSection(int|string $sectionId, string $title): void
     {
+        if ($this->isPersonalMode()) {
+            return;
+        }
+
         $section = $this->ownedSection($sectionId);
 
         if (! $section) {
@@ -324,6 +332,10 @@ trait InteractsWithLaunchpadBuilder
 
     public function deleteSection(int|string $sectionId): void
     {
+        if ($this->isPersonalMode()) {
+            return;
+        }
+
         $section = $this->ownedSection($sectionId);
 
         if (! $section) {
@@ -343,6 +355,10 @@ trait InteractsWithLaunchpadBuilder
      */
     public function reorderSections(array $orderedIds): void
     {
+        if ($this->isPersonalMode()) {
+            return;
+        }
+
         $ownedIds = Section::query()
             ->where('page_id', $this->builderPage()->id)
             ->pluck('id')

@@ -112,6 +112,23 @@ it('lets users add existing available widget cards without creating new widgets'
         ->and(UserCard::query()->where('user_id', auth()->id())->where('card_id', $widget->id)->exists())->toBeTrue();
 });
 
+it('does not let Editar Início create or manage sections', function () {
+    $home = homePage();
+    $first = Section::query()->create(['page_id' => $home->id, 'title' => 'Primeira', 'sort' => 0]);
+    $second = Section::query()->create(['page_id' => $home->id, 'title' => 'Segunda', 'sort' => 1]);
+
+    Livewire::test(EditHome::class)
+        ->call('addSection')
+        ->call('renameSection', $first->id, 'Mudou')
+        ->call('reorderSections', [$second->id, $first->id])
+        ->call('deleteSection', $first->id);
+
+    expect($home->sections()->count())->toBe(2)
+        ->and($first->refresh()->title)->toBe('Primeira')
+        ->and($first->refresh()->sort)->toBe(0)
+        ->and($second->refresh()->sort)->toBe(1);
+});
+
 it('removes only the current user card from the home page, without deleting the catalog card', function () {
     $home = homePage();
     $section = Section::query()->create(['page_id' => $home->id, 'title' => 'S', 'sort' => 0]);
