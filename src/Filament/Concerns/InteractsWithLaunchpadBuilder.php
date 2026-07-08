@@ -245,19 +245,29 @@ trait InteractsWithLaunchpadBuilder
             });
 
         if ($this->isPersonalMode()) {
-            // The user may only add AVAILABLE (non-pinned) cards that the admin
-            // placed on this page's sections — never widgets, never pinned
-            // cards, never arbitrary cards from other pages.
+            // The user may only add AVAILABLE (non-pinned) cards/widgets that
+            // the admin placed on this page's sections. Already-added items
+            // are hidden from this catalog for the current user.
             $sectionIds = $this->getPageModel()->sections->pluck('id');
+            $userId = $this->currentUserId();
 
-            $query->where('type', '!=', 'widget')
-                ->whereExists(function ($sub) use ($sectionIds) {
+            $query->whereExists(function ($sub) use ($sectionIds) {
+                $sub->selectRaw('1')
+                    ->from('launchpad_section_card')
+                    ->whereColumn('launchpad_section_card.card_id', 'launchpad_cards.id')
+                    ->whereIn('launchpad_section_card.section_id', $sectionIds)
+                    ->where('launchpad_section_card.is_pinned', false);
+            });
+
+            if ($userId !== null) {
+                $query->whereNotExists(function ($sub) use ($sectionIds, $userId) {
                     $sub->selectRaw('1')
-                        ->from('launchpad_section_card')
-                        ->whereColumn('launchpad_section_card.card_id', 'launchpad_cards.id')
-                        ->whereIn('launchpad_section_card.section_id', $sectionIds)
-                        ->where('launchpad_section_card.is_pinned', false);
+                        ->from('launchpad_user_cards')
+                        ->whereColumn('launchpad_user_cards.card_id', 'launchpad_cards.id')
+                        ->whereIn('launchpad_user_cards.section_id', $sectionIds)
+                        ->where('launchpad_user_cards.user_id', $userId);
                 });
+            }
         }
 
         return $query

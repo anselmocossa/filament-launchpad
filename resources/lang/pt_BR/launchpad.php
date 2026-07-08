@@ -105,7 +105,7 @@ return [
         'sem_cards_catalogo_pesquisa' => 'Nenhum card existente corresponde à pesquisa.',
         'sem_cards_catalogo' => 'Ainda não há cards criados.',
         'instrucao_pessoal' => 'Adicione cards disponíveis ao seu Início e arraste para reordenar. Os cards fixos são definidos pela administração.',
-        'titulo_disponiveis' => 'Cards Disponíveis',
+        'titulo_disponiveis' => 'Cards e Widgets Disponíveis',
         'sem_cards_disponiveis' => 'Não há cards disponíveis para adicionar.',
         'texto_vazio_grid_pessoal' => 'Arraste um card disponível para aqui',
         'tag_fixo' => 'Fixo',

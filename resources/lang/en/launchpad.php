@@ -105,7 +105,7 @@ return [
         'sem_cards_catalogo_pesquisa' => 'No existing cards match the search.',
         'sem_cards_catalogo' => 'No cards created yet.',
         'instrucao_pessoal' => 'Add available cards to your home and drag to reorder. Fixed cards are set by the administrators.',
-        'titulo_disponiveis' => 'Available Cards',
+        'titulo_disponiveis' => 'Available Cards and Widgets',
         'sem_cards_disponiveis' => 'No cards available to add.',
         'texto_vazio_grid_pessoal' => 'Drag an available card here',
         'tag_fixo' => 'Fixed',

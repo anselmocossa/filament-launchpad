@@ -34,6 +34,18 @@ function editHomeCardTitles(object $component): array
         ->all();
 }
 
+function editHomeCatalogTitles(object $component): array
+{
+    $instance = $component->instance();
+    $method = new ReflectionMethod($instance, 'getCardCatalog');
+    $method->setAccessible(true);
+
+    return collect($method->invoke($instance))
+        ->pluck('title')
+        ->values()
+        ->all();
+}
+
 it('renders the standalone Editar Início page with no resource breadcrumb', function () {
     $page = homePage();
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Favoritos', 'sort' => 0]);
@@ -41,7 +53,7 @@ it('renders the standalone Editar Início page with no resource breadcrumb', fun
 
     $component = Livewire::test(EditHome::class)
         ->assertOk()
-        ->assertSee('Cards Disponíveis')
+        ->assertSee('Cards e Widgets Disponíveis')
         ->assertSee('Favoritos');
 
     expect($component->instance()->getBreadcrumbs())->toBe([])
@@ -61,6 +73,43 @@ it('operates on the home page personal layer when adding an available card', fun
         ->call('addUserCard', $section->id, $card->id, null);
 
     expect(UserCard::query()->where('user_id', auth()->id())->where('section_id', $section->id)->where('card_id', $card->id)->exists())->toBeTrue();
+});
+
+it('hides already added cards from the personal available catalog', function () {
+    $home = homePage();
+    $section = Section::query()->create(['page_id' => $home->id, 'title' => 'S', 'sort' => 0]);
+    $card = $section->cards()->create(['title' => 'Novo', 'type' => 'kpi'], ['sort' => 0, 'is_pinned' => false]);
+
+    $before = Livewire::test(EditHome::class);
+    expect(editHomeCatalogTitles($before))->toContain('Novo');
+
+    Livewire::test(EditHome::class)
+        ->call('addUserCard', $section->id, $card->id, null);
+
+    $after = Livewire::test(EditHome::class);
+    expect(editHomeCatalogTitles($after))->not->toContain('Novo')
+        ->and(editHomeCardTitles($after))->toContain('Novo');
+});
+
+it('lets users add existing available widget cards without creating new widgets', function () {
+    $home = homePage();
+    $section = Section::query()->create(['page_id' => $home->id, 'title' => 'S', 'sort' => 0]);
+    $widget = $section->cards()->create([
+        'title' => 'Info Learn Way Widget',
+        'type' => 'widget',
+        'widget_key' => 'test-stats-widget',
+        'widget_column_span' => '6',
+        'target_type' => 'none',
+    ], ['sort' => 0, 'is_pinned' => false]);
+
+    $before = Livewire::test(EditHome::class);
+    expect(editHomeCatalogTitles($before))->toContain('Info Learn Way Widget');
+
+    Livewire::test(EditHome::class)
+        ->call('addUserCard', $section->id, $widget->id, null);
+
+    expect(Card::query()->where('type', 'widget')->count())->toBe(1)
+        ->and(UserCard::query()->where('user_id', auth()->id())->where('card_id', $widget->id)->exists())->toBeTrue();
 });
 
 it('removes only the current user card from the home page, without deleting the catalog card', function () {
