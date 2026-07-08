@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('launchpad_sections', function (Blueprint $table) {
             $table->id();
             $table->foreignId('page_id')->constrained('launchpad_pages')->cascadeOnDelete();
+            $table->unsignedBigInteger('user_id')->nullable()->index();
             $table->string('title');
             $table->integer('sort')->default(0);
             $table->timestamps();
