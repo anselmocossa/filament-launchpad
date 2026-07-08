@@ -8,10 +8,10 @@
            catálogo para o utilizador adicionar).
 
          - PESSOAL ($mode==='user', EditHome): o utilizador final personaliza
-           o SEU Início. NÃO cria nem edita cards, NÃO gere secções. Só:
-           adicionar cards DISPONÍVEIS do catálogo (grava em
-           launchpad_user_cards), reordenar e remover os SEUS. Os cards fixos
-           do admin aparecem bloqueados (sem ×, sem arrastar, sem editar).
+           o SEU Início. NÃO cria nem edita cards globais. Pode criar secções
+           próprias, adicionar cards do catálogo (grava em launchpad_user_cards),
+           reordenar e remover os SEUS. Os cards/secções fixos do admin aparecem
+           bloqueados.
 
          Drag&drop = HTML5 Drag and Drop API nativa (sem libs). O store Alpine
          `$store.lpDnd` guarda o payload; o drop calcula o índice e chama o
@@ -107,17 +107,15 @@
                         {{ __('launchpad::launchpad.builder.instrucao_principal') }}
                     @endif
                 </p>
-                @if ($mode === 'admin')
-                    <x-filament::button size="sm" icon="heroicon-o-plus" wire:click="addSection">
-                        {{ __('launchpad::launchpad.buttons.nova_secao') }}
-                    </x-filament::button>
-                @endif
+                <x-filament::button size="sm" icon="heroicon-o-plus" wire:click="addSection">
+                    {{ __('launchpad::launchpad.buttons.nova_secao') }}
+                </x-filament::button>
             </div>
 
             @forelse ($builderSections as $section)
                 <div
                     class="lp-section"
-                    wire:key="section-{{ $section['id'] }}"
+                    wire:key="section-{{ $section['owner'] ?? 'admin' }}-{{ $section['id'] }}"
                     x-data="{ over:false }"
                     :class="over && 'lp-section--over'"
                     data-section-id="{{ $section['id'] }}"
@@ -129,6 +127,13 @@
                         const s = $store.lpDnd;
                         const sectionId = {{ $section['id'] }};
                         if (mode === 'user') {
+                            if (s.kind === 'section') {
+                                if (s.sectionId !== sectionId) {
+                                    $wire.reorderSections(window.lpSectionOrder($el.closest('.lp-build__canvas'), s.sectionId, sectionId));
+                                }
+                                s.clear();
+                                return;
+                            }
                             const grid = $el.querySelector('.lp-grid');
                             const index = window.lpDropIndex(grid, $event.clientX, $event.clientY);
                             if (s.kind === 'catalogCard') {
@@ -161,7 +166,12 @@
                     "
                 >
                     <div class="lp-section__head">
-                        @if ($mode === 'admin')
+                        @php
+                            $sectionOwnedByUser = $mode === 'user' && (($section['owner'] ?? 'admin') === 'user');
+                            $sectionEditable = $mode === 'admin' || $sectionOwnedByUser;
+                        @endphp
+
+                        @if ($sectionEditable)
                             <span class="lp-handle"
                                   draggable="true"
                                   title="{{ __('launchpad::launchpad.builder.label_arrastar_secao') }}"
@@ -179,7 +189,7 @@
                             <span class="lp-section__title--static">{{ $section['title'] }}</span>
                         @endif
                         <span class="lp-count">{{ count($section['cards']) }} {{ Str::plural('card', count($section['cards'])) }}</span>
-                        @if ($mode === 'admin')
+                        @if ($sectionEditable)
                             <button type="button" class="lp-del"
                                     wire:click="mountAction('deleteSection', { section: {{ $section['id'] }} })">{{ __('launchpad::launchpad.buttons.eliminar') }}</button>
                         @endif

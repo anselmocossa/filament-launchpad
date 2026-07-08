@@ -40,6 +40,7 @@ it('runs the full launchpad migration stack in the consuming app', function () {
     expect(Schema::hasColumns('launchpad_sections', [
         'id',
         'page_id',
+        'user_id',
         'title',
         'sort',
         'created_at',

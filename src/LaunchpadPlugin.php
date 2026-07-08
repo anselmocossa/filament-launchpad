@@ -363,12 +363,22 @@ class LaunchpadPlugin implements Plugin
         return SpaceModel::query()
             ->orderBy('sort')
             ->with([
-                'pages.sections.cards',
-                // Only the viewing user's own personalisation rows are loaded,
-                // so each user's launchpad renders their own added cards.
-                'pages.sections.userCards' => fn ($query) => $query
-                    ->when($userId !== null, fn ($q) => $q->where('user_id', $userId), fn ($q) => $q->whereRaw('1 = 0'))
-                    ->with('card'),
+                'pages.sections' => fn ($query) => $query
+                    ->where(function ($query) use ($userId) {
+                        $query->whereNull('user_id')
+                            ->when($userId !== null, fn ($query) => $query->orWhere('user_id', $userId));
+                    })
+                    ->orderByRaw('case when user_id is null then 0 else 1 end')
+                    ->orderBy('sort')
+                    ->with([
+                        'cards',
+                        // Only the viewing user's own personalisation rows are
+                        // loaded, so each user's launchpad renders their own
+                        // added cards.
+                        'userCards' => fn ($query) => $query
+                            ->when($userId !== null, fn ($q) => $q->where('user_id', $userId), fn ($q) => $q->whereRaw('1 = 0'))
+                            ->with('card'),
+                    ]),
             ])
             ->get()
             ->map(fn (SpaceModel $space): ?LaunchpadSpace => $this->mapSpaceToDto($space))

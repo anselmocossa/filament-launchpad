@@ -72,8 +72,8 @@ trait InteractsWithLaunchpadBuilder
     /**
      * Whether the builder runs in PERSONAL mode (the end-user personalising
      * their own home) rather than ADMIN mode (full authoring). Personal mode
-     * hides card creation/editing/section management and only lets the user
-     * add catalog cards to their own layer, reorder and remove their own.
+     * hides card creation/editing and only lets the user add catalog cards and
+     * personal sections to their own layer, reorder and remove their own.
      * EditHome overrides this to true; BuildLayout (admin) keeps it false.
      */
     protected function isPersonalMode(): bool
@@ -119,13 +119,16 @@ trait InteractsWithLaunchpadBuilder
 
         return $page->sections->map(function (Section $section) use ($personal, $userId): array {
             $cards = [];
+            $owner = $section->user_id === null ? 'admin' : 'user';
 
             if ($personal) {
-                foreach ($section->cards as $card) {
-                    if (! (bool) ($card->pivot->is_pinned ?? true)) {
-                        continue; // available/catalog card — not shown until the user adds it
+                if ($section->user_id === null) {
+                    foreach ($section->cards as $card) {
+                        if (! (bool) ($card->pivot->is_pinned ?? true)) {
+                            continue; // available/catalog card — not shown until the user adds it
+                        }
+                        $cards[] = $this->builderCardData($card, pinned: true, locked: true, origin: 'admin');
                     }
-                    $cards[] = $this->builderCardData($card, pinned: true, locked: true, origin: 'admin');
                 }
 
                 if ($userId !== null) {
@@ -150,6 +153,8 @@ trait InteractsWithLaunchpadBuilder
                 'id' => $section->id,
                 'title' => $section->title,
                 'cards' => $cards,
+                'owner' => $owner,
+                'locked' => $personal && $owner === 'admin',
             ];
         })->all();
     }
@@ -284,8 +289,21 @@ trait InteractsWithLaunchpadBuilder
 
     protected function getPageModel(): PageModel
     {
-        return $this->builderPage()->load(['sections' => function ($query) {
-            $query->orderBy('sort')->with(['cards' => fn ($q) => $q->orderByPivot('sort')]);
+        $userId = $this->currentUserId();
+        $personal = $this->isPersonalMode();
+
+        return $this->builderPage()->load(['sections' => function ($query) use ($personal, $userId) {
+            $query->when(
+                $personal,
+                fn ($query) => $query->where(function ($query) use ($userId) {
+                    $query->whereNull('user_id')
+                        ->when($userId !== null, fn ($query) => $query->orWhere('user_id', $userId));
+                }),
+                fn ($query) => $query->whereNull('user_id'),
+            )
+                ->orderByRaw('case when user_id is null then 0 else 1 end')
+                ->orderBy('sort')
+                ->with(['cards' => fn ($q) => $q->orderByPivot('sort')]);
         }]);
     }
 
@@ -296,10 +314,31 @@ trait InteractsWithLaunchpadBuilder
     public function addSection(): void
     {
         if ($this->isPersonalMode()) {
+            $userId = $this->currentUserId();
+
+            if ($userId === null) {
+                return;
+            }
+
+            $nextSort = ((int) Section::query()
+                ->where('page_id', $this->builderPage()->id)
+                ->where('user_id', $userId)
+                ->max('sort')) + 1;
+
+            Section::query()->create([
+                'page_id' => $this->builderPage()->id,
+                'user_id' => $userId,
+                'title' => __('launchpad::launchpad.buttons.nova_secao'),
+                'sort' => $nextSort,
+            ]);
+
             return;
         }
 
-        $nextSort = ((int) Section::query()->where('page_id', $this->builderPage()->id)->max('sort')) + 1;
+        $nextSort = ((int) Section::query()
+            ->where('page_id', $this->builderPage()->id)
+            ->whereNull('user_id')
+            ->max('sort')) + 1;
 
         Section::query()->create([
             'page_id' => $this->builderPage()->id,
@@ -310,10 +349,6 @@ trait InteractsWithLaunchpadBuilder
 
     public function renameSection(int|string $sectionId, string $title): void
     {
-        if ($this->isPersonalMode()) {
-            return;
-        }
-
         $section = $this->ownedSection($sectionId);
 
         if (! $section) {
@@ -331,10 +366,6 @@ trait InteractsWithLaunchpadBuilder
 
     public function deleteSection(int|string $sectionId): void
     {
-        if ($this->isPersonalMode()) {
-            return;
-        }
-
         $section = $this->ownedSection($sectionId);
 
         if (! $section) {
@@ -354,12 +385,13 @@ trait InteractsWithLaunchpadBuilder
      */
     public function reorderSections(array $orderedIds): void
     {
-        if ($this->isPersonalMode()) {
-            return;
-        }
-
         $ownedIds = Section::query()
             ->where('page_id', $this->builderPage()->id)
+            ->when(
+                $this->isPersonalMode(),
+                fn ($query) => $query->where('user_id', $this->currentUserId()),
+                fn ($query) => $query->whereNull('user_id'),
+            )
             ->pluck('id')
             ->all();
 
@@ -374,6 +406,11 @@ trait InteractsWithLaunchpadBuilder
     {
         Section::query()
             ->where('page_id', $this->builderPage()->id)
+            ->when(
+                $this->isPersonalMode(),
+                fn ($query) => $query->where('user_id', $this->currentUserId()),
+                fn ($query) => $query->whereNull('user_id'),
+            )
             ->orderBy('sort')
             ->pluck('id')
             ->each(function ($id, int $index) {
@@ -386,6 +423,27 @@ trait InteractsWithLaunchpadBuilder
         return Section::query()
             ->where('id', $sectionId)
             ->where('page_id', $this->builderPage()->id)
+            ->when(
+                $this->isPersonalMode(),
+                fn ($query) => $query->where('user_id', $this->currentUserId()),
+                fn ($query) => $query->whereNull('user_id'),
+            )
+            ->first();
+    }
+
+    protected function visibleSection(int|string $sectionId): ?Section
+    {
+        return Section::query()
+            ->where('id', $sectionId)
+            ->where('page_id', $this->builderPage()->id)
+            ->when(
+                $this->isPersonalMode(),
+                fn ($query) => $query->where(function ($query) {
+                    $query->whereNull('user_id')
+                        ->when($this->currentUserId() !== null, fn ($query) => $query->orWhere('user_id', $this->currentUserId()));
+                }),
+                fn ($query) => $query->whereNull('user_id'),
+            )
             ->first();
     }
 
@@ -418,6 +476,10 @@ trait InteractsWithLaunchpadBuilder
      */
     public function addCardFromLibrary(int|string $sectionId, string $presetKey, ?int $index = null): void
     {
+        if ($this->isPersonalMode()) {
+            return;
+        }
+
         $section = $this->ownedSection($sectionId);
 
         if (! $section) {
@@ -459,6 +521,10 @@ trait InteractsWithLaunchpadBuilder
      */
     public function attachCardFromCatalog(int|string $sectionId, int|string $cardId, ?int $index = null): void
     {
+        if ($this->isPersonalMode()) {
+            return;
+        }
+
         $section = $this->ownedSection($sectionId);
 
         if (! $section) {
@@ -481,6 +547,10 @@ trait InteractsWithLaunchpadBuilder
      */
     public function addWidgetFromLibrary(int|string $sectionId, string $widgetKey, ?int $index = null): void
     {
+        if ($this->isPersonalMode()) {
+            return;
+        }
+
         $section = $this->ownedSection($sectionId);
 
         if (! $section) {
@@ -516,6 +586,10 @@ trait InteractsWithLaunchpadBuilder
      */
     public function moveCard(int|string $cardId, int|string $fromSectionId, int|string $toSectionId, ?int $index = null): void
     {
+        if ($this->isPersonalMode()) {
+            return;
+        }
+
         $fromSection = $this->ownedSection($fromSectionId);
         $toSection = $this->ownedSection($toSectionId);
 
@@ -540,6 +614,10 @@ trait InteractsWithLaunchpadBuilder
      */
     public function reorderCards(int|string $sectionId, array $orderedIds): void
     {
+        if ($this->isPersonalMode()) {
+            return;
+        }
+
         $section = $this->ownedSection($sectionId);
 
         if (! $section) {
@@ -562,6 +640,10 @@ trait InteractsWithLaunchpadBuilder
      */
     public function removeCard(int|string $sectionId, int|string $cardId): void
     {
+        if ($this->isPersonalMode()) {
+            return;
+        }
+
         $section = $this->ownedSection($sectionId);
 
         if (! $section) {
@@ -622,7 +704,7 @@ trait InteractsWithLaunchpadBuilder
             return;
         }
 
-        $section = $this->ownedSection($sectionId);
+        $section = $this->visibleSection($sectionId);
 
         if (! $section) {
             return;

@@ -46,6 +46,20 @@ function editHomeCatalogTitles(object $component): array
         ->all();
 }
 
+function editHomeSectionTitles(object $component): array
+{
+    $instance = $component->instance();
+    $pageMethod = new ReflectionMethod($instance, 'getPageModel');
+    $pageMethod->setAccessible(true);
+    $sectionsMethod = new ReflectionMethod($instance, 'builderSections');
+    $sectionsMethod->setAccessible(true);
+
+    return collect($sectionsMethod->invoke($instance, $pageMethod->invoke($instance)))
+        ->pluck('title')
+        ->values()
+        ->all();
+}
+
 it('renders the standalone Editar Início page with no resource breadcrumb', function () {
     $page = homePage();
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Favoritos', 'sort' => 0]);
@@ -148,21 +162,71 @@ it('lets users add existing available widget cards without creating new widgets'
         ->and(UserCard::query()->where('user_id', auth()->id())->where('card_id', $widget->id)->exists())->toBeTrue();
 });
 
-it('does not let Editar Início create or manage sections', function () {
+it('lets Editar Início create and manage only the current user sections', function () {
     $home = homePage();
     $first = Section::query()->create(['page_id' => $home->id, 'title' => 'Primeira', 'sort' => 0]);
     $second = Section::query()->create(['page_id' => $home->id, 'title' => 'Segunda', 'sort' => 1]);
 
-    Livewire::test(EditHome::class)
-        ->call('addSection')
-        ->call('renameSection', $first->id, 'Mudou')
-        ->call('reorderSections', [$second->id, $first->id])
+    $component = Livewire::test(EditHome::class)
+        ->call('addSection');
+
+    $personal = Section::query()
+        ->where('page_id', $home->id)
+        ->where('user_id', auth()->id())
+        ->firstOrFail();
+
+    $component
+        ->call('renameSection', $first->id, 'Mudou Global')
+        ->call('renameSection', $personal->id, 'Minha Secção')
+        ->call('reorderSections', [$second->id, $personal->id, $first->id])
         ->call('deleteSection', $first->id);
 
-    expect($home->sections()->count())->toBe(2)
+    expect($home->sections()->count())->toBe(3)
         ->and($first->refresh()->title)->toBe('Primeira')
         ->and($first->refresh()->sort)->toBe(0)
-        ->and($second->refresh()->sort)->toBe(1);
+        ->and($second->refresh()->sort)->toBe(1)
+        ->and($personal->refresh()->title)->toBe('Minha Secção')
+        ->and($personal->refresh()->sort)->toBe(0);
+});
+
+it('keeps personal sections isolated per authenticated user', function () {
+    $home = homePage();
+    Section::query()->create(['page_id' => $home->id, 'title' => 'Global', 'sort' => 0]);
+
+    $admin = auth()->user();
+    $admin->update(['email' => 'admin@learnway.com']);
+
+    $anselmo = TestUser::query()->create([
+        'name' => 'Anselmo',
+        'email' => 'anselmokossa.apk@gmail.com',
+    ]);
+    $anselmo->assignRole('super_admin');
+
+    Livewire::actingAs($admin)
+        ->test(EditHome::class)
+        ->call('addSection');
+
+    $adminSection = Section::query()
+        ->where('page_id', $home->id)
+        ->where('user_id', $admin->id)
+        ->firstOrFail();
+    $adminSection->update(['title' => 'Admin Secção']);
+
+    Livewire::actingAs($anselmo)
+        ->test(EditHome::class)
+        ->call('addSection');
+
+    $anselmoSection = Section::query()
+        ->where('page_id', $home->id)
+        ->where('user_id', $anselmo->id)
+        ->firstOrFail();
+    $anselmoSection->update(['title' => 'Anselmo Secção']);
+
+    $adminTitles = editHomeSectionTitles(Livewire::actingAs($admin)->test(EditHome::class));
+    $anselmoTitles = editHomeSectionTitles(Livewire::actingAs($anselmo)->test(EditHome::class));
+
+    expect($adminTitles)->toContain('Global', 'Admin Secção')->not->toContain('Anselmo Secção')
+        ->and($anselmoTitles)->toContain('Global', 'Anselmo Secção')->not->toContain('Admin Secção');
 });
 
 it('removes only the current user card from the home page, without deleting the catalog card', function () {
