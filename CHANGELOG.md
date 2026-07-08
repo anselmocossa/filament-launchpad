@@ -10,6 +10,7 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 - `Edit Home` now treats legacy `launchpad_spaces.panel_id = null` rows as global fallback rows for the current panel, preventing false "no home page" redirects after upgrading existing installations.
 - Page access remains allowed until the corresponding Shield permission row is generated, preventing `403 Forbidden` immediately after installing/updating the plugin.
 - Personal Launchpad `user_id` values now support UUID/string user IDs instead of requiring integer user IDs.
+- Personal Launchpad ownership queries now normalize user IDs to strings, keeping UUID support without breaking applications that still use normal integer user IDs.
 
 ## 1.2.1 - 2026-07-08
 

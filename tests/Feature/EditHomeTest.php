@@ -89,6 +89,27 @@ it('operates on the home page personal layer when adding an available card', fun
     expect(UserCard::query()->where('user_id', auth()->id())->where('section_id', $section->id)->where('card_id', $card->id)->exists())->toBeTrue();
 });
 
+it('supports normal integer user ids while storing launchpad ownership as strings', function () {
+    $home = homePage();
+    $globalSection = Section::query()->create(['page_id' => $home->id, 'title' => 'Global', 'sort' => 0]);
+    $card = $globalSection->cards()->create(['title' => 'Inteiro', 'type' => 'kpi'], ['sort' => 0, 'is_pinned' => false]);
+
+    Livewire::test(EditHome::class)
+        ->call('addSection')
+        ->call('addUserCard', $globalSection->id, $card->id, null);
+
+    $userId = auth()->id();
+    $personalSectionTitle = Section::query()
+        ->where('user_id', (string) $userId)
+        ->value('title');
+
+    expect($userId)->toBeInt()
+        ->and(Section::query()->where('user_id', (string) $userId)->exists())->toBeTrue()
+        ->and(UserCard::query()->where('user_id', (string) $userId)->where('card_id', $card->id)->exists())->toBeTrue()
+        ->and(editHomeSectionTitles(Livewire::test(EditHome::class)))->toContain('Global', $personalSectionTitle)
+        ->and(editHomeCardTitles(Livewire::test(EditHome::class)))->toContain('Inteiro');
+});
+
 it('hides already added cards from the personal available catalog', function () {
     $home = homePage();
     $section = Section::query()->create(['page_id' => $home->id, 'title' => 'S', 'sort' => 0]);

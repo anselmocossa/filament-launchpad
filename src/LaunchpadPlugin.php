@@ -385,7 +385,8 @@ class LaunchpadPlugin implements Plugin
             return [];
         }
 
-        $userId = auth()->id();
+        $authId = auth()->id();
+        $userId = $authId === null ? null : (string) $authId;
 
         $query = SpaceModel::query()->orderBy('sort');
 

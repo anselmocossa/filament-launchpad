@@ -86,6 +86,13 @@ trait InteractsWithLaunchpadBuilder
         return auth()->id();
     }
 
+    protected function currentUserStorageId(): ?string
+    {
+        $userId = $this->currentUserId();
+
+        return $userId === null ? null : (string) $userId;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -115,7 +122,7 @@ trait InteractsWithLaunchpadBuilder
     protected function builderSections(PageModel $page): array
     {
         $personal = $this->isPersonalMode();
-        $userId = $this->currentUserId();
+        $userId = $this->currentUserStorageId();
 
         return $page->sections->map(function (Section $section) use ($personal, $userId): array {
             $cards = [];
@@ -253,7 +260,7 @@ trait InteractsWithLaunchpadBuilder
             // Personal mode reuses existing cards/widgets globally. Users cannot
             // create new catalog items here; they only add their own references.
             $sectionIds = $this->getPageModel()->sections->pluck('id');
-            $userId = $this->currentUserId();
+            $userId = $this->currentUserStorageId();
 
             $query->whereNotExists(function ($sub) use ($sectionIds) {
                 $sub->selectRaw('1')
@@ -289,7 +296,7 @@ trait InteractsWithLaunchpadBuilder
 
     protected function getPageModel(): PageModel
     {
-        $userId = $this->currentUserId();
+        $userId = $this->currentUserStorageId();
         $personal = $this->isPersonalMode();
 
         return $this->builderPage()->load(['sections' => function ($query) use ($personal, $userId) {
@@ -314,7 +321,7 @@ trait InteractsWithLaunchpadBuilder
     public function addSection(): void
     {
         if ($this->isPersonalMode()) {
-            $userId = $this->currentUserId();
+            $userId = $this->currentUserStorageId();
 
             if ($userId === null) {
                 return;
@@ -389,7 +396,7 @@ trait InteractsWithLaunchpadBuilder
             ->where('page_id', $this->builderPage()->id)
             ->when(
                 $this->isPersonalMode(),
-                fn ($query) => $query->where('user_id', $this->currentUserId()),
+                fn ($query) => $query->where('user_id', $this->currentUserStorageId()),
                 fn ($query) => $query->whereNull('user_id'),
             )
             ->pluck('id')
@@ -408,7 +415,7 @@ trait InteractsWithLaunchpadBuilder
             ->where('page_id', $this->builderPage()->id)
             ->when(
                 $this->isPersonalMode(),
-                fn ($query) => $query->where('user_id', $this->currentUserId()),
+                fn ($query) => $query->where('user_id', $this->currentUserStorageId()),
                 fn ($query) => $query->whereNull('user_id'),
             )
             ->orderBy('sort')
@@ -425,7 +432,7 @@ trait InteractsWithLaunchpadBuilder
             ->where('page_id', $this->builderPage()->id)
             ->when(
                 $this->isPersonalMode(),
-                fn ($query) => $query->where('user_id', $this->currentUserId()),
+                fn ($query) => $query->where('user_id', $this->currentUserStorageId()),
                 fn ($query) => $query->whereNull('user_id'),
             )
             ->first();
@@ -439,8 +446,10 @@ trait InteractsWithLaunchpadBuilder
             ->when(
                 $this->isPersonalMode(),
                 fn ($query) => $query->where(function ($query) {
+                    $userId = $this->currentUserStorageId();
+
                     $query->whereNull('user_id')
-                        ->when($this->currentUserId() !== null, fn ($query) => $query->orWhere('user_id', $this->currentUserId()));
+                        ->when($userId !== null, fn ($query) => $query->orWhere('user_id', $userId));
                 }),
                 fn ($query) => $query->whereNull('user_id'),
             )
@@ -698,7 +707,7 @@ trait InteractsWithLaunchpadBuilder
      */
     public function addUserCard(int|string $sectionId, int|string $cardId, ?int $index = null): void
     {
-        $userId = $this->currentUserId();
+        $userId = $this->currentUserStorageId();
 
         if (! $this->isPersonalMode() || $userId === null) {
             return;
@@ -737,7 +746,7 @@ trait InteractsWithLaunchpadBuilder
      */
     public function removeUserCard(int|string $sectionId, int|string $cardId): void
     {
-        $userId = $this->currentUserId();
+        $userId = $this->currentUserStorageId();
 
         if (! $this->isPersonalMode() || $userId === null) {
             return;
@@ -757,7 +766,7 @@ trait InteractsWithLaunchpadBuilder
      */
     public function reorderUserCards(int|string $sectionId, array $orderedIds): void
     {
-        $userId = $this->currentUserId();
+        $userId = $this->currentUserStorageId();
 
         if (! $this->isPersonalMode() || $userId === null) {
             return;
@@ -786,7 +795,7 @@ trait InteractsWithLaunchpadBuilder
      */
     public function moveUserCard(int|string $sectionId, int|string $cardId, ?int $index = null): void
     {
-        $userId = $this->currentUserId();
+        $userId = $this->currentUserStorageId();
 
         if (! $this->isPersonalMode() || $userId === null) {
             return;
@@ -807,7 +816,7 @@ trait InteractsWithLaunchpadBuilder
 
     protected function reorderUserCardsAt(int|string $sectionId, int|string $cardId, ?int $index): void
     {
-        $userId = $this->currentUserId();
+        $userId = $this->currentUserStorageId();
 
         if ($userId === null) {
             return;
@@ -836,7 +845,7 @@ trait InteractsWithLaunchpadBuilder
 
     protected function reindexUserCards(int|string $sectionId): void
     {
-        $userId = $this->currentUserId();
+        $userId = $this->currentUserStorageId();
 
         if ($userId === null) {
             return;
