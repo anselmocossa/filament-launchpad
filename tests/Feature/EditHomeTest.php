@@ -91,6 +91,27 @@ it('hides already added cards from the personal available catalog', function () 
         ->and(editHomeCardTitles($after))->toContain('Novo');
 });
 
+it('lets users add existing global cards and widgets without creating new ones', function () {
+    $home = homePage();
+    $section = Section::query()->create(['page_id' => $home->id, 'title' => 'S', 'sort' => 0]);
+    $account = Card::query()->create(['title' => 'Account Widget', 'type' => 'widget', 'widget_key' => 'account-widget']);
+    $courses = Card::query()->create(['title' => 'Cursos', 'type' => 'shortcut']);
+
+    $before = Livewire::test(EditHome::class);
+    expect(editHomeCatalogTitles($before))->toContain('Account Widget')
+        ->and(editHomeCatalogTitles($before))->toContain('Cursos');
+
+    Livewire::test(EditHome::class)
+        ->call('addUserCard', $section->id, $account->id, null);
+
+    $after = Livewire::test(EditHome::class);
+    expect(Card::query()->count())->toBe(2)
+        ->and(UserCard::query()->where('user_id', auth()->id())->where('section_id', $section->id)->where('card_id', $account->id)->exists())->toBeTrue()
+        ->and(editHomeCardTitles($after))->toContain('Account Widget')
+        ->and(editHomeCatalogTitles($after))->not->toContain('Account Widget')
+        ->and(editHomeCatalogTitles($after))->toContain('Cursos');
+});
+
 it('lets users add existing available widget cards without creating new widgets', function () {
     $home = homePage();
     $section = Section::query()->create(['page_id' => $home->id, 'title' => 'S', 'sort' => 0]);

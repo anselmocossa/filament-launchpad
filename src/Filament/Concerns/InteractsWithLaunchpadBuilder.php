@@ -245,19 +245,10 @@ trait InteractsWithLaunchpadBuilder
             });
 
         if ($this->isPersonalMode()) {
-            // The user may only add AVAILABLE (non-pinned) cards/widgets that
-            // the admin placed on this page's sections. Already-added items
-            // are hidden from this catalog for the current user.
+            // Personal mode reuses existing cards/widgets globally. Users cannot
+            // create new catalog items here; they only add their own references.
             $sectionIds = $this->getPageModel()->sections->pluck('id');
             $userId = $this->currentUserId();
-
-            $query->whereExists(function ($sub) use ($sectionIds) {
-                $sub->selectRaw('1')
-                    ->from('launchpad_section_card')
-                    ->whereColumn('launchpad_section_card.card_id', 'launchpad_cards.id')
-                    ->whereIn('launchpad_section_card.section_id', $sectionIds)
-                    ->where('launchpad_section_card.is_pinned', false);
-            });
 
             if ($userId !== null) {
                 $query->whereNotExists(function ($sub) use ($sectionIds, $userId) {
@@ -611,9 +602,8 @@ trait InteractsWithLaunchpadBuilder
     // ------------------------------------------------------------------
 
     /**
-     * Adds an AVAILABLE catalog card to the current user's own layer for a
-     * section, at $index. Personal mode only. Ignores cards that are not
-     * available in this section (only admin "available" cards can be added),
+     * Adds an existing catalog card to the current user's own layer for a
+     * section, at $index. Personal mode only. It never creates catalog cards,
      * and is idempotent (a card the user already added is just re-placed).
      */
     public function addUserCard(int|string $sectionId, int|string $cardId, ?int $index = null): void
@@ -630,12 +620,7 @@ trait InteractsWithLaunchpadBuilder
             return;
         }
 
-        $available = $section->cards()
-            ->whereKey($cardId)
-            ->wherePivot('is_pinned', false)
-            ->exists();
-
-        if (! $available) {
+        if (! Card::query()->whereKey($cardId)->exists()) {
             return;
         }
 
