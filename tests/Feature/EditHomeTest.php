@@ -60,7 +60,7 @@ function editHomeSectionTitles(object $component): array
         ->all();
 }
 
-it('renders the standalone Editar Início page with no resource breadcrumb', function () {
+it('renders the standalone Edit Home page with no resource breadcrumb', function () {
     $page = homePage();
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Favoritos', 'sort' => 0]);
     $section->cards()->create(['title' => 'Aulas', 'type' => 'kpi'], ['sort' => 0, 'is_pinned' => false]);
@@ -71,7 +71,7 @@ it('renders the standalone Editar Início page with no resource breadcrumb', fun
         ->assertSee('Favoritos');
 
     expect($component->instance()->getBreadcrumbs())->toBe([])
-        ->and($component->instance()->getTitle())->toBe('Editar Início');
+        ->and($component->instance()->getTitle())->toBe('Edit Home');
 });
 
 it('operates on the home page personal layer when adding an available card', function () {
@@ -162,7 +162,7 @@ it('lets users add existing available widget cards without creating new widgets'
         ->and(UserCard::query()->where('user_id', auth()->id())->where('card_id', $widget->id)->exists())->toBeTrue();
 });
 
-it('lets Editar Início create and manage only the current user sections', function () {
+it('lets Edit Home create and manage only the current user sections', function () {
     $home = homePage();
     $first = Section::query()->create(['page_id' => $home->id, 'title' => 'Primeira', 'sort' => 0]);
     $second = Section::query()->create(['page_id' => $home->id, 'title' => 'Segunda', 'sort' => 1]);
@@ -248,7 +248,7 @@ it('removes only the current user card from the home page, without deleting the 
         ->and(Card::query()->whereKey($card->id)->exists())->toBeTrue();
 });
 
-it('keeps Editar Início personal per authenticated user, including super admins', function () {
+it('keeps Edit Home personal per authenticated user, including super admins', function () {
     $home = homePage();
     $section = Section::query()->create(['page_id' => $home->id, 'title' => 'S', 'sort' => 0]);
     $adminCard = $section->cards()->create(['title' => 'Admin Custom', 'type' => 'kpi'], ['sort' => 0, 'is_pinned' => false]);

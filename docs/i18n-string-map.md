@@ -85,7 +85,7 @@ Os ficheiros de tradução estão organizados em categorias:
 | Permissão | `launchpad::labels.permissao` | HasLaunchpadVisibilityField.php | line 38 |
 | Todos podem ver | `launchpad::placeholders.todos_podem_ver` | HasLaunchpadVisibilityField.php | line 43 |
 | Deixe vazio para todos verem. | `launchpad::helpers.permissao_vazia` | HasLaunchpadVisibilityField.php | line 44 |
-| Editar Início | `launchpad::nav.editar_inicio` | EditHome.php | line 42 |
+| Edit Home | `launchpad::nav.editar_inicio` | EditHome.php | line 42 |
 | Spaces | `launchpad::nav.spaces` | BuildLayout.php | line 46 |
 | Construtor | `launchpad::nav.construtor` | BuildLayout.php | line 49 |
 | Arraste presets... | `launchpad::builder.instrucao_principal` | build-layout.blade.php | line 85 |

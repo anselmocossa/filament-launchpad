@@ -119,7 +119,7 @@ return [
         'paginas' => 'Páginas',
         'cards' => 'Cards',
         'construtor' => 'Construtor',
-        'editar_inicio' => 'Editar Início',
+        'editar_inicio' => 'Edit Home',
         'spaces' => 'Spaces',
     ],
 

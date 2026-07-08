@@ -118,7 +118,7 @@ class LaunchpadPlugin implements Plugin
             CardResource::class,
         ]);
 
-        // A "Editar Início" entry in the account/user menu: a one-click shortcut
+        // An "Edit Home" entry in the account/user menu: a one-click shortcut
         // to customize just the home page (the first space's first page) in the
         // drag&drop builder, without hunting through the Spaces resource tree.
         $panel->userMenuItems([
@@ -130,7 +130,7 @@ class LaunchpadPlugin implements Plugin
     }
 
     /**
-     * URL of the standalone "Editar Início" builder page, which itself
+     * URL of the standalone "Edit Home" builder page, which itself
      * resolves and guards against the home page (the first space's first
      * page) not existing yet — this just needs the tables to exist so the
      * route/URL can be generated at all.

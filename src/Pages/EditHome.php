@@ -12,7 +12,7 @@ use Filament\Pages\Page;
  * A standalone shortcut to the drag&drop Builder, always bound to the HOME
  * page (the first Page, by sort, of the first Space, by sort) — no Resource
  * context, no breadcrumb trail through Spaces/Pages, not even a sidebar
- * entry. This is the "Editar Início" user-menu destination: one click from
+ * entry. This is the "Edit Home" user-menu destination: one click from
  * anywhere in the panel straight into customizing the home tiles, without
  * ever surfacing the management tree that BuildLayout (the Resource page)
  * lives under.
@@ -25,7 +25,7 @@ class EditHome extends Page
 {
     use InteractsWithLaunchpadBuilder;
 
-    protected static ?string $slug = 'editar-inicio';
+    protected static ?string $slug = 'edit-home';
 
     protected static bool $shouldRegisterNavigation = false;
 
@@ -44,7 +44,7 @@ class EditHome extends Page
     }
 
     /**
-     * Editar Início is always the authenticated user's own layer, even for
+     * Edit Home is always the authenticated user's own layer, even for
      * super_admin users. Global home authoring stays in the Page builder
      * (/admin/pages/{record}/build); this shortcut must never let one user's
      * personal changes affect another user's Home.
