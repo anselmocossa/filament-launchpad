@@ -18,7 +18,7 @@ it('defaults to the design accent color, normal tile size and light header', fun
         ->and($plugin->getNotificationCount())->toBe(0);
 });
 
-it('collapses empty grid tracks in fluid tileSizing while keeping fixed tile width', function () {
+it('allows KPI/shortcut tiles to stretch across a row when tileSizing is fluid', function () {
     $plugin = LaunchpadPlugin::make()->tileSizing('fluid');
 
     expect($plugin->getTileSizing())->toBe('fluid');

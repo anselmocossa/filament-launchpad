@@ -55,9 +55,8 @@ return [
     | Tile sizing (layout)
     |--------------------------------------------------------------------------
     |
-    | Controls whether KPI/shortcut tiles keep empty grid tracks when alone
-    | in a section ('fixed') or collapse empty tracks and fill the row width
-    | while keeping each tile's fixed square size ('fluid', no stretching).
+    | Controls tile grid layout: 'fixed' keeps each tile at the configured
+    | square size; 'fluid' stretches tiles equally to fill the row width.
     | Prefer: LaunchpadPlugin::make()->tileSizing('fixed')
     |
     */
