@@ -5,8 +5,8 @@ namespace Filament\Launchpad\Commands;
 use Illuminate\Console\Command;
 
 /**
- * Convenience installer: publishes the package config and migrations, and
- * optionally runs them. Never passes --force to `migrate` — the consuming
+ * Convenience installer: publishes the package config and optionally runs
+ * migrations. Never passes --force to `migrate` — the consuming
  * app's developer must confirm interactively, in line with this project's
  * "never migrate --force" rule.
  */
@@ -14,15 +14,14 @@ class InstallCommand extends Command
 {
     protected $signature = 'launchpad:install {--migrate : Run migrations after publishing}';
 
-    protected $description = 'Install the Launchpad package: publish its config and migrations.';
+    protected $description = 'Install the Launchpad package: publish its config and optionally run migrations.';
 
     public function handle(): int
     {
         $this->info('Publishing Launchpad config...');
         $this->call('vendor:publish', ['--tag' => 'launchpad-config']);
 
-        $this->info('Publishing Launchpad migrations...');
-        $this->call('vendor:publish', ['--tag' => 'launchpad-migrations']);
+        $this->line('Launchpad migrations are loaded automatically by the package.');
 
         if ($this->option('migrate')) {
             if ($this->confirm('Run the pending migrations now?')) {

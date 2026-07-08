@@ -2,6 +2,16 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.2.1 - 2026-07-08
+
+### Changed
+- The launchpad sub-nav now renders across the whole Filament panel, so Spaces and Pages remain available after users open resources or custom pages.
+- Selecting a Space/Page from outside the Launchpad page now redirects back to the Launchpad with the selected `space` and `page` query parameters.
+
+### Fixed
+- The Launchpad page now restores the selected Space/Page from query parameters when opened through the global sub-nav.
+- The installer no longer publishes duplicate migration files when package migrations are already auto-loaded by the service provider.
+
 ## 1.2.0 - 2026-07-08
 
 ### Changed

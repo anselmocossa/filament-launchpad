@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\File;
  */
 function cleanupPublishedLaunchpadMigrations(): void
 {
-    foreach (glob(database_path('migrations/*create_launchpad_*_table.php')) as $file) {
+    foreach (glob(database_path('migrations/*launchpad*.php')) as $file) {
         File::delete($file);
     }
 }

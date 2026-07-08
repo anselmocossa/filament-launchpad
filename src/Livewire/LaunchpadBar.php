@@ -5,6 +5,7 @@ namespace Filament\Launchpad\Livewire;
 use Filament\Launchpad\Launchpad\LaunchpadPage;
 use Filament\Launchpad\Launchpad\LaunchpadSpace;
 use Filament\Launchpad\LaunchpadPlugin;
+use Filament\Launchpad\Pages\Launchpad;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -29,10 +30,11 @@ class LaunchpadBar extends Component
 
     public function mount(): void
     {
-        $space = $this->getPlugin()->getSpaces()[0] ?? null;
+        $space = $this->findSpace((string) request()->query('space')) ?? ($this->getPlugin()->getSpaces()[0] ?? null);
+        $pageId = (string) request()->query('page');
 
         $this->activeSpace = $space?->getId() ?? '';
-        $this->activePage = $this->firstPageId($space);
+        $this->activePage = $this->pageBelongsToSpace($space, $pageId) ? $pageId : $this->firstPageId($space);
     }
 
     protected function getPlugin(): LaunchpadPlugin
@@ -60,6 +62,21 @@ class LaunchpadBar extends Component
         return ($space->getPages()[0] ?? null)?->getId() ?? '';
     }
 
+    protected function pageBelongsToSpace(?LaunchpadSpace $space, string $pageId): bool
+    {
+        if (! $space instanceof LaunchpadSpace || blank($pageId)) {
+            return false;
+        }
+
+        foreach ($space->getPages() as $page) {
+            if ($page->getId() === $pageId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Activates a space and its first page (the default entry point when a
      * space is chosen from the sub-nav directly, rather than via its
@@ -71,6 +88,7 @@ class LaunchpadBar extends Component
         $this->activePage = $this->firstPageId($this->findSpace($spaceId));
 
         $this->dispatch('launchpad-page-selected', space: $this->activeSpace, page: $this->activePage);
+        $this->redirectToLaunchpadWhenNeeded();
     }
 
     /**
@@ -83,6 +101,21 @@ class LaunchpadBar extends Component
         $this->activePage = $pageId;
 
         $this->dispatch('launchpad-page-selected', space: $spaceId, page: $pageId);
+        $this->redirectToLaunchpadWhenNeeded();
+    }
+
+    protected function redirectToLaunchpadWhenNeeded(): void
+    {
+        $url = Launchpad::getUrl([
+            'space' => $this->activeSpace,
+            'page' => $this->activePage,
+        ]);
+
+        if (url()->current() === strtok($url, '?')) {
+            return;
+        }
+
+        $this->redirect($url);
     }
 
     /**

@@ -44,10 +44,11 @@ class Launchpad extends Page
 
     public function mount(): void
     {
-        $space = $this->getPlugin()->getSpaces()[0] ?? null;
+        $space = $this->findSpace((string) request()->query('space')) ?? ($this->getPlugin()->getSpaces()[0] ?? null);
+        $pageId = (string) request()->query('page');
 
         $this->activeSpace = $space?->getId() ?? '';
-        $this->activePage = $this->firstPageId($space);
+        $this->activePage = $this->pageBelongsToSpace($space, $pageId) ? $pageId : $this->firstPageId($space);
     }
 
     public function getTitle(): string
@@ -87,6 +88,21 @@ class Launchpad extends Page
         }
 
         return ($space->getPages()[0] ?? null)?->getId() ?? '';
+    }
+
+    protected function pageBelongsToSpace(?LaunchpadSpace $space, string $pageId): bool
+    {
+        if (! $space instanceof LaunchpadSpace || blank($pageId)) {
+            return false;
+        }
+
+        foreach ($space->getPages() as $page) {
+            if ($page->getId() === $pageId) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function selectSpace(string $spaceId): void

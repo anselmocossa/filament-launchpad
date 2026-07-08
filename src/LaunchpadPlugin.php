@@ -157,15 +157,15 @@ class LaunchpadPlugin implements Plugin
      * the native Filament topbar: PanelsRenderHook::CONTENT_BEFORE renders
      * outside the padded/max-width <main> region (full width of the content
      * column, right of the sidebar), so it reads as a continuation of the
-     * topbar instead of an indented block inside the tile grid. Scoped to
-     * the Launchpad page only, so it never leaks onto other panel pages.
+     * topbar instead of an indented block inside the tile grid. It is global
+     * inside the panel so the launchpad navigation stays available after a
+     * user drills into resources or custom pages.
      */
     public function boot(Panel $panel): void
     {
         FilamentView::registerRenderHook(
             PanelsRenderHook::CONTENT_BEFORE,
             fn () => view('launchpad::hooks.launchpad-bar'),
-            scopes: Launchpad::class,
         );
 
         // A "‹" back control placed right before the brand in the native

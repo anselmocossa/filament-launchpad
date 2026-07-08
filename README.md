@@ -63,14 +63,14 @@ Install the package via Composer:
 composer require anselmocossa/filament-launchpad
 ```
 
-Run the installer — it publishes the config and migrations, then optionally runs them:
+Run the installer — it publishes the config, then optionally runs the package migrations:
 
 ```bash
-php artisan launchpad:install          # publish config + migrations
-php artisan launchpad:install --migrate # …and run the migrations (asks first)
+php artisan launchpad:install          # publish config
+php artisan launchpad:install --migrate # ...and run the migrations (asks first)
 ```
 
-Prefer to do it by hand? Run the migrations (Spaces, Pages, Sections, Cards and the role-visibility pivot) yourself:
+Prefer to do it by hand? The package auto-loads its migrations, so run them normally:
 
 ```bash
 php artisan migrate
