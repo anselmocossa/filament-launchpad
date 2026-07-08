@@ -46,9 +46,8 @@ class LaunchpadPlugin implements Plugin
     protected string $tileSize = 'normal';
 
     /**
-     * KPI/shortcut tile width behaviour: 'fixed' keeps every tile at the
-     * configured square size with empty tracks collapsed; 'fluid' stretches
-     * tiles equally to fill the full row width using auto-fit minmax.
+     * KPI/shortcut tile grid layout: all tiles use auto-fit minmax, stretching
+     * equally to fill the row width. This setting is kept for API compatibility.
      */
     protected string $tileSizing = 'fixed';
 
@@ -236,9 +235,8 @@ class LaunchpadPlugin implements Plugin
     }
 
     /**
-     * Controls whether KPI/shortcut tiles stay at their configured square
-     * size ('fixed', default) with auto-fit, or stretch equally to fill the
-     * available row width ('fluid') via auto-fit minmax.
+     * Controls tile grid layout. Kept for API compatibility — all modes
+     * stretch equally via auto-fit minmax.
      *
      * Prefer: LaunchpadPlugin::make()->tileSizing('fixed')
      */

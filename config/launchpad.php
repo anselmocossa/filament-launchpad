@@ -55,8 +55,8 @@ return [
     | Tile sizing (layout)
     |--------------------------------------------------------------------------
     |
-    | Controls tile grid layout: 'fixed' keeps each tile at the configured
-    | square size; 'fluid' stretches tiles equally to fill the row width.
+    | Tile grid layout: all tiles stretch equally to fill the row width
+    | via auto-fit minmax. Setting kept for API compatibility.
     | Prefer: LaunchpadPlugin::make()->tileSizing('fixed')
     |
     */
