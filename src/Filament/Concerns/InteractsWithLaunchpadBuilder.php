@@ -81,7 +81,7 @@ trait InteractsWithLaunchpadBuilder
         return false;
     }
 
-    protected function currentUserId(): ?int
+    protected function currentUserId(): int|string|null
     {
         return auth()->id();
     }

@@ -29,7 +29,7 @@ return new class extends Migration
         Schema::create('launchpad_sections', function (Blueprint $table) {
             $table->id();
             $table->foreignId('page_id')->constrained('launchpad_pages')->cascadeOnDelete();
-            $table->unsignedBigInteger('user_id')->nullable()->index();
+            $table->string('user_id')->nullable()->index();
             $table->string('title');
             $table->integer('sort')->default(0);
             $table->timestamps();
@@ -72,7 +72,7 @@ return new class extends Migration
 
         Schema::create('launchpad_user_cards', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('user_id')->index();
+            $table->string('user_id')->index();
             $table->foreignId('section_id')->constrained('launchpad_sections')->cascadeOnDelete();
             $table->foreignId('card_id')->constrained('launchpad_cards')->cascadeOnDelete();
             $table->integer('sort')->default(0);

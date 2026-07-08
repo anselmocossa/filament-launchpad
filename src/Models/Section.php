@@ -17,7 +17,6 @@ class Section extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'user_id' => 'integer',
         'sort' => 'integer',
     ];
 

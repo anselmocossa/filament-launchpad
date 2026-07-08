@@ -19,7 +19,6 @@ class UserCard extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'user_id' => 'integer',
         'section_id' => 'integer',
         'card_id' => 'integer',
         'sort' => 'integer',
