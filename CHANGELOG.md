@@ -2,6 +2,13 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.2.0 - 2026-07-08
+
+### Changed
+- **Fixed tile grid layout**: `tileSizing('fixed')` now uses `repeat(6, 1fr)` — always 6 equal columns, each card exactly 1/6 of row width, no empty space, no stretching.
+- **Fluid tile layout**: `tileSizing('fluid')` uses `repeat(auto-fit, minmax(176px, 1fr))` — tiles stretch equally to fill the row.
+- Both modes use `auto-fit` so empty grid tracks collapse when fewer tiles than columns.
+
 ## 1.1.2 - 2026-07-07
 
 ### Fixed
