@@ -112,6 +112,21 @@ it('lets users add existing global cards and widgets without creating new ones',
         ->and(editHomeCatalogTitles($after))->toContain('Cursos');
 });
 
+it('does not offer admin fixed cards again in the personal catalog', function () {
+    $home = homePage();
+    $section = Section::query()->create(['page_id' => $home->id, 'title' => 'S', 'sort' => 0]);
+    $fixed = $section->cards()->create(['title' => 'Fixo', 'type' => 'kpi'], ['sort' => 0, 'is_pinned' => true]);
+    $global = Card::query()->create(['title' => 'Outro Existente', 'type' => 'shortcut']);
+
+    $component = Livewire::test(EditHome::class)
+        ->call('addUserCard', $section->id, $fixed->id, null);
+
+    expect(editHomeCardTitles($component))->toContain('Fixo')
+        ->and(editHomeCatalogTitles($component))->not->toContain('Fixo')
+        ->and(editHomeCatalogTitles($component))->toContain('Outro Existente')
+        ->and(UserCard::query()->where('user_id', auth()->id())->where('card_id', $fixed->id)->exists())->toBeFalse();
+});
+
 it('lets users add existing available widget cards without creating new widgets', function () {
     $home = homePage();
     $section = Section::query()->create(['page_id' => $home->id, 'title' => 'S', 'sort' => 0]);

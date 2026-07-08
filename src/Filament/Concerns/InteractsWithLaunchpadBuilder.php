@@ -250,6 +250,14 @@ trait InteractsWithLaunchpadBuilder
             $sectionIds = $this->getPageModel()->sections->pluck('id');
             $userId = $this->currentUserId();
 
+            $query->whereNotExists(function ($sub) use ($sectionIds) {
+                $sub->selectRaw('1')
+                    ->from('launchpad_section_card')
+                    ->whereColumn('launchpad_section_card.card_id', 'launchpad_cards.id')
+                    ->whereIn('launchpad_section_card.section_id', $sectionIds)
+                    ->where('launchpad_section_card.is_pinned', true);
+            });
+
             if ($userId !== null) {
                 $query->whereNotExists(function ($sub) use ($sectionIds, $userId) {
                     $sub->selectRaw('1')
@@ -621,6 +629,15 @@ trait InteractsWithLaunchpadBuilder
         }
 
         if (! Card::query()->whereKey($cardId)->exists()) {
+            return;
+        }
+
+        $fixedInSection = $section->cards()
+            ->whereKey($cardId)
+            ->wherePivot('is_pinned', true)
+            ->exists();
+
+        if ($fixedInSection) {
             return;
         }
 
