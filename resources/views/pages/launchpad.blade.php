@@ -119,8 +119,10 @@
                         @php
                             $tileSizing = $theme['tileSizing'] ?? 'fixed';
                             $tileW = $theme['tileW'];
-                            $gridColumns = "repeat(auto-fit,minmax({$tileW}px,1fr))";
-                            $tileWidth = '100%';
+                            $gridColumns = $tileSizing === 'fluid'
+                                ? "repeat(auto-fit,minmax({$tileW}px,1fr))"
+                                : "repeat(auto-fit,{$tileW}px)";
+                            $tileWidth = $tileSizing === 'fluid' ? '100%' : "{$tileW}px";
                         @endphp
                         <div style="display:grid;grid-template-columns:{{ $gridColumns }};gap:14px;margin-bottom:14px">
                     @foreach ($row['items'] as $item)
