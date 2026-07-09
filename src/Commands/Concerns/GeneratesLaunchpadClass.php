@@ -125,8 +125,8 @@ trait GeneratesLaunchpadClass
         $stubPath = dirname(__DIR__, 3).'/stubs/'.$stub;
 
         $contents = str_replace(
-            ['{{ namespace }}', '{{ class }}'],
-            [$namespace, $class],
+            ['{{ namespace }}', '{{ class }}', '{{ key }}', '{{ label }}'],
+            [$namespace, $class, Str::of($class)->snake()->toString(), Str::of($class)->headline()->toString()],
             File::get($stubPath),
         );
 

@@ -7,16 +7,43 @@ use Filament\Launchpad\Launchpad\KpiResult;
 
 class {{ class }} extends BaseKpiSource
 {
-    // Override key() only if the persisted kpi_source value must differ
-    // from the auto-derived snake_case class name, e.g.:
+    // Derivados automaticamente do nome da classe (via BaseKpiSource):
+    //   key()   -> "{{ key }}"    (valor guardado no card, campo kpi_source)
+    //   label() -> "{{ label }}"  (nome mostrado no Select do card)
+    //
+    // Sobrepoe SO se precisares de valores diferentes:
     //
     // public static function key(): string
     // {
-    //     return 'custom_key';
+    //     return 'chave_personalizada';
+    // }
+    //
+    // public function label(): string
+    // {
+    //     return 'Rotulo personalizado';
+    // }
+    //
+    // Cache do resultado em segundos (null = sem cache; mesmo assim a query
+    // corre 1x por request, memoizada):
+    //
+    // public function cacheFor(): ?int
+    // {
+    //     return 120;
     // }
 
     public function resolve(): KpiResult
     {
-        return KpiResult::make(0); // TODO: replace with a real query.
+        // Devolve o que o tile mostra. Metodos opcionais encadeaveis:
+        //   ->unit('MT')                          sufixo ao lado do numero
+        //   ->trend('+12% vs ontem', 'success')   tendencia (success | danger | gray)
+        //   ->badge('3 novas')                    etiqueta no canto (null esconde)
+        //
+        // Exemplo completo:
+        //   return KpiResult::make(Order::whereDate('created_at', today())->count())
+        //       ->unit('enc.')
+        //       ->trend('+3 hoje', 'success')
+        //       ->badge('novo');
+
+        return KpiResult::make(0); // TODO: substituir pela tua query.
     }
 }
