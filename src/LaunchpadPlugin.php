@@ -129,6 +129,13 @@ class LaunchpadPlugin implements Plugin
     protected bool $registerResources = true;
 
     /**
+     * Registers the search-only CardResource so the panel's global search can
+     * find launchpad cards, even when autoRegisterResources(false) hides the
+     * management resources. On by default; independent of registerResources.
+     */
+    protected bool $cardGlobalSearch = true;
+
+    /**
      * When true (the default), register() scans
      * config('launchpad.generators.path') for concrete KpiSource classes and
      * registers each one automatically — no discoverKpis() call needed in
@@ -142,6 +149,19 @@ class LaunchpadPlugin implements Plugin
     public function autoRegisterResources(bool $condition = true): static
     {
         $this->registerResources = $condition;
+
+        return $this;
+    }
+
+    /**
+     * Toggles registration of the search-only CardResource, which powers the
+     * panel's global search over launchpad cards. On by default and kept
+     * independent of autoRegisterResources() so hiding the management CRUD
+     * never silently kills card search.
+     */
+    public function cardGlobalSearch(bool $condition = true): static
+    {
+        $this->cardGlobalSearch = $condition;
 
         return $this;
     }
@@ -196,6 +216,13 @@ class LaunchpadPlugin implements Plugin
                 SpaceResource::class,
                 PageResource::class,
                 SectionResource::class,
+                CardResource::class,
+            ]);
+        } elseif ($this->cardGlobalSearch) {
+            // CardResource is search-only (no navigation, no pages) — registering
+            // it alone powers global "search by card" even when the management
+            // resources are turned off via autoRegisterResources(false).
+            $panel->resources([
                 CardResource::class,
             ]);
         }
