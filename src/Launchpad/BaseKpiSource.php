@@ -41,6 +41,18 @@ abstract class BaseKpiSource implements KpiSource
         return null;
     }
 
+    /**
+     * Cache scope for this source's value (used by KpiResolver together with
+     * cacheFor() to key the cache entry). Defaults to the source key. Override
+     * in tenant- or context-scoped sources to append the scope so a cached
+     * value never leaks across tenants, e.g.:
+     *   return static::key().':'.tenancy()->tenant()?->id;
+     */
+    public function cacheKey(): string
+    {
+        return static::key();
+    }
+
     public function authorize(?Authenticatable $user): bool
     {
         return true;

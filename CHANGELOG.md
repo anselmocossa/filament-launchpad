@@ -2,6 +2,11 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.3.1 - 2026-07-09
+
+### Fixed
+- **Cross-tenant KPI cache leak**: cached KPI values are now keyed by the source's `cacheKey()` (default = the source key) instead of the bare key. Tenant- or context-scoped sources can override `cacheKey()` to append the tenant id so a cached value is never served to a different tenant within the TTL window.
+
 ## 1.3.0 - 2026-07-09
 
 ### Added

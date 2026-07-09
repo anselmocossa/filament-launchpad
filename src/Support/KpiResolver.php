@@ -70,7 +70,12 @@ class KpiResolver
 
         try {
             if ($ttl !== null) {
-                return Cache::remember("launchpad.kpi.{$key}", $ttl, fn (): KpiResult => $source->resolve());
+                // The cache scope comes from the source (cacheKey()), not the
+                // bare key, so tenant-/context-scoped sources can keep their
+                // cached values isolated instead of leaking across tenants.
+                $scope = method_exists($source, 'cacheKey') ? $source->cacheKey() : $key;
+
+                return Cache::remember("launchpad.kpi.{$scope}", $ttl, fn (): KpiResult => $source->resolve());
             }
 
             return $source->resolve();
