@@ -44,7 +44,6 @@ class MakeWidgetCommand extends Command
         $fqcn = $location['namespace'].'\\'.$location['class'];
 
         $this->components->info("Launchpad widget [{$fqcn}] created successfully.");
-        $this->line('Next: fill in getStats(), then register it with LaunchpadPlugin::make()->widgets([...]) or let discoverWidgets() find it automatically.');
 
         return self::SUCCESS;
     }
