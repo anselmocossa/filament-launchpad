@@ -2,6 +2,20 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.3.0 - 2026-07-09
+
+### Added
+- **Live KPI engine**: KPI tile values are provided by discoverable `KpiSource` classes returning a rich `KpiResult` (value + unit + trend + badge), resolved lazily with per-request memoization and an optional per-source cache TTL via `cacheFor()`. `BaseKpiSource` derives `key()`/`label()` from the class name (stripping the `Kpi` suffix).
+- **KPI registration**: register sources explicitly with `->kpis([...])`, or let the plugin auto-discover every `KpiSource` under `app/Filament/Launchpad` (recursive). Auto-discovery disables itself once you register manually and can be toggled with `->autoDiscoverKpis()`. The legacy `->kpiSources(['name' => fn () => ...])` closures keep working unchanged.
+- **Per-panel KPI scoping**: a `KpiSource` may implement `panels(): array` to limit itself to specific panels (empty = all panels).
+- **Generator commands**: `make:launchpad-kpi` and `make:launchpad-widget` scaffold classes into `app/Filament/Launchpad` (or a `--model=` subfolder), enforcing the `Kpi`/`Widget` class-name suffix (à la Filament's `...Resource`/`...Exporter`). The generated KPI stub is self-documenting.
+- **`cardGlobalSearch()`**: global "search by card" now registers independently of `autoRegisterResources()`, so hiding the management resources no longer disables card search (on by default).
+- **`autoRegisterResources()`**: toggle to skip registering the management resources (Spaces/Pages/Sections/Cards) in a panel.
+
+### Fixed
+- The topbar back button (`‹`) now falls back to the browser history when there is nothing left to walk up to (the launchpad root, or a resource opened from a tile), instead of being a dead no-op.
+- The card form's live-source `Select` now lists sources by their human `label()` instead of the raw key.
+
 ## 1.2.2 - 2026-07-09
 
 ### Fixed
