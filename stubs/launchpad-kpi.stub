@@ -1,0 +1,22 @@
+<?php
+
+namespace {{ namespace }};
+
+use Filament\Launchpad\Launchpad\BaseKpiSource;
+use Filament\Launchpad\Launchpad\KpiResult;
+
+class {{ class }} extends BaseKpiSource
+{
+    // Override key() only if the persisted kpi_source value must differ
+    // from the auto-derived snake_case class name, e.g.:
+    //
+    // public static function key(): string
+    // {
+    //     return 'custom_key';
+    // }
+
+    public function resolve(): KpiResult
+    {
+        return KpiResult::make(0); // TODO: replace with a real query.
+    }
+}

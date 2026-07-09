@@ -3,6 +3,8 @@
 namespace Filament\Launchpad;
 
 use Filament\Launchpad\Commands\InstallCommand;
+use Filament\Launchpad\Commands\MakeKpiCommand;
+use Filament\Launchpad\Commands\MakeWidgetCommand;
 use Filament\Launchpad\Models\Card;
 use Filament\Launchpad\Models\Page;
 use Filament\Launchpad\Models\Section;
@@ -31,6 +33,8 @@ class LaunchpadServiceProvider extends PackageServiceProvider
             ->hasTranslations()
             ->hasCommands([
                 InstallCommand::class,
+                MakeKpiCommand::class,
+                MakeWidgetCommand::class,
             ])
             ->hasMigrations([
                 '2024_01_01_000001_create_launchpad_tables',

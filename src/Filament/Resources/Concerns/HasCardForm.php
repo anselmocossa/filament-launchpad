@@ -100,9 +100,7 @@ trait HasCardForm
                         ->label(__('launchpad::launchpad.labels.fonte_ao_vivo'))
                         ->options(function () {
                             try {
-                                $sources = LaunchpadPlugin::get()->getKpiSources();
-
-                                return array_combine(array_keys($sources), array_keys($sources));
+                                return LaunchpadPlugin::get()->getKpiSourceOptions();
                             } catch (\Throwable $e) {
                                 return [];
                             }

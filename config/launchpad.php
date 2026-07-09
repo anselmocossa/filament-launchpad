@@ -90,4 +90,30 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Generators
+    |--------------------------------------------------------------------------
+    |
+    | Used by `make:launchpad-kpi` and `make:launchpad-widget`. Left null,
+    | both commands generate into the generic default: app/Launchpad/Kpis
+    | and app/Launchpad/Widgets (namespaces App\Launchpad\Kpis / Widgets).
+    |
+    | Set BOTH values below to instead place generated classes inside your
+    | own module structure — e.g.:
+    |
+    |     'module_path' => app_path('Filament/Store/Modules'),
+    |     'module_namespace' => 'App\\Filament\\Store\\Modules',
+    |
+    | With these set, `--module=Sales` (or picking "Sales" from the
+    | interactive prompt) places a KPI at
+    | {module_path}/Sales/Kpis/{Name}.php with namespace
+    | {module_namespace}\Sales\Kpis (and similarly for Widgets).
+    |
+    */
+    'generators' => [
+        'module_path' => null,
+        'module_namespace' => null,
+    ],
+
 ];

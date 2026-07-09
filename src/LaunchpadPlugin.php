@@ -9,6 +9,8 @@ use Filament\Launchpad\Filament\Resources\CardResource;
 use Filament\Launchpad\Filament\Resources\PageResource;
 use Filament\Launchpad\Filament\Resources\SectionResource;
 use Filament\Launchpad\Filament\Resources\SpaceResource;
+use Filament\Launchpad\Launchpad\KpiResult;
+use Filament\Launchpad\Launchpad\KpiSource;
 use Filament\Launchpad\Launchpad\LaunchpadPage;
 use Filament\Launchpad\Launchpad\LaunchpadSpace;
 use Filament\Launchpad\Launchpad\Tile;
@@ -19,6 +21,7 @@ use Filament\Launchpad\Models\Section as SectionModel;
 use Filament\Launchpad\Models\Space as SpaceModel;
 use Filament\Launchpad\Pages\EditHome;
 use Filament\Launchpad\Pages\Launchpad;
+use Filament\Launchpad\Support\KpiResolver;
 use Filament\Launchpad\Support\LaunchpadPanel;
 use Filament\Launchpad\Support\LaunchpadUrl;
 use Filament\Launchpad\Support\LaunchpadVisibility;
@@ -27,8 +30,14 @@ use Filament\Panel;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Filament\Widgets\WidgetConfiguration;
+use FilesystemIterator;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use ReflectionClass;
+use Throwable;
 
 class LaunchpadPlugin implements Plugin
 {
@@ -72,14 +81,36 @@ class LaunchpadPlugin implements Plugin
     protected array $cardLibrary = [];
 
     /**
-     * Named, developer-registered KPI sources. Each entry is a callable
-     * (usually a Closure) invoked with no eval and no user-controlled code —
-     * only whatever the developer registered via kpiSources(). Cards in the
-     * admin merely reference a source by name.
+     * Named, developer-registered KPI sources (legacy path). Each entry is a
+     * callable (usually a Closure) invoked with no eval and no
+     * user-controlled code — only whatever the developer registered via
+     * kpiSources(). Cards in the admin merely reference a source by name.
+     *
+     * Kept as its own array (rather than folded entirely into
+     * $kpiSourceRegistry) so getKpiSource()/getKpiSources() keep returning
+     * exactly what was registered via kpiSources(), byte-for-byte, and so
+     * mapCardToDto() can tell "this key is a legacy closure" apart from "this
+     * key is a Phase G class-based source" without inspecting the registry's
+     * entry type. A key registered afterwards via kpis()/discoverKpis() is
+     * removed from here (see registerKpiClass()), keeping "last registered
+     * wins" true across both mechanisms.
      *
      * @var array<string, callable>
      */
     protected array $kpiSources = [];
+
+    /**
+     * Unified KPI source registry (Phase G): key => class-string<KpiSource>
+     * for kpis()/discoverKpis() registrations, or an already-wrapped
+     * anonymous KpiSource instance for kpiSources() legacy registrations.
+     * Class-strings are resolved lazily (only instantiated when a rendered
+     * card actually references that key) via getRegisteredKpiSource().
+     *
+     * @var array<string, class-string<KpiSource>|KpiSource>
+     */
+    protected array $kpiSourceRegistry = [];
+
+    protected ?KpiResolver $kpiResolver = null;
 
     /**
      * Extra native Filament widgets (StatsOverviewWidget, ChartWidget,
@@ -528,6 +559,22 @@ class LaunchpadPlugin implements Plugin
      * Cards of type "widget" are mapped separately (see mapWidgetCardToDto())
      * and may resolve to null (omitted) when their widget_key is not/no
      * longer registered — hence the nullable return type here.
+     *
+     * KPI resolution (Phase G): a card's kpi_source is resolved at most once
+     * here, then feeds value/unit/trend/badge. Both registration mechanisms
+     * now share the SAME precedence — the LIVE SOURCE WINS, the card's static
+     * value is the fallback — so an admin's fixed value only shows through
+     * when there's no source (or the source returns null for that field,
+     * which lets a source author selectively defer a field to the static
+     * value). The two paths differ only in their degradation shape, which is
+     * intrinsic to how each carries its value:
+     *   - Legacy kpiSources() closure: handed to Tile as a Closure, so a
+     *     throwing closure defers and degrades to "—" at render time
+     *     (Tile::resolveKpi()); see tests/Feature/KpiSourceTest.php.
+     *   - New kpis()/discoverKpis() class-based source: resolved eagerly here
+     *     into a KpiResult, so authorize()=false or a throwing resolve()
+     *     yields a null result → the card's static value (if any) shows,
+     *     otherwise the value is simply absent — see Support\KpiResolver.
      */
     protected function mapCardToDto(CardModel $card): ?Tile
     {
@@ -549,26 +596,50 @@ class LaunchpadPlugin implements Plugin
             $tile->icon($card->icon);
         }
 
+        $legacyKpiSource = filled($card->kpi_source) ? $this->getKpiSource($card->kpi_source) : null;
+
+        $kpiResult = ($legacyKpiSource === null && filled($card->kpi_source))
+            ? $this->resolveKpiResult($card->kpi_source)
+            : null;
+
+        // The live source wins; the card's static value is the fallback. A
+        // field the source leaves null (e.g. getUnit() === null) falls
+        // through to the card's static value, giving the source author
+        // per-field control.
         if ($card->type === 'kpi') {
-            if (filled($card->kpi_source) && $this->getKpiSource($card->kpi_source) !== null) {
-                $tile->kpi($this->getKpiSource($card->kpi_source));
+            if ($legacyKpiSource !== null) {
+                $tile->kpi($legacyKpiSource);
+            } elseif ($kpiResult !== null && filled($kpiResult->getValue())) {
+                $tile->kpi((string) $kpiResult->getValue());
             } elseif (filled($card->kpi_value)) {
                 $tile->kpi($card->kpi_value);
             }
 
-            if (filled($card->unit)) {
+            if ($kpiResult !== null && filled($kpiResult->getUnit())) {
+                $tile->unit($kpiResult->getUnit());
+            } elseif (filled($card->unit)) {
                 $tile->unit($card->unit);
-            }
-
-            if (filled($card->trend)) {
-                $tile->trend($card->trend, $card->trend_color ?? 'gray');
             }
         } elseif (filled($card->note)) {
             $tile->note($card->note);
         }
 
-        // Badge applies to both variants (KPI and shortcut tiles).
-        if (filled($card->badge)) {
+        // Trend and badge apply to ANY card type — a "shortcut" tile can show
+        // a live badge/trend ("3 pendentes") without ever becoming a
+        // KPI-variant tile. Same source-wins-with-static-fallback rule.
+        $sourceTrend = $kpiResult?->getTrend();
+
+        if (filled($sourceTrend)) {
+            $tile->trend($sourceTrend, $kpiResult->getTrendColor());
+        } elseif (filled($card->trend)) {
+            $tile->trend($card->trend, $card->trend_color ?? 'gray');
+        }
+
+        $sourceBadge = $kpiResult?->getBadge();
+
+        if (filled($sourceBadge)) {
+            $tile->badge($sourceBadge, $kpiResult->getBadgeBg(), $kpiResult->getBadgeColor());
+        } elseif (filled($card->badge)) {
             $tile->badge(
                 $card->badge,
                 $card->badge_bg ?? '#f3f4f6',
@@ -627,14 +698,23 @@ class LaunchpadPlugin implements Plugin
     }
 
     /**
-     * Registers named KPI sources. Callable multiple times — later calls are
-     * merged with (not replace) previously registered sources.
+     * Registers named KPI sources (legacy path, kept for backwards-compat —
+     * see RF-03's "via legada" in the Phase G spec). Callable multiple
+     * times — later calls are merged with (not replace) previously
+     * registered sources. Each closure is ALSO wrapped into an anonymous
+     * KpiSource (label = the given name, no caching, always authorized) and
+     * folded into the unified registry, so it shows up in
+     * getKpiSourceOptions() alongside class-based sources.
      *
      * @param  array<string, callable>  $sources
      */
     public function kpiSources(array $sources): static
     {
         $this->kpiSources = array_merge($this->kpiSources, $sources);
+
+        foreach ($sources as $name => $callback) {
+            $this->kpiSourceRegistry[$name] = $this->wrapLegacyKpiSource($name, $callback);
+        }
 
         return $this;
     }
@@ -654,6 +734,228 @@ class LaunchpadPlugin implements Plugin
         }
 
         return Closure::fromCallable($this->kpiSources[$name]);
+    }
+
+    /**
+     * Registers class-based KPI sources by class-string (Phase G, RF-03 "via
+     * explícita"). Purely lazy: only key() (a static method) is called here
+     * — the class itself is never instantiated until a rendered card
+     * actually references its key (see getRegisteredKpiSource()).
+     *
+     * @param  array<int, class-string<KpiSource>>  $classStrings
+     */
+    public function kpis(array $classStrings): static
+    {
+        foreach ($classStrings as $class) {
+            $this->registerKpiClass($class);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Scans a directory (recursively) for concrete KpiSource classes and
+     * registers each one, à la Filament's own discoverWidgets(). $for is the
+     * base namespace matching $in (e.g. discoverKpis(in: app_path('Filament/Store/Modules/POS/Kpis'),
+     * for: 'App\\Filament\\Store\\Modules\\POS\\Kpis')). Safe to call more
+     * than once (idempotent) and silently no-ops when $in doesn't exist yet.
+     */
+    public function discoverKpis(string $in, string $for): static
+    {
+        if (! is_dir($in)) {
+            return $this;
+        }
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($in, FilesystemIterator::SKIP_DOTS),
+        );
+
+        foreach ($iterator as $file) {
+            if (! $file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $relativeClass = Str::of($file->getPathname())
+                ->after(rtrim($in, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)
+                ->beforeLast('.php')
+                ->replace(DIRECTORY_SEPARATOR, '\\')
+                ->toString();
+
+            $this->registerKpiClass(rtrim($for, '\\').'\\'.$relativeClass);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Registers a single class-string in the unified registry, after
+     * validating (via reflection, without instantiating) that it's a
+     * concrete class implementing KpiSource. Silently ignores anything that
+     * doesn't qualify (missing class, interface, abstract class, or a class
+     * not implementing KpiSource) — a generator stub left half-written, or a
+     * stray non-KPI class in a discovered folder, never breaks discovery.
+     *
+     * A class-based registration always wins over a same-keyed legacy
+     * closure, regardless of call order — the legacy entry is dropped so
+     * getKpiSource()/getKpiSources() stay in sync with "last registered
+     * wins" (see the $kpiSources docblock).
+     */
+    protected function registerKpiClass(string $class): void
+    {
+        if (! class_exists($class)) {
+            return;
+        }
+
+        $reflection = new ReflectionClass($class);
+
+        if ($reflection->isAbstract() || $reflection->isInterface()) {
+            return;
+        }
+
+        if (! $reflection->implementsInterface(KpiSource::class)) {
+            return;
+        }
+
+        /** @var class-string<KpiSource> $class */
+        $key = $class::key();
+
+        $this->kpiSourceRegistry[$key] = $class;
+
+        unset($this->kpiSources[$key]);
+    }
+
+    /**
+     * Wraps a legacy kpiSources() closure into an anonymous KpiSource, so it
+     * can be folded into the unified registry (and thus appear in
+     * getKpiSourceOptions()) without changing its resolution behaviour
+     * elsewhere (mapCardToDto() still special-cases legacy keys via
+     * getKpiSource()).
+     */
+    protected function wrapLegacyKpiSource(string $name, callable $callback): KpiSource
+    {
+        return new class($name, $callback) implements KpiSource
+        {
+            /**
+             * @param  callable  $callback
+             */
+            public function __construct(
+                protected string $name,
+                protected $callback,
+            ) {}
+
+            public static function key(): string
+            {
+                // Never consulted: the unified registry is already keyed by
+                // $name at registration time (see kpiSources()).
+                return 'legacy';
+            }
+
+            public function label(): string
+            {
+                return $this->name;
+            }
+
+            public function resolve(): KpiResult
+            {
+                return KpiResult::make(($this->callback)());
+            }
+
+            public function cacheFor(): ?int
+            {
+                return null;
+            }
+
+            public function authorize(?Authenticatable $user): bool
+            {
+                return true;
+            }
+        };
+    }
+
+    /**
+     * Resolves a key against the unified registry into a live KpiSource
+     * instance — a class-string entry is instantiated (via the container,
+     * for constructor DI) lazily, right here; an already-wrapped legacy
+     * instance is returned as-is. Returns null when the key isn't
+     * registered at all.
+     */
+    public function getRegisteredKpiSource(string $key): ?KpiSource
+    {
+        $entry = $this->kpiSourceRegistry[$key] ?? null;
+
+        if ($entry instanceof KpiSource) {
+            return $entry;
+        }
+
+        if (is_string($entry)) {
+            return $this->instantiateKpiSourceClass($entry);
+        }
+
+        return null;
+    }
+
+    protected function instantiateKpiSourceClass(string $class): ?KpiSource
+    {
+        if (! class_exists($class)) {
+            return null;
+        }
+
+        try {
+            /** @var KpiSource $instance */
+            $instance = app($class);
+
+            return $instance;
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
+    /**
+     * key() => label() for every registered source (legacy closures included),
+     * for the admin's kpi_source Select (HasCardForm). Instantiating a
+     * class-based source here to read its label is acceptable — this is
+     * admin/build-time context, never the hot render path.
+     *
+     * @return array<string, string>
+     */
+    public function getKpiSourceOptions(): array
+    {
+        $options = [];
+
+        foreach (array_keys($this->kpiSourceRegistry) as $key) {
+            $source = $this->getRegisteredKpiSource($key);
+
+            if ($source === null) {
+                continue;
+            }
+
+            try {
+                $options[$key] = $source->label();
+            } catch (Throwable) {
+                $options[$key] = $key;
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * Resolves a card's kpi_source key through the NEW class-based engine
+     * (lazy + memoized + cached + authorized + degrading — see
+     * Support\KpiResolver). Never called for a key that resolves to a legacy
+     * closure (see mapCardToDto()) — legacy keys keep flowing through
+     * getKpiSource() exactly as before.
+     */
+    protected function resolveKpiResult(string $key): ?KpiResult
+    {
+        return $this->kpiResolver()->resolve($key, fn (): ?KpiSource => $this->getRegisteredKpiSource($key));
+    }
+
+    protected function kpiResolver(): KpiResolver
+    {
+        return $this->kpiResolver ??= new KpiResolver;
     }
 
     /**
@@ -726,7 +1028,7 @@ class LaunchpadPlugin implements Plugin
                 ->filter()
                 ->values()
                 ->all();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return [];
         }
     }
