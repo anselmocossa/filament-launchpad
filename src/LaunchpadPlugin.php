@@ -95,6 +95,15 @@ class LaunchpadPlugin implements Plugin
      */
     protected array $widgets = [];
 
+    protected bool $registerResources = true;
+
+    public function autoRegisterResources(bool $condition = true): static
+    {
+        $this->registerResources = $condition;
+
+        return $this;
+    }
+
     public static function make(): static
     {
         return app(static::class);
@@ -120,12 +129,14 @@ class LaunchpadPlugin implements Plugin
             EditHome::class,
         ]);
 
-        $panel->resources([
-            SpaceResource::class,
-            PageResource::class,
-            SectionResource::class,
-            CardResource::class,
-        ]);
+        if ($this->registerResources) {
+            $panel->resources([
+                SpaceResource::class,
+                PageResource::class,
+                SectionResource::class,
+                CardResource::class,
+            ]);
+        }
 
         // An "Edit Home" entry in the account/user menu: a one-click shortcut
         // to customize just the home page (the first space's first page) in the
