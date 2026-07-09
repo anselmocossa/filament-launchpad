@@ -41,7 +41,7 @@ Turn your Filament panel's homepage into a SAP Fiori-style launchpad: Spaces, Pa
 - **Sub-nav navigation** — "☰ All Spaces" menu, a per-space Pages dropdown, and an automatic "More ▾" overflow (priority-nav) so the tab bar never scrolls.
 - **Three card types** — KPI (live value from a `KpiSource` class), Shortcut (link to a Resource, Page or URL), and Widget (renders a native `StatsOverviewWidget`/`ChartWidget` in place of the card).
 - **Class-based KPI engine** — a `KpiSource` returns a rich `KpiResult` (value + unit + trend + badge) from one query; auto-discovered under `app/Filament/Launchpad`, resolved lazily with per-request memoization and an optional (tenant-safe) cached TTL, and scopeable per panel. Legacy closure sources still supported; a throwing source degrades the tile to `—`. Never `eval`'d, never user-controlled.
-- **Artisan generators** — `make:launchpad-kpi` and `make:launchpad-widget` scaffold KPI/widget classes (auto `Kpi`/`Widget` suffix, optional `--model=` subfolder).
+- **Artisan generators** — `make:launchpad-kpi`, `make:launchpad-widget` and `make:launchpad-card` scaffold KPI/widget/card-preset classes (auto `Kpi`/`Widget`/`Card` suffix, optional `--model=` subfolder).
 - **Reusable card library** — draggable presets for the builder, defined once and dropped into as many sections as needed.
 - **Auto-discovered widget library** — widgets already registered on the panel are available in the builder out of the box; override label/icon/column span or add extra ones only when needed.
 - **Drag-and-drop layout builder** — native HTML5 Drag and Drop (Alpine-driven, no external JS library), with a searchable Card Library and Widgets panel.
@@ -192,23 +192,43 @@ public function cacheKey(): string
 
 ### Card library
 
-Register presets that show up in the builder's "Card Library" panel, ready to be dragged into any Section:
+Card Library presets show up in the builder's "Card Library" panel, ready to be dragged into any Section. Define each as a **`CardPreset` class** (auto-discovered under `app/Filament/Launchpad`) — scaffold one with artisan:
+
+```bash
+php artisan make:launchpad-card SalesToday
+# → app/Filament/Launchpad/SalesTodayCard.php   ("Card" suffix added automatically)
+```
+
+```php
+namespace App\Filament\Launchpad;
+
+use Filament\Launchpad\Launchpad\BaseCardPreset;
+
+class SalesTodayCard extends BaseCardPreset
+{
+    protected string $title = 'Sales Today';
+
+    protected ?string $subtitle = 'Point of Sale';
+
+    protected ?string $icon = 'heroicon-o-banknotes';
+
+    protected string $type = 'kpi';                  // kpi | shortcut | widget
+
+    protected string $targetType = 'url';            // none | url | resource | page
+
+    protected ?string $targetValue = '/admin/sales';
+
+    // protected ?string $kpiSource = 'sales_today'; // optionally pre-wire a live KPI source
+}
+```
+
+`BaseCardPreset` derives the `key()` from the class name (`SalesTodayCard` → `sales_today`). Registration mirrors KPI sources: auto-discovered by default, or register explicitly / scan a custom folder / opt out with `->cards([...])`, `->discoverCards(in:, for:)`, `->autoDiscoverCards(false)`.
+
+The **legacy array form** still works and is merged with the class-based presets (class presets win on key collision):
 
 ```php
 LaunchpadPlugin::make()->cardLibrary([
-    [
-        'key' => 'sales-today',
-        'title' => 'Sales Today',
-        'icon' => 'heroicon-o-banknotes',
-        'type' => 'kpi',
-        'subtitle' => 'Point of Sale',
-        'kpi_value' => null,
-        'unit' => null,
-        'trend' => null,
-        'badge' => null,
-        'target_type' => 'url',
-        'target_value' => '/admin/sales',
-    ],
+    ['key' => 'sales-today', 'title' => 'Sales Today', 'type' => 'kpi', 'target_type' => 'url', 'target_value' => '/admin/sales'],
 ]);
 ```
 

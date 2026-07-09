@@ -9,6 +9,7 @@ use Filament\Launchpad\Filament\Resources\CardResource;
 use Filament\Launchpad\Filament\Resources\PageResource;
 use Filament\Launchpad\Filament\Resources\SectionResource;
 use Filament\Launchpad\Filament\Resources\SpaceResource;
+use Filament\Launchpad\Launchpad\CardPreset;
 use Filament\Launchpad\Launchpad\KpiResult;
 use Filament\Launchpad\Launchpad\KpiSource;
 use Filament\Launchpad\Launchpad\LaunchpadPage;
@@ -70,8 +71,10 @@ class LaunchpadPlugin implements Plugin
     protected int $notificationCount = 0;
 
     /**
-     * Card presets offered by the drag&drop Builder's "Biblioteca de Cards".
-     * Each entry is an array with keys: key,title,icon,type,subtitle,
+     * Card presets offered by the drag&drop Builder's "Biblioteca de Cards"
+     * (legacy path, kept for backwards-compat — the array-based counterpart
+     * to $cardPresetRegistry below, Phase H's class-based mechanism). Each
+     * entry is an array with keys: key,title,icon,type,subtitle,
      * kpi_value,unit,trend,badge,target_type,target_value. Dragging a preset
      * onto a Section creates a Card seeded with these values (no live data —
      * developers wire kpi_source or edit the value afterwards).
@@ -79,6 +82,16 @@ class LaunchpadPlugin implements Plugin
      * @var array<int, array<string, mixed>>
      */
     protected array $cardLibrary = [];
+
+    /**
+     * Class-based card preset registry (Phase H): key => class-string<CardPreset>
+     * for cards()/discoverCards() registrations. Class-strings are resolved
+     * lazily (only instantiated by getCardLibrary(), never on the hot render
+     * path) — mirrors $kpiSourceRegistry's laziness for KPIs.
+     *
+     * @var array<string, class-string<CardPreset>>
+     */
+    protected array $cardPresetRegistry = [];
 
     /**
      * Named, developer-registered KPI sources (legacy path). Each entry is a
@@ -146,6 +159,16 @@ class LaunchpadPlugin implements Plugin
      */
     protected bool $autoDiscoverKpis = true;
 
+    /**
+     * Same mechanism as $autoDiscoverKpis, for CardPreset classes (Phase H).
+     * When true (the default), register() scans
+     * config('launchpad.generators.path') for concrete CardPreset classes
+     * and registers each one automatically. Turned off automatically the
+     * moment the developer registers card presets manually via cards() or
+     * discoverCards(); can also be toggled explicitly.
+     */
+    protected bool $autoDiscoverCards = true;
+
     public function autoRegisterResources(bool $condition = true): static
     {
         $this->registerResources = $condition;
@@ -179,6 +202,19 @@ class LaunchpadPlugin implements Plugin
         return $this;
     }
 
+    /**
+     * Toggles the automatic scan of config('launchpad.generators.path') for
+     * CardPreset classes performed in register(). Calling cards() or
+     * discoverCards() already turns this off implicitly; call this
+     * explicitly to force it back on/off regardless of that.
+     */
+    public function autoDiscoverCards(bool $enabled = true): static
+    {
+        $this->autoDiscoverCards = $enabled;
+
+        return $this;
+    }
+
     public static function make(): static
     {
         return app(static::class);
@@ -201,6 +237,13 @@ class LaunchpadPlugin implements Plugin
     {
         if ($this->autoDiscoverKpis) {
             $this->scanForKpiClasses(
+                (string) (config('launchpad.generators.path') ?? app_path('Filament/Launchpad')),
+                (string) (config('launchpad.generators.namespace') ?? 'App\\Filament\\Launchpad'),
+            );
+        }
+
+        if ($this->autoDiscoverCards) {
+            $this->scanForCardClasses(
                 (string) (config('launchpad.generators.path') ?? app_path('Filament/Launchpad')),
                 (string) (config('launchpad.generators.namespace') ?? 'App\\Filament\\Launchpad'),
             );
@@ -839,13 +882,46 @@ class LaunchpadPlugin implements Plugin
      */
     protected function scanForKpiClasses(string $in, string $for): void
     {
+        foreach ($this->discoverGeneratorClasses($in, $for) as $class) {
+            $this->registerKpiClass($class);
+        }
+    }
+
+    /**
+     * The actual directory scan behind discoverCards(), mirroring
+     * scanForKpiClasses() above for CardPreset classes (Phase H). Factored
+     * out so register()'s automatic discovery can reuse it WITHOUT flipping
+     * $autoDiscoverCards off.
+     */
+    protected function scanForCardClasses(string $in, string $for): void
+    {
+        foreach ($this->discoverGeneratorClasses($in, $for) as $class) {
+            $this->registerCardClass($class);
+        }
+    }
+
+    /**
+     * Walks $in (recursively, à la Filament's own discoverWidgets()) and
+     * returns every PHP file's fully-qualified class-string under $for,
+     * WITHOUT instantiating or even class_exists()-checking anything —
+     * that's left to the caller (registerKpiClass()/registerCardClass()),
+     * since the same directory commonly holds both KpiSource and CardPreset
+     * classes side by side and each scan only cares about its own interface.
+     * Silently returns an empty array when $in doesn't exist yet.
+     *
+     * @return array<int, class-string>
+     */
+    protected function discoverGeneratorClasses(string $in, string $for): array
+    {
         if (! is_dir($in)) {
-            return;
+            return [];
         }
 
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($in, FilesystemIterator::SKIP_DOTS),
         );
+
+        $classes = [];
 
         foreach ($iterator as $file) {
             if (! $file->isFile() || $file->getExtension() !== 'php') {
@@ -858,8 +934,10 @@ class LaunchpadPlugin implements Plugin
                 ->replace(DIRECTORY_SEPARATOR, '\\')
                 ->toString();
 
-            $this->registerKpiClass(rtrim($for, '\\').'\\'.$relativeClass);
+            $classes[] = rtrim($for, '\\').'\\'.$relativeClass;
         }
+
+        return $classes;
     }
 
     /**
@@ -897,6 +975,38 @@ class LaunchpadPlugin implements Plugin
         $this->kpiSourceRegistry[$key] = $class;
 
         unset($this->kpiSources[$key]);
+    }
+
+    /**
+     * Registers a single class-string in the card preset registry, after
+     * validating (via reflection, without instantiating) that it's a
+     * concrete class implementing CardPreset. Silently ignores anything
+     * that doesn't qualify (missing class, interface, abstract class, or a
+     * class not implementing CardPreset) — mirrors registerKpiClass(), and
+     * in particular lets the SAME directory scan feed both registries: a
+     * KpiSource file is simply ignored here, and vice-versa in
+     * registerKpiClass().
+     */
+    protected function registerCardClass(string $class): void
+    {
+        if (! class_exists($class)) {
+            return;
+        }
+
+        $reflection = new ReflectionClass($class);
+
+        if ($reflection->isAbstract() || $reflection->isInterface()) {
+            return;
+        }
+
+        if (! $reflection->implementsInterface(CardPreset::class)) {
+            return;
+        }
+
+        /** @var class-string<CardPreset> $class */
+        $key = $class::key();
+
+        $this->cardPresetRegistry[$key] = $class;
     }
 
     /**
@@ -1068,15 +1178,50 @@ class LaunchpadPlugin implements Plugin
     }
 
     /**
-     * Registers card presets for the drag&drop Builder's library. Callable
-     * multiple times — later calls are merged with (not replace) previously
-     * registered presets.
+     * Registers card presets for the drag&drop Builder's library (legacy
+     * array-based path). Callable multiple times — later calls are merged
+     * with (not replace) previously registered presets.
      *
      * @param  array<int, array<string, mixed>>  $presets
      */
     public function cardLibrary(array $presets): static
     {
         $this->cardLibrary = [...$this->cardLibrary, ...$presets];
+
+        return $this;
+    }
+
+    /**
+     * Registers class-based card presets by class-string (Phase H, the
+     * card-preset counterpart to kpis()). Purely lazy: only key() (a static
+     * method) is called here — the class itself is never instantiated until
+     * getCardLibrary() actually needs its toArray().
+     *
+     * @param  array<int, class-string<CardPreset>>  $classStrings
+     */
+    public function cards(array $classStrings): static
+    {
+        $this->autoDiscoverCards = false;
+
+        foreach ($classStrings as $class) {
+            $this->registerCardClass($class);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Scans a directory (recursively) for concrete CardPreset classes and
+     * registers each one — the card-preset counterpart to discoverKpis().
+     * Safe to call more than once (idempotent) and silently no-ops when $in
+     * doesn't exist yet. Calling this (like cards()) turns register()'s
+     * automatic discovery off — see $autoDiscoverCards.
+     */
+    public function discoverCards(string $in, string $for): static
+    {
+        $this->autoDiscoverCards = false;
+
+        $this->scanForCardClasses($in, $for);
 
         return $this;
     }
@@ -1165,14 +1310,43 @@ class LaunchpadPlugin implements Plugin
     }
 
     /**
+     * The drag&drop Builder's full "Biblioteca de Cards": the legacy
+     * array-based presets (cardLibrary(), or the built-in KPI/Atalho pair
+     * when nothing was registered) FUSED with every class-based CardPreset
+     * registered via cards()/discoverCards()/auto-discovery. A class-based
+     * preset always wins over a same-keyed legacy array entry, regardless of
+     * registration order — mirrors registerKpiClass()'s "class beats legacy"
+     * rule for KPIs. A preset class that fails to instantiate is skipped
+     * (never breaks the whole library).
+     *
      * @return array<int, array<string, mixed>>
      */
     public function getCardLibrary(): array
     {
-        if (filled($this->cardLibrary)) {
-            return $this->cardLibrary;
+        $legacy = filled($this->cardLibrary) ? $this->cardLibrary : $this->getDefaultCardLibrary();
+
+        if (blank($this->cardPresetRegistry)) {
+            return $legacy;
         }
 
+        $classBased = collect($this->cardPresetRegistry)
+            ->map(fn (string $class): ?array => $this->instantiateCardPresetClass($class)?->toArray())
+            ->filter()
+            ->values()
+            ->all();
+
+        return collect($legacy)
+            ->concat($classBased)
+            ->keyBy('key')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function getDefaultCardLibrary(): array
+    {
         return [
             [
                 'key' => 'kpi',
@@ -1201,5 +1375,29 @@ class LaunchpadPlugin implements Plugin
                 'target_value' => null,
             ],
         ];
+    }
+
+    /**
+     * Instantiates a registered CardPreset class-string (via the container,
+     * for constructor DI), swallowing any failure — a preset that throws
+     * while constructing is simply omitted from the library rather than
+     * breaking the Builder page. Mirrors instantiateKpiSourceClass().
+     */
+    protected function instantiateCardPresetClass(string $class): ?CardPreset
+    {
+        if (! class_exists($class)) {
+            return null;
+        }
+
+        try {
+            /** @var CardPreset $instance */
+            $instance = app($class);
+
+            return $instance;
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
     }
 }

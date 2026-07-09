@@ -2,6 +2,12 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.4.0 - 2026-07-09
+
+### Added
+- **Class-based card presets**: the builder's "Card Library" presets can now be `CardPreset` classes (auto-discovered under `app/Filament/Launchpad`) instead of one big `cardLibrary([...])` array — register with `->cards([...])` / `->discoverCards(in:, for:)`, toggle with `->autoDiscoverCards()`. `BaseCardPreset` derives the `key()` from the class name. The legacy `cardLibrary([...])` array still works and is merged with the class-based presets (class presets win on key collision).
+- **`make:launchpad-card`**: scaffolds a `CardPreset` class (auto `Card` suffix, optional `--model=` subfolder).
+
 ## 1.3.1 - 2026-07-09
 
 ### Fixed
