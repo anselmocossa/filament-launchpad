@@ -39,8 +39,9 @@ Turn your Filament panel's homepage into a SAP Fiori-style launchpad: Spaces, Pa
 - **Fiori-style launchpad home page** — sub-nav tabs, grouped sections, and a grid of clickable cards, rendered inside the native Filament page shell (topbar, sidebar, breadcrumbs and dark mode stay untouched).
 - **Space → Page → Section → Card hierarchy** — manage everything through dedicated Filament Resources and nested relation managers.
 - **Sub-nav navigation** — "☰ All Spaces" menu, a per-space Pages dropdown, and an automatic "More ▾" overflow (priority-nav) so the tab bar never scrolls.
-- **Three card types** — KPI (live value via a registered source), Shortcut (link to a Resource, Page or URL), and Widget (renders a native `StatsOverviewWidget`/`ChartWidget` in place of the card).
-- **Safe KPI sources** — closures registered by the developer, never `eval`'d, never user-controlled. A throwing source degrades the tile to `—` instead of breaking the page.
+- **Three card types** — KPI (live value from a `KpiSource` class), Shortcut (link to a Resource, Page or URL), and Widget (renders a native `StatsOverviewWidget`/`ChartWidget` in place of the card).
+- **Class-based KPI engine** — a `KpiSource` returns a rich `KpiResult` (value + unit + trend + badge) from one query; auto-discovered under `app/Filament/Launchpad`, resolved lazily with per-request memoization and an optional (tenant-safe) cached TTL, and scopeable per panel. Legacy closure sources still supported; a throwing source degrades the tile to `—`. Never `eval`'d, never user-controlled.
+- **Artisan generators** — `make:launchpad-kpi` and `make:launchpad-widget` scaffold KPI/widget classes (auto `Kpi`/`Widget` suffix, optional `--model=` subfolder).
 - **Reusable card library** — draggable presets for the builder, defined once and dropped into as many sections as needed.
 - **Auto-discovered widget library** — widgets already registered on the panel are available in the builder out of the box; override label/icon/column span or add extra ones only when needed.
 - **Drag-and-drop layout builder** — native HTML5 Drag and Drop (Alpine-driven, no external JS library), with a searchable Card Library and Widgets panel.
@@ -116,18 +117,78 @@ Manage all four through the plugin's Filament Resources (**Spaces**, reachable f
 
 ### KPI sources
 
-Register named, closure-based KPI sources on the plugin — never raw strings, never `eval`, always a callable the developer controls:
+A KPI card's live value comes from a **`KpiSource` class** that returns a rich `KpiResult` (value + unit + trend + badge) from a single query. Scaffold one with artisan:
+
+```bash
+php artisan make:launchpad-kpi SalesToday
+# → app/Filament/Launchpad/SalesTodayKpi.php   ("Kpi" suffix added automatically)
+
+php artisan make:launchpad-kpi SalesToday --model=Order
+# → app/Filament/Launchpad/Order/SalesTodayKpi.php
+```
+
+```php
+namespace App\Filament\Launchpad;
+
+use App\Models\Order;
+use Filament\Launchpad\Launchpad\BaseKpiSource;
+use Filament\Launchpad\Launchpad\KpiResult;
+
+class SalesTodayKpi extends BaseKpiSource
+{
+    public function cacheFor(): ?int
+    {
+        return 120; // seconds; null = no TTL cache (still memoized once per request)
+    }
+
+    public function resolve(): KpiResult
+    {
+        return KpiResult::make(Order::whereDate('created_at', today())->count())
+            ->unit('orders')
+            ->trend('+3 today', 'success') // success | danger | gray
+            ->badge('new');                // pass null to hide the badge
+    }
+}
+```
+
+`BaseKpiSource` derives `key()` (`sales_today`) and `label()` (`Sales Today`) from the class name (the `Kpi` suffix is stripped). A KPI Card references the source by its `key()` from the **"Source (Live)"** select in the Card form; a source that throws degrades the tile to `—` instead of breaking the page. A Card without a source can still use a "Fixed Value" typed into the form.
+
+**Registration.** Drop the class under `app/Filament/Launchpad` and it is **auto-discovered** — no wiring needed. Register explicitly (which turns auto-discovery off) or scan a custom folder instead:
 
 ```php
 use Filament\Launchpad\LaunchpadPlugin;
 
+LaunchpadPlugin::make()
+    ->kpis([\App\Filament\Launchpad\SalesTodayKpi::class])          // explicit
+    ->discoverKpis(in: app_path('Metrics'), for: 'App\\Metrics')    // custom folder
+    ->autoDiscoverKpis(false);                                      // opt out entirely
+```
+
+The **legacy closure form** still works for quick one-offs and is fully backward-compatible:
+
+```php
 LaunchpadPlugin::make()->kpiSources([
-    'sales_today' => fn () => Sale::whereDate('created_at', today())->count(),
     'open_tickets' => fn () => Ticket::whereNull('resolved_at')->count(),
 ]);
 ```
 
-A KPI Card then references a source by its key (from the "Source (Live)" select in the Card form) instead of embedding logic — if the closure throws, the tile degrades to `—` rather than breaking the page. A Card without a source can instead use a "Fixed Value" typed directly into the form.
+**Per-panel scoping.** Override `panels()` to limit a source to specific panels (empty = all):
+
+```php
+public function panels(): array
+{
+    return ['store'];
+}
+```
+
+**Multi-tenant caching.** When `cacheFor()` is set, values are cached under the source's `cacheKey()` (defaults to `key()`). In a multi-tenant app, override it so a cached value never leaks across tenants:
+
+```php
+public function cacheKey(): string
+{
+    return static::key().':'.tenancy()->tenant()?->id;
+}
+```
 
 ### Card library
 
@@ -173,6 +234,13 @@ LaunchpadPlugin::make()->widgets([
 ```
 
 Dropping a widget from the library creates a Card of type `widget` that stores only its registered `key` — the class is resolved from the developer's registration at render time, never read from the database directly.
+
+Scaffold a launchpad-ready widget (a `StatsOverviewWidget`, no custom view required) with artisan:
+
+```bash
+php artisan make:launchpad-widget Revenue            # → app/Filament/Launchpad/RevenueWidget.php
+php artisan make:launchpad-widget Revenue --model=Order  # → app/Filament/Launchpad/Order/RevenueWidget.php
+```
 
 ### Drag-and-drop builder
 
