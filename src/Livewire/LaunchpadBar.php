@@ -124,10 +124,11 @@ class LaunchpadBar extends Component
      *   1. On a space's non-first page → go up to that space's first page.
      *   2. On a space's first page (but not the root space) → go to the root
      *      space (the first one) and its first page.
-     *   3. Already at the root → no-op.
+     *   3. Already at the root (or mounted at the root, e.g. on a resource page
+     *      reached from a tile) → fall back to the browser history so the "‹"
+     *      always goes back somewhere instead of being a dead no-op.
      * Triggered by the topbar "‹" button via the `launchpad-back` Livewire
-     * event (dispatched only when the launchpad bar is present on the page;
-     * elsewhere the button falls back to the browser history).
+     * event.
      */
     #[On('launchpad-back')]
     public function goUp(): void
@@ -148,7 +149,14 @@ class LaunchpadBar extends Component
 
         if ($rootSpace instanceof LaunchpadSpace && $rootSpace->getId() !== $this->activeSpace) {
             $this->selectSpace($rootSpace->getId());
+
+            return;
         }
+
+        // Nothing left to walk up to. Fall back to the browser's own history so
+        // the "‹" still returns the user to where they came from (e.g. from a
+        // resource opened via a tile back to the launchpad).
+        $this->js('window.history.back()');
     }
 
     /**
