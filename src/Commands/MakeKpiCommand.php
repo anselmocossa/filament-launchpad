@@ -40,7 +40,7 @@ class MakeKpiCommand extends Command
         $fqcn = $location['namespace'].'\\'.$location['class'];
 
         $this->components->info("Launchpad KPI source [{$fqcn}] created successfully.");
-        $this->line("Next: implement resolve(), then register it with LaunchpadPlugin::make()->kpiSources([{$location['class']}::class]) or reference its key() from a card's kpi_source.");
+        $this->line("Next: implement resolve(), then register it by class — either LaunchpadPlugin::make()->kpis([\\{$fqcn}::class]) or auto-discover its folder with LaunchpadPlugin::make()->discoverKpis(in: ..., for: ...). Then reference its key() in a card's kpi_source field.");
 
         return self::SUCCESS;
     }

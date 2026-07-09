@@ -263,7 +263,7 @@ Issues and pull requests are welcome. Please run `composer lint` and `composer t
 
 ## Security Vulnerabilities
 
-If you discover any security-related issues, please email anselmo.cossa@enh.co.mz instead of using the issue tracker.
+If you discover any security-related issues, please email anselmokossa.apk@gmail.com instead of using the issue tracker.
 
 ## Credits
 
