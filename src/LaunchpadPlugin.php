@@ -128,9 +128,33 @@ class LaunchpadPlugin implements Plugin
 
     protected bool $registerResources = true;
 
+    /**
+     * When true (the default), register() scans
+     * config('launchpad.generators.path') for concrete KpiSource classes and
+     * registers each one automatically — no discoverKpis() call needed in
+     * the host app. Turned off automatically the moment the developer
+     * registers KPIs manually via kpis() or discoverKpis(), so the manual
+     * registration always wins and nothing is ever registered twice; can
+     * also be toggled explicitly.
+     */
+    protected bool $autoDiscoverKpis = true;
+
     public function autoRegisterResources(bool $condition = true): static
     {
         $this->registerResources = $condition;
+
+        return $this;
+    }
+
+    /**
+     * Toggles the automatic scan of config('launchpad.generators.path') for
+     * KpiSource classes performed in register(). Calling kpis() or
+     * discoverKpis() already turns this off implicitly; call this
+     * explicitly to force it back on/off regardless of that.
+     */
+    public function autoDiscoverKpis(bool $enabled = true): static
+    {
+        $this->autoDiscoverKpis = $enabled;
 
         return $this;
     }
@@ -155,6 +179,13 @@ class LaunchpadPlugin implements Plugin
 
     public function register(Panel $panel): void
     {
+        if ($this->autoDiscoverKpis) {
+            $this->scanForKpiClasses(
+                (string) (config('launchpad.generators.path') ?? app_path('Filament/Launchpad')),
+                (string) (config('launchpad.generators.namespace') ?? 'App\\Filament\\Launchpad'),
+            );
+        }
+
         $panel->pages([
             Launchpad::class,
             EditHome::class,
@@ -746,6 +777,8 @@ class LaunchpadPlugin implements Plugin
      */
     public function kpis(array $classStrings): static
     {
+        $this->autoDiscoverKpis = false;
+
         foreach ($classStrings as $class) {
             $this->registerKpiClass($class);
         }
@@ -759,11 +792,28 @@ class LaunchpadPlugin implements Plugin
      * base namespace matching $in (e.g. discoverKpis(in: app_path('Filament/Store/Modules/POS/Kpis'),
      * for: 'App\\Filament\\Store\\Modules\\POS\\Kpis')). Safe to call more
      * than once (idempotent) and silently no-ops when $in doesn't exist yet.
+     * Calling this (like kpis()) turns register()'s automatic discovery off
+     * — see $autoDiscoverKpis.
      */
     public function discoverKpis(string $in, string $for): static
     {
+        $this->autoDiscoverKpis = false;
+
+        $this->scanForKpiClasses($in, $for);
+
+        return $this;
+    }
+
+    /**
+     * The actual directory scan behind discoverKpis(), factored out so
+     * register()'s automatic discovery can reuse it WITHOUT flipping
+     * $autoDiscoverKpis off (that flag only reacts to an explicit,
+     * developer-initiated kpis()/discoverKpis() call).
+     */
+    protected function scanForKpiClasses(string $in, string $for): void
+    {
         if (! is_dir($in)) {
-            return $this;
+            return;
         }
 
         $iterator = new RecursiveIteratorIterator(
@@ -783,8 +833,6 @@ class LaunchpadPlugin implements Plugin
 
             $this->registerKpiClass(rtrim($for, '\\').'\\'.$relativeClass);
         }
-
-        return $this;
     }
 
     /**
@@ -869,6 +917,14 @@ class LaunchpadPlugin implements Plugin
             {
                 return true;
             }
+
+            public function panels(): array
+            {
+                // Legacy closures never carry panel restrictions — always
+                // visible on every panel, exactly like before panels()
+                // existed.
+                return [];
+            }
         };
     }
 
@@ -877,21 +933,47 @@ class LaunchpadPlugin implements Plugin
      * instance — a class-string entry is instantiated (via the container,
      * for constructor DI) lazily, right here; an already-wrapped legacy
      * instance is returned as-is. Returns null when the key isn't
-     * registered at all.
+     * registered at all, OR when it's registered but restricted (via
+     * panels()) to a set of panels that doesn't include the current one —
+     * from the caller's perspective that's indistinguishable from "not
+     * registered".
      */
     public function getRegisteredKpiSource(string $key): ?KpiSource
     {
         $entry = $this->kpiSourceRegistry[$key] ?? null;
 
-        if ($entry instanceof KpiSource) {
-            return $entry;
+        $source = match (true) {
+            $entry instanceof KpiSource => $entry,
+            is_string($entry) => $this->instantiateKpiSourceClass($entry),
+            default => null,
+        };
+
+        if ($source === null || ! $this->isKpiSourceAvailableOnCurrentPanel($source)) {
+            return null;
         }
 
-        if (is_string($entry)) {
-            return $this->instantiateKpiSourceClass($entry);
+        return $source;
+    }
+
+    /**
+     * An empty panels() (the default) means "every panel". A non-empty
+     * panels() only matches when the current panel's id
+     * (Support\LaunchpadPanel::id()) is in that list — including when the
+     * current panel can't be determined at all (e.g. outside an HTTP
+     * request), which conservatively hides the source rather than showing
+     * it everywhere.
+     */
+    protected function isKpiSourceAvailableOnCurrentPanel(KpiSource $source): bool
+    {
+        $panels = $source->panels();
+
+        if (blank($panels)) {
+            return true;
         }
 
-        return null;
+        $currentPanel = LaunchpadPanel::id();
+
+        return $currentPanel !== null && in_array($currentPanel, $panels, true);
     }
 
     protected function instantiateKpiSourceClass(string $class): ?KpiSource

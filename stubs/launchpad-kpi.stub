@@ -30,6 +30,14 @@ class {{ class }} extends BaseKpiSource
     // {
     //     return 120;
     // }
+    //
+    // Restringe esta fonte a paineis especificos pelo id (vazio/omitido =
+    // visivel em todos os paineis):
+    //
+    // public function panels(): array
+    // {
+    //     return ['store'];
+    // }
 
     public function resolve(): KpiResult
     {

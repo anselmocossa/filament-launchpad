@@ -1,25 +1,24 @@
 <?php
 
-use App\Launchpad\Kpis\VendasHoje;
-use App\Modules\Sales\Kpis\ReceitaMensal;
+use App\Filament\Launchpad\PedidosEmAtrasoKpi;
+use App\Filament\Launchpad\TopUserKpi;
+use App\Filament\Launchpad\User\TopUserKpi as ModelScopedTopUserKpi;
 use Filament\Launchpad\Launchpad\BaseKpiSource;
 use Filament\Launchpad\Launchpad\KpiResult;
 use Illuminate\Support\Facades\File;
 
 /**
  * `make:launchpad-kpi` writes into the shared testbench skeleton
- * (app_path()) and, for the --module scenarios, into a fixture directory
- * under the also-shared storage_path(). Both persist across test runs, so
- * (mirroring InstallCommandTest's launchpad-migrations cleanup) we wipe
- * anything this command could have generated both before and after every
- * test — otherwise a leftover file from one run would make a later run's
- * "doesn't exist yet" / "doesn't overwrite without --force" assertions
- * fail non-deterministically.
+ * (app_path()), which persists across test runs, so (mirroring
+ * InstallCommandTest's launchpad-migrations cleanup) we wipe anything this
+ * command could have generated both before and after every test —
+ * otherwise a leftover file from one run would make a later run's "doesn't
+ * exist yet" / "doesn't overwrite without --force" assertions fail
+ * non-deterministically.
  */
 function cleanupGeneratedLaunchpadKpis(): void
 {
-    File::deleteDirectory(app_path('Launchpad'));
-    File::deleteDirectory(storage_path('framework/testing/launchpad-kpi-modules'));
+    File::deleteDirectory(app_path('Filament/Launchpad'));
 }
 
 beforeEach(function () {
@@ -30,64 +29,72 @@ afterEach(function () {
     cleanupGeneratedLaunchpadKpis();
 });
 
-it('generates a kpi source in the generic default location', function () {
-    $path = app_path('Launchpad/Kpis/VendasHoje.php');
+it('generates a kpi source in the flat default location, appending the Kpi suffix', function () {
+    $path = app_path('Filament/Launchpad/TopUserKpi.php');
 
     expect($path)->not->toBeFile();
 
-    $this->artisan('make:launchpad-kpi', ['name' => 'VendasHoje'])->assertExitCode(0);
+    $this->artisan('make:launchpad-kpi', ['name' => 'TopUser'])->assertExitCode(0);
 
     expect($path)->toBeFile();
 
     $contents = File::get($path);
-    expect($contents)->toContain('namespace App\Launchpad\Kpis;')
-        ->and($contents)->toContain('class VendasHoje extends BaseKpiSource')
-        ->and($contents)->toContain('function resolve(): KpiResult');
+    expect($contents)->toContain('namespace App\Filament\Launchpad;')
+        ->and($contents)->toContain('class TopUserKpi extends BaseKpiSource')
+        ->and($contents)->toContain('function resolve(): KpiResult')
+        ->and($contents)->toContain('"top_user"')
+        ->and($contents)->toContain('"Top User"');
 
     require_once $path;
 
-    expect(class_exists(VendasHoje::class))->toBeTrue()
-        ->and(is_subclass_of(VendasHoje::class, BaseKpiSource::class))->toBeTrue();
+    expect(class_exists(TopUserKpi::class))->toBeTrue()
+        ->and(is_subclass_of(TopUserKpi::class, BaseKpiSource::class))->toBeTrue();
 
-    $instance = new VendasHoje;
+    $instance = new TopUserKpi;
     expect($instance->resolve())->toBeInstanceOf(KpiResult::class)
-        ->and(VendasHoje::key())->toBe('vendas_hoje');
+        ->and(TopUserKpi::key())->toBe('top_user')
+        ->and($instance->label())->toBe('Top User');
 });
 
-it('generates a kpi source inside a configured module when --module is given', function () {
-    $modulePath = storage_path('framework/testing/launchpad-kpi-modules');
-    config()->set('launchpad.generators.module_path', $modulePath);
-    config()->set('launchpad.generators.module_namespace', 'App\\Modules');
+it('does not duplicate the Kpi suffix when the given name already ends with it', function () {
+    $path = app_path('Filament/Launchpad/TopUserKpi.php');
 
-    $path = $modulePath.'/Sales/Kpis/ReceitaMensal.php';
+    $this->artisan('make:launchpad-kpi', ['name' => 'TopUserKpi'])->assertExitCode(0);
 
-    $this->artisan('make:launchpad-kpi', ['name' => 'ReceitaMensal', '--module' => 'Sales'])
+    expect($path)->toBeFile()
+        ->and(File::get($path))->toContain('class TopUserKpi extends BaseKpiSource');
+});
+
+it('generates a kpi source inside a model subfolder when --model is given', function () {
+    $path = app_path('Filament/Launchpad/User/TopUserKpi.php');
+
+    $this->artisan('make:launchpad-kpi', ['name' => 'TopUser', '--model' => 'User'])
         ->assertExitCode(0);
 
     expect($path)->toBeFile();
 
     $contents = File::get($path);
-    expect($contents)->toContain('namespace App\Modules\Sales\Kpis;')
-        ->and($contents)->toContain('class ReceitaMensal extends BaseKpiSource');
+    expect($contents)->toContain('namespace App\Filament\Launchpad\User;')
+        ->and($contents)->toContain('class TopUserKpi extends BaseKpiSource');
 
     require_once $path;
 
-    expect(class_exists(ReceitaMensal::class))->toBeTrue()
-        ->and(is_subclass_of(ReceitaMensal::class, BaseKpiSource::class))->toBeTrue();
+    expect(class_exists(ModelScopedTopUserKpi::class))->toBeTrue()
+        ->and(is_subclass_of(ModelScopedTopUserKpi::class, BaseKpiSource::class))->toBeTrue()
+        ->and(ModelScopedTopUserKpi::key())->toBe('top_user');
 });
 
-it('falls back to the generic default when --module is given without generator config', function () {
-    $path = app_path('Launchpad/Kpis/PedidosHoje.php');
+it('StudlyCases a lowercase --model value', function () {
+    $path = app_path('Filament/Launchpad/User/TopUserKpi.php');
 
-    $this->artisan('make:launchpad-kpi', ['name' => 'PedidosHoje', '--module' => 'Sales'])
+    $this->artisan('make:launchpad-kpi', ['name' => 'TopUser', '--model' => 'user'])
         ->assertExitCode(0);
 
     expect($path)->toBeFile();
-    expect(File::get($path))->toContain('namespace App\Launchpad\Kpis;');
 });
 
 it('does not overwrite an existing kpi source without --force', function () {
-    $path = app_path('Launchpad/Kpis/PedidosPendentes.php');
+    $path = app_path('Filament/Launchpad/PedidosPendentesKpi.php');
 
     $this->artisan('make:launchpad-kpi', ['name' => 'PedidosPendentes'])->assertExitCode(0);
 
@@ -101,7 +108,7 @@ it('does not overwrite an existing kpi source without --force', function () {
 });
 
 it('overwrites an existing kpi source with --force', function () {
-    $path = app_path('Launchpad/Kpis/PedidosEmAtraso.php');
+    $path = app_path('Filament/Launchpad/PedidosEmAtrasoKpi.php');
 
     $this->artisan('make:launchpad-kpi', ['name' => 'PedidosEmAtraso'])->assertExitCode(0);
 
@@ -112,4 +119,7 @@ it('overwrites an existing kpi source with --force', function () {
         ->assertExitCode(0);
 
     expect(File::get($path))->not->toContain('marker-from-first-generation');
+
+    require_once $path;
+    expect(class_exists(PedidosEmAtrasoKpi::class))->toBeTrue();
 });

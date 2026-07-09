@@ -17,21 +17,23 @@ use Illuminate\Support\Str;
 abstract class BaseKpiSource implements KpiSource
 {
     /**
-     * Snake-cased class basename, e.g. EncomendasPendentes => 'encomendas_pendentes'.
+     * Snake-cased class basename with a trailing "Kpi" stripped first, e.g.
+     * TopUserKpi => 'top_user', EncomendasPendentes => 'encomendas_pendentes'.
      * Override when the persisted kpi_source key must differ from this.
      */
     public static function key(): string
     {
-        return Str::of(class_basename(static::class))->snake()->toString();
+        return Str::of(static::bareBasename())->snake()->toString();
     }
 
     /**
-     * Defaults to a headline-cased version of the class basename, e.g.
+     * Defaults to a headline-cased version of the class basename with a
+     * trailing "Kpi" stripped first, e.g. TopUserKpi => 'Top User',
      * VendasHoje => 'Vendas Hoje'. Override for a translated/custom label.
      */
     public function label(): string
     {
-        return Str::of(class_basename(static::class))->headline()->toString();
+        return Str::of(static::bareBasename())->headline()->toString();
     }
 
     public function cacheFor(): ?int
@@ -42,6 +44,34 @@ abstract class BaseKpiSource implements KpiSource
     public function authorize(?Authenticatable $user): bool
     {
         return true;
+    }
+
+    /**
+     * Empty array = visible on every panel. Override to restrict this
+     * source to specific panel ids, e.g. return ['store'];
+     *
+     * @return array<int, string>
+     */
+    public function panels(): array
+    {
+        return [];
+    }
+
+    /**
+     * The class basename with a single trailing "Kpi" removed, e.g.
+     * TopUserKpi => 'TopUser'. A class literally named "Kpi" (or one not
+     * ending in "Kpi" at all) is returned unchanged — key()/label() never
+     * derive from an empty string.
+     */
+    protected static function bareBasename(): string
+    {
+        $basename = class_basename(static::class);
+
+        if ($basename !== 'Kpi' && Str::endsWith($basename, 'Kpi')) {
+            return Str::of($basename)->beforeLast('Kpi')->toString();
+        }
+
+        return $basename;
     }
 
     abstract public function resolve(): KpiResult;

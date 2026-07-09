@@ -95,25 +95,29 @@ return [
     | Generators
     |--------------------------------------------------------------------------
     |
-    | Used by `make:launchpad-kpi` and `make:launchpad-widget`. Left null,
-    | both commands generate into the generic default: app/Launchpad/Kpis
-    | and app/Launchpad/Widgets (namespaces App\Launchpad\Kpis / Widgets).
+    | Used by `make:launchpad-kpi` and `make:launchpad-widget`. By default
+    | both commands generate flat into app/Filament/Launchpad (namespace
+    | App\Filament\Launchpad).
     |
-    | Set BOTH values below to instead place generated classes inside your
-    | own module structure — e.g.:
+    | `make:launchpad-kpi TopUser` generates
+    | app/Filament/Launchpad/TopUserKpi.php (App\Filament\Launchpad\TopUserKpi)
+    | — the command always ensures the class name ends in "Kpi"/"Widget", à la
+    | Filament's own ...Exporter/...Resource convention.
     |
-    |     'module_path' => app_path('Filament/Store/Modules'),
-    |     'module_namespace' => 'App\\Filament\\Store\\Modules',
+    | Pass --model=User to instead place the class in a subfolder for that
+    | model: app/Filament/Launchpad/User/TopUserKpi.php
+    | (App\Filament\Launchpad\User\TopUserKpi).
     |
-    | With these set, `--module=Sales` (or picking "Sales" from the
-    | interactive prompt) places a KPI at
-    | {module_path}/Sales/Kpis/{Name}.php with namespace
-    | {module_namespace}\Sales\Kpis (and similarly for Widgets).
+    | Override the base path/namespace below if you'd rather generate
+    | somewhere else entirely — e.g.:
+    |
+    |     'path' => app_path('Filament/Store/Kpis'),
+    |     'namespace' => 'App\\Filament\\Store\\Kpis',
     |
     */
     'generators' => [
-        'module_path' => null,
-        'module_namespace' => null,
+        'path' => app_path('Filament/Launchpad'),
+        'namespace' => 'App\\Filament\\Launchpad',
     ],
 
 ];

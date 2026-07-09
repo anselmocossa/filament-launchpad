@@ -47,4 +47,15 @@ interface KpiSource
      * throws.
      */
     public function authorize(?Authenticatable $user): bool;
+
+    /**
+     * Panel ids this source is available on, e.g. ['store']. An empty array
+     * (the BaseKpiSource default) means "every panel" — no restriction. When
+     * non-empty, the source is only resolved/listed while the current panel
+     * (Support\LaunchpadPanel::id()) is in this list — see
+     * LaunchpadPlugin::getRegisteredKpiSource().
+     *
+     * @return array<int, string>
+     */
+    public function panels(): array;
 }
