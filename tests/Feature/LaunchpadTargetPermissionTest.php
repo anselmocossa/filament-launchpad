@@ -68,3 +68,12 @@ it('mapCardToDto devolve null (esconde o tile) quando o destino não é acessív
 
     expect(invokeProtected($plugin, 'mapCardToDto', $blocked))->toBeNull();
 });
+
+it('urlTargetAccessible: SOFT — não esconde URLs externas, vazias nem paths sem rota', function () {
+    $plugin = LaunchpadPlugin::make();
+
+    expect(invokeProtected($plugin, 'urlTargetAccessible', 'https://outrahost.example/x'))->toBeTrue()
+        ->and(invokeProtected($plugin, 'urlTargetAccessible', ''))->toBeTrue()
+        ->and(invokeProtected($plugin, 'urlTargetAccessible', null))->toBeTrue()
+        ->and(invokeProtected($plugin, 'urlTargetAccessible', '/caminho/inexistente/sem/rota'))->toBeTrue();
+});

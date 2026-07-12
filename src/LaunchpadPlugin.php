@@ -33,6 +33,7 @@ use Filament\View\PanelsRenderHook;
 use Filament\Widgets\WidgetConfiguration;
 use FilesystemIterator;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RecursiveDirectoryIterator;
@@ -67,6 +68,9 @@ class LaunchpadPlugin implements Plugin
      * @var array<LaunchpadSpace>
      */
     protected array $spaces = [];
+
+    /** @var array<string, bool> Memoiza a acessibilidade por path de URL (por request). */
+    protected array $targetAccessCache = [];
 
     protected int $notificationCount = 0;
 
@@ -764,23 +768,33 @@ class LaunchpadPlugin implements Plugin
 
     /**
      * Authorization gate for a card's TARGET (the Filament Resource/Page it
-     * links to). Without this, a card pointing at a resource/page the user
-     * cannot access was still rendered, and clicking it hit a 403 — the user
-     * should never have seen the tile at all. We defer to the target's own
-     * static canAccess() (the same gate Filament + Shield use for navigation),
-     * so this respects Shield permissions, policies AND host traits like
-     * HasPlanAccess. Free-form 'url' targets are not gated (there is no target
-     * class to authorize). SOFT: when the target cannot be resolved to a class
-     * exposing canAccess(), we do not hide — preserving prior behaviour.
+     * links to). Without this, a card pointing at something the user cannot
+     * access was still rendered, and clicking it hit a 403 — the user should
+     * never have seen the tile at all. We defer to the target's own static
+     * canAccess() (the same gate Filament + Shield use for navigation), so this
+     * respects Shield permissions, policies AND host traits like HasPlanAccess.
+     *
+     * Three target shapes are handled: an explicit 'resource'/'page' class, or
+     * a 'url' — which is resolved to its route's controller/page class so URL
+     * shortcuts (the common case) are gated too. SOFT throughout: whenever the
+     * target cannot be resolved to a class exposing canAccess(), we do NOT
+     * hide, preserving prior behaviour (external URLs, custom routes, etc.).
      */
     protected function cardTargetAccessible(CardModel $card): bool
     {
-        if (! in_array($card->target_type, ['resource', 'page'], true)) {
-            return true;
-        }
+        return match ($card->target_type) {
+            'resource', 'page' => $this->classAccessible($card->target_value),
+            'url' => $this->urlTargetAccessible($card->target_value),
+            default => true,
+        };
+    }
 
-        $class = $card->target_value;
-
+    /**
+     * True when the class does not exist / exposes no canAccess() (not
+     * determinable → not hidden) or its canAccess() grants access.
+     */
+    protected function classAccessible(mixed $class): bool
+    {
         if (! is_string($class) || blank($class) || ! class_exists($class) || ! method_exists($class, 'canAccess')) {
             return true;
         }
@@ -790,6 +804,43 @@ class LaunchpadPlugin implements Plugin
         } catch (Throwable) {
             return true;
         }
+    }
+
+    /**
+     * Resolves an internal URL to the Filament route it hits and authorizes
+     * that route's page/controller class via canAccess(). External URLs (a
+     * different host), unmatched paths, or routes without a canAccess() are
+     * left visible. Memoized per request — the same URL is resolved once.
+     */
+    protected function urlTargetAccessible(mixed $url): bool
+    {
+        if (! is_string($url) || blank($url)) {
+            return true;
+        }
+
+        $path = parse_url($url, PHP_URL_PATH);
+        $host = parse_url($url, PHP_URL_HOST);
+
+        if (blank($path) || (filled($host) && $host !== request()->getHost())) {
+            return true;
+        }
+
+        if (array_key_exists($path, $this->targetAccessCache)) {
+            return $this->targetAccessCache[$path];
+        }
+
+        $accessible = true;
+
+        try {
+            $route = app('router')->getRoutes()->match(Request::create($path, 'GET'));
+            $action = $route->getActionName();
+            $class = str_contains($action, '@') ? explode('@', $action, 2)[0] : $action;
+            $accessible = $this->classAccessible($class);
+        } catch (Throwable) {
+            $accessible = true;
+        }
+
+        return $this->targetAccessCache[$path] = $accessible;
     }
 
     /**
