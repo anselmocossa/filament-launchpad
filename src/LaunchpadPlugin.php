@@ -683,6 +683,10 @@ class LaunchpadPlugin implements Plugin
             return null;
         }
 
+        if (! $this->cardTargetAccessible($card)) {
+            return null;
+        }
+
         if ($card->type === 'widget') {
             return $this->mapWidgetCardToDto($card);
         }
@@ -756,6 +760,36 @@ class LaunchpadPlugin implements Plugin
         };
 
         return $tile;
+    }
+
+    /**
+     * Authorization gate for a card's TARGET (the Filament Resource/Page it
+     * links to). Without this, a card pointing at a resource/page the user
+     * cannot access was still rendered, and clicking it hit a 403 — the user
+     * should never have seen the tile at all. We defer to the target's own
+     * static canAccess() (the same gate Filament + Shield use for navigation),
+     * so this respects Shield permissions, policies AND host traits like
+     * HasPlanAccess. Free-form 'url' targets are not gated (there is no target
+     * class to authorize). SOFT: when the target cannot be resolved to a class
+     * exposing canAccess(), we do not hide — preserving prior behaviour.
+     */
+    protected function cardTargetAccessible(CardModel $card): bool
+    {
+        if (! in_array($card->target_type, ['resource', 'page'], true)) {
+            return true;
+        }
+
+        $class = $card->target_value;
+
+        if (! is_string($class) || blank($class) || ! class_exists($class) || ! method_exists($class, 'canAccess')) {
+            return true;
+        }
+
+        try {
+            return (bool) $class::canAccess();
+        } catch (Throwable) {
+            return true;
+        }
     }
 
     /**
