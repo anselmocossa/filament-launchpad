@@ -795,7 +795,40 @@ class LaunchpadPlugin implements Plugin
      */
     protected function classAccessible(mixed $class): bool
     {
-        if (! is_string($class) || blank($class) || ! class_exists($class) || ! method_exists($class, 'canAccess')) {
+        if (! is_string($class) || blank($class) || ! class_exists($class)) {
+            return true;
+        }
+
+        // A Filament resource PAGE (ListRecords, etc.) inherits a permissive
+        // canAccess() that returns true regardless of the resource's real
+        // authorization — the gate lives on the RESOURCE (plan/module + policy).
+        // So a URL card resolving to a resource page must also clear the
+        // resource's own gate, otherwise the tile shows and clicking it 403s.
+        // Plain 'resource'/'page' targets are unaffected (they carry no
+        // getResource()).
+        if (method_exists($class, 'getResource')) {
+            try {
+                $resource = $class::getResource();
+            } catch (Throwable) {
+                $resource = null;
+            }
+
+            if (is_string($resource) && class_exists($resource) && ! $this->staticCanAccess($resource)) {
+                return false;
+            }
+        }
+
+        return $this->staticCanAccess($class);
+    }
+
+    /**
+     * Calls a class's static canAccess() defensively: a class without the
+     * method — or whose canAccess() throws — is treated as accessible (SOFT:
+     * never hide a tile on an indeterminate gate).
+     */
+    protected function staticCanAccess(string $class): bool
+    {
+        if (! method_exists($class, 'canAccess')) {
             return true;
         }
 

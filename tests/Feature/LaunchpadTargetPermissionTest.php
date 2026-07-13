@@ -27,6 +27,55 @@ class LpAllowedTarget
     }
 }
 
+/*
+ * Um "resource" cujo gate real (plano/módulo + policy) nega ou permite acesso.
+ */
+class LpDenyResource
+{
+    public static function canAccess(): bool
+    {
+        return false;
+    }
+}
+
+class LpAllowResource
+{
+    public static function canAccess(): bool
+    {
+        return true;
+    }
+}
+
+/*
+ * Páginas de resource: espelham o Filament — canAccess() próprio permissivo
+ * (true), mas expõem getResource() cujo canAccess() é o gate verdadeiro.
+ */
+class LpResourcePageDenied
+{
+    public static function canAccess(array $parameters = []): bool
+    {
+        return true;
+    }
+
+    public static function getResource(): string
+    {
+        return LpDenyResource::class;
+    }
+}
+
+class LpResourcePageAllowed
+{
+    public static function canAccess(array $parameters = []): bool
+    {
+        return true;
+    }
+
+    public static function getResource(): string
+    {
+        return LpAllowResource::class;
+    }
+}
+
 function makeTargetCard(array $attrs): Card
 {
     $space = Space::query()->create(['label' => 'S', 'sort' => 0]);
@@ -67,6 +116,15 @@ it('mapCardToDto devolve null (esconde o tile) quando o destino não é acessív
     $blocked = makeTargetCard(['target_type' => 'resource', 'target_value' => LpBlockedTarget::class]);
 
     expect(invokeProtected($plugin, 'mapCardToDto', $blocked))->toBeNull();
+});
+
+it('classAccessible: numa página de resource, defere ao canAccess() do RESOURCE (não da página permissiva)', function () {
+    $plugin = LaunchpadPlugin::make();
+
+    // A página tem canAccess()=true (como o ListRecords do Filament), mas o
+    // resource nega → tile escondido. Sem o fix, o card aparecia e dava 403.
+    expect(invokeProtected($plugin, 'classAccessible', LpResourcePageDenied::class))->toBeFalse()
+        ->and(invokeProtected($plugin, 'classAccessible', LpResourcePageAllowed::class))->toBeTrue();
 });
 
 it('urlTargetAccessible: SOFT — não esconde URLs externas, vazias nem paths sem rota', function () {

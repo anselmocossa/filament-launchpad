@@ -2,6 +2,11 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.4.2 - 2026-07-13
+
+### Fixed
+- **Resource-page URL cards are gated by the resource, not the page**: a `url` card pointing at a Filament resource index (e.g. `/store/payroll-runs`) resolves to the resource *page* class, whose inherited `canAccess()` is permissive (always `true`) — so the tile showed and clicking it hit a 403. Resource-page targets now must also clear the underlying resource's own `canAccess()`, matching its real authorization (plan/module + policy). Plain `resource`/`page` targets are unchanged.
+
 ## 1.4.1 - 2026-07-13
 
 ### Fixed
