@@ -2,6 +2,13 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.4.1 - 2026-07-13
+
+### Fixed
+- **Permission-aware cards**: cards whose target Resource/Page the user cannot access are now hidden from the launchpad; `url` cards are likewise gated by resolving the route's page/controller `canAccess()`.
+- **Auto-provisioned home**: `Edit Home` now creates a default Space + Page + Section when none exists (instead of failing); the default-home seeder is skipped while running unit tests.
+- **Card deletion cleanup**: deleting a `Card` now removes its personal `UserCard` rows (the `card_id` FK was dropped, so cleanup lives in the model).
+
 ## 1.4.0 - 2026-07-09
 
 ### Added
