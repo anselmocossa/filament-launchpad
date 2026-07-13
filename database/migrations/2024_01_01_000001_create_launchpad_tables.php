@@ -74,7 +74,7 @@ return new class extends Migration
             $table->id();
             $table->string('user_id')->index();
             $table->foreignId('section_id')->constrained('launchpad_sections')->cascadeOnDelete();
-            $table->foreignId('card_id')->constrained('launchpad_cards')->cascadeOnDelete();
+            $table->unsignedBigInteger('card_id')->index();
             $table->integer('sort')->default(0);
             $table->timestamps();
 

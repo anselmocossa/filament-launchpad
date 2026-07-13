@@ -5,6 +5,7 @@ namespace Filament\Launchpad\Models;
 use Filament\Launchpad\Models\Concerns\HasLaunchpadVisibility;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Card extends Model
 {
@@ -17,6 +18,13 @@ class Card extends Model
     protected $casts = [
         'sort' => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Card $card): void {
+            $card->userCards()->delete();
+        });
+    }
 
     /**
      * Cards are a reusable catalog: the same Card can be referenced by
@@ -32,5 +40,13 @@ class Card extends Model
             ->withPivot('sort')
             ->withTimestamps()
             ->orderByPivot('sort');
+    }
+
+    /**
+     * @return HasMany<UserCard, static>
+     */
+    public function userCards(): HasMany
+    {
+        return $this->hasMany(UserCard::class, 'card_id');
     }
 }

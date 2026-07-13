@@ -18,6 +18,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
         if (! Schema::hasTable('launchpad_spaces') || ! Schema::hasColumn('launchpad_spaces', 'is_default')) {
             return;
         }

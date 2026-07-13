@@ -104,12 +104,49 @@ class EditHome extends Page
             $query->forPanel($panelId);
         }
 
-        $space = (clone $query)->where('is_default', true)->first()
-            ?? $query->first();
+        $space = $query
+            ->orderBy('id')
+            ->first();
 
-        return $space
+        $page = $space
             ?->pages()
             ->orderBy('sort')
+            ->orderBy('id')
             ->first();
+
+        if ($page instanceof PageModel) {
+            return $page;
+        }
+
+        return $this->createDefaultHomePage();
+    }
+
+    protected function createDefaultHomePage(): PageModel
+    {
+        $spaceData = [
+            'label' => 'Home',
+            'icon' => 'heroicon-o-home',
+            'is_default' => true,
+            'sort' => 0,
+        ];
+
+        if (Schema::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
+            $spaceData['panel_id'] = $panelId;
+        }
+
+        $space = SpaceModel::query()->create($spaceData);
+
+        $page = $space->pages()->create([
+            'label' => 'Home',
+            'icon' => 'heroicon-o-home',
+            'sort' => 0,
+        ]);
+
+        $page->sections()->create([
+            'title' => 'Home',
+            'sort' => 0,
+        ]);
+
+        return $page;
     }
 }
