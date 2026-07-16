@@ -4,7 +4,7 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/anselmocossa/filament-launchpad.svg?style=flat-square)](https://packagist.org/packages/anselmocossa/filament-launchpad)
 [![License](https://img.shields.io/packagist/l/anselmocossa/filament-launchpad.svg?style=flat-square)](LICENSE.md)
 
-![Filament Launchpad](art/cover.png)
+<img src="art/cover.png" alt="Filament Launchpad" class="filament-hidden">
 
 Turn your Filament panel's homepage into a SAP Fiori-style launchpad: Spaces, Pages, Sections and drag-and-drop KPI/shortcut/widget cards, with role-based visibility and a full builder UI — all rendered inside the native Filament shell.
 
