@@ -83,6 +83,10 @@ it('shows the selector only where no tenant resolves on its own', function () {
     LaunchpadTenant::setOverride('demo');
     expect(selectorHarness()->shows())->toBeTrue(); // an override is not the host resolving
 
+    // Declaring stores without a resolver is enough (the parent panel case).
+    LaunchpadPlugin::get()->tenantResolver(null);
+    expect(selectorHarness()->shows())->toBeTrue();
+
     LaunchpadPlugin::get()->tenantResolver(fn () => 'demo');
     LaunchpadTenant::clearOverride();
     expect(selectorHarness()->shows())->toBeFalse();

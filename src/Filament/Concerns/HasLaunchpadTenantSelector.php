@@ -45,13 +45,17 @@ trait HasLaunchpadTenantSelector
     }
 
     /**
-     * Whether a store selector makes sense here: a resolver is wired, the host
-     * declared at least one store, and this panel is not itself a store's.
+     * Whether a store selector makes sense here: the host declared at least one
+     * store, and this panel is not itself a store's.
+     *
+     * Deliberately keyed on ->tenants() rather than ->tenantResolver(), so the
+     * parent panel — which by definition resolves no tenant — enables the
+     * selector by declaring the list alone, with no null-returning resolver
+     * just to satisfy a flag.
      */
     protected function showsTenantSelector(): bool
     {
-        return LaunchpadTenant::isEnabled()
-            && blank(LaunchpadTenant::resolved())
+        return blank(LaunchpadTenant::resolved())
             && LaunchpadTenant::options() !== [];
     }
 
