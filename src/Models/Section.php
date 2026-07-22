@@ -2,6 +2,7 @@
 
 namespace Filament\Launchpad\Models;
 
+use Filament\Launchpad\Models\Concerns\BelongsToLaunchpadTenant;
 use Filament\Launchpad\Models\Concerns\HasLaunchpadVisibility;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Section extends Model
 {
+    use BelongsToLaunchpadTenant;
     use HasLaunchpadVisibility;
 
     protected $table = 'launchpad_sections';

@@ -62,12 +62,21 @@ return [
         'anexar_card' => 'Anexar Card',
         'remover_da_seccao' => 'Remover da Seção',
         'voltar' => 'Voltar',
+        'repor_template' => 'Restaurar Modelo',
     ],
 
     // ========== Mensagens ==========
     'messages' => [
         'card_actualizado' => 'Card atualizado',
         'abrir' => 'Abrir',
+        'template_reposto' => 'Layout da loja restaurado para o modelo do pai',
+        'repor_template_aviso' => 'Todas as alterações que esta loja fez nesta página são descartadas e o modelo do pai é restaurado. As outras lojas não são afetadas.',
+        'camada_loja' => 'A home da loja',
+        'camada_pessoal' => 'A minha home',
+        'a_editar' => 'Editando',
+        'loja_template_global' => 'Modelo global (todas as lojas)',
+        'loja_alteracoes' => ':count alterações',
+        'loja_sem_alteracoes' => 'sem alterações',
     ],
 
     // ========== Placeholders ==========

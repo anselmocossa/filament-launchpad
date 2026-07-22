@@ -62,12 +62,21 @@ return [
         'anexar_card' => 'Attach Card',
         'remover_da_seccao' => 'Remove from Section',
         'voltar' => 'Back',
+        'repor_template' => 'Reset to Template',
     ],
 
     // ========== Messages ==========
     'messages' => [
         'card_actualizado' => 'Card updated',
         'abrir' => 'Open',
+        'template_reposto' => 'Store layout reset to the parent template',
+        'repor_template_aviso' => 'Every change this store made to this page is discarded and the parent template restored. Other stores are unaffected.',
+        'camada_loja' => 'The store\'s home',
+        'camada_pessoal' => 'My own home',
+        'a_editar' => 'Editing',
+        'loja_template_global' => 'Global template (all stores)',
+        'loja_alteracoes' => ':count changes',
+        'loja_sem_alteracoes' => 'no changes',
     ],
 
     // ========== Placeholders ==========

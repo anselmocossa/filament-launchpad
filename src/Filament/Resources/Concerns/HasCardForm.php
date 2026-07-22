@@ -10,6 +10,7 @@ use Filament\Launchpad\LaunchpadPlugin;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section as FormSection;
 use Filament\Schemas\Components\Utilities\Get;
+use Throwable;
 
 /**
  * Card form schema (Conteúdo / Indicador KPI condicional / Ação), shared
@@ -72,7 +73,7 @@ trait HasCardForm
                                 return collect(LaunchpadPlugin::get()->getWidgets())
                                     ->mapWithKeys(fn (array $widget): array => [$widget['key'] => $widget['label'] ?? $widget['key']])
                                     ->all();
-                            } catch (\Throwable $e) {
+                            } catch (Throwable $e) {
                                 return [];
                             }
                         })
@@ -101,7 +102,7 @@ trait HasCardForm
                         ->options(function () {
                             try {
                                 return LaunchpadPlugin::get()->getKpiSourceOptions();
-                            } catch (\Throwable $e) {
+                            } catch (Throwable $e) {
                                 return [];
                             }
                         })
@@ -187,6 +188,18 @@ trait HasCardForm
     }
 
     /**
+     * Targets the CURRENT user may actually open.
+     *
+     * The rendered tile was already gated by the target's own canAccess(), but
+     * the authoring dropdown was not — so on a multi-tenant panel a retail
+     * shopkeeper browsing card targets could read the label of every module the
+     * engine ships (Housekeeping, Hotel Reservations, Chart of Accounts…). That
+     * is a product leak rather than a privilege one, but the fix is the same
+     * gate, applied one step earlier.
+     *
+     * A target whose canAccess() throws is omitted: an authoring dropdown is
+     * not the place to surface someone else's broken authorization logic.
+     *
      * @return array<string, string>
      */
     protected static function panelResourceOptions(): array
@@ -194,6 +207,10 @@ trait HasCardForm
         $options = [];
 
         foreach (Filament::getResources() as $resource) {
+            if (! static::targetIsAccessible($resource)) {
+                continue;
+            }
+
             $options[$resource] = $resource::getLabel() ?? class_basename($resource);
         }
 
@@ -208,9 +225,31 @@ trait HasCardForm
         $options = [];
 
         foreach (Filament::getPages() as $page) {
+            if (! static::targetIsAccessible($page)) {
+                continue;
+            }
+
             $options[$page] = $page::getNavigationLabel();
         }
 
         return $options;
+    }
+
+    /**
+     * A target with no canAccess() at all stays visible — that is Filament's
+     * own default for an ungated resource/page, and hiding it would be a
+     * regression rather than a tightening.
+     */
+    protected static function targetIsAccessible(string $target): bool
+    {
+        if (! method_exists($target, 'canAccess')) {
+            return true;
+        }
+
+        try {
+            return (bool) $target::canAccess();
+        } catch (Throwable) {
+            return false;
+        }
     }
 }

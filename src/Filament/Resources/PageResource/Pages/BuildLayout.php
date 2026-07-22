@@ -2,6 +2,8 @@
 
 namespace Filament\Launchpad\Filament\Resources\PageResource\Pages;
 
+use Filament\Actions\Action;
+use Filament\Launchpad\Filament\Concerns\HasLaunchpadTenantSelector;
 use Filament\Launchpad\Filament\Concerns\InteractsWithLaunchpadBuilder;
 use Filament\Launchpad\Filament\Resources\PageResource;
 use Filament\Launchpad\Filament\Resources\SpaceResource;
@@ -18,6 +20,7 @@ use Filament\Resources\Pages\Page;
  */
 class BuildLayout extends Page
 {
+    use HasLaunchpadTenantSelector;
     use InteractsWithLaunchpadBuilder;
     use InteractsWithRecord;
 
@@ -47,6 +50,17 @@ class BuildLayout extends Page
             SpaceResource::getUrl('edit', ['record' => $page->space]) => $page->space->label,
             PageResource::getUrl('edit', ['record' => $page]) => $page->label,
             __('launchpad::launchpad.nav.construtor'),
+        ];
+    }
+
+    /**
+     * @return array<Action>
+     */
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->tenantSelectorAction(),
+            $this->restoreParentTemplateAction(),
         ];
     }
 

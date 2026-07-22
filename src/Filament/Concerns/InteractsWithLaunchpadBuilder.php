@@ -10,9 +10,12 @@ use Filament\Launchpad\Models\Card;
 use Filament\Launchpad\Models\Page as PageModel;
 use Filament\Launchpad\Models\Section;
 use Filament\Launchpad\Models\UserCard;
+use Filament\Launchpad\Support\LaunchpadScope;
+use Filament\Launchpad\Support\LaunchpadTenant;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -93,6 +96,206 @@ trait InteractsWithLaunchpadBuilder
         return $userId === null ? null : (string) $userId;
     }
 
+    // ------------------------------------------------------------------
+    // Phase H: which overlay layer this builder reads and writes
+    // ------------------------------------------------------------------
+
+    /**
+     * Whether the personal-mode builder is currently pointed at the STORE's
+     * shared layer rather than the individual's own. Overridden by EditHome,
+     * which exposes it as a switcher; false everywhere else keeps the
+     * pre-Phase H meaning of personal mode ("my own home") intact.
+     */
+    protected function isTenantLayer(): bool
+    {
+        return false;
+    }
+
+    /**
+     * GLOBAL — the parent's template (tenant_id null, user_id null).
+     * TENANT — one store's shared layout (tenant_id set, user_id null).
+     * USER   — one person's own additions (user_id set).
+     *
+     * Note that the parent authoring "as" a store via the /admin selector and
+     * the store owner editing their own home both land on TENANT: it is a
+     * single layer with two doors, not two parallel layers that could drift.
+     */
+    protected function builderScopeName(): string
+    {
+        if (! $this->isPersonalMode()) {
+            return LaunchpadScope::name($this->builderTenantId(), null);
+        }
+
+        return $this->isTenantLayer()
+            ? LaunchpadScope::TENANT
+            : LaunchpadScope::USER;
+    }
+
+    protected function builderTenantId(): ?string
+    {
+        return LaunchpadTenant::id();
+    }
+
+    /**
+     * The user whose layer is being written — only ever set in USER scope, so
+     * a store-layer edit can never be mistaken for one person's private one.
+     */
+    protected function builderUserId(): ?string
+    {
+        return $this->builderScopeName() === LaunchpadScope::USER
+            ? $this->currentUserStorageId()
+            : null;
+    }
+
+    /**
+     * Ownership columns to stamp on rows created by this builder.
+     *
+     * @return array<string, mixed>
+     */
+    protected function builderOwnAttributes(): array
+    {
+        return [
+            'tenant_id' => $this->builderTenantId(),
+            'user_id' => $this->builderUserId(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function builderOverlayAttributes(): array
+    {
+        return LaunchpadScope::attributes($this->builderTenantId(), $this->builderUserId());
+    }
+
+    /**
+     * True when writes land in the overlay table rather than the parent's own
+     * section_card pivot.
+     */
+    protected function writesOverlay(): bool
+    {
+        return $this->builderScopeName() !== LaunchpadScope::GLOBAL;
+    }
+
+    /**
+     * Only the store layer may tombstone a parent card. The personal layer
+     * stays purely additive, exactly as before Phase H — letting one employee
+     * hide a card their manager pinned was never asked for and would silently
+     * change published behaviour.
+     */
+    protected function mayHideInheritedCards(): bool
+    {
+        return $this->builderScopeName() === LaunchpadScope::TENANT;
+    }
+
+    /**
+     * Sections this builder OWNS — the only ones it may rename, reorder or
+     * delete.
+     */
+    protected function applyOwnedSectionScope($query)
+    {
+        $tenantId = $this->builderTenantId();
+        $userId = $this->builderUserId();
+
+        return $query
+            ->when($this->sectionsAreTenantAware(), fn ($q) => $q->where(
+                fn ($q) => blank($tenantId) ? $q->whereNull('tenant_id') : $q->where('tenant_id', $tenantId),
+            ))
+            ->when($userId === null, fn ($q) => $q->whereNull('user_id'), fn ($q) => $q->where('user_id', $userId));
+    }
+
+    /**
+     * Sections this builder can SEE — everything it owns plus everything
+     * inherited from the layers beneath it, because a card may be added into a
+     * section the parent defined.
+     */
+    protected function applyVisibleSectionScope($query)
+    {
+        $tenantId = $this->builderTenantId();
+        $userId = $this->builderUserId();
+
+        return $query
+            ->when($this->sectionsAreTenantAware(), fn ($q) => $q->forTenant($tenantId))
+            ->where(function ($query) use ($userId): void {
+                $query->whereNull('user_id')
+                    ->when($userId !== null, fn ($query) => $query->orWhere('user_id', $userId));
+            });
+    }
+
+    protected function sectionsAreTenantAware(): bool
+    {
+        return Schema::hasColumn('launchpad_sections', 'tenant_id');
+    }
+
+    /**
+     * Overlay rows belonging to the layer this builder writes — the single
+     * gate every mutation goes through, so no code path can reach across into
+     * another store's or another person's rows.
+     */
+    protected function overlayQuery()
+    {
+        return UserCard::query()->forScope($this->builderTenantId(), $this->builderUserId());
+    }
+
+    /**
+     * Hides a card inherited from the parent's template in THIS layer only, by
+     * writing a tombstone. The parent's pivot row is deliberately left intact:
+     * that is what lets the parent keep pushing later template changes into
+     * every slot nobody has overridden.
+     */
+    protected function hideInheritedCard(int|string $sectionId, int|string $cardId): void
+    {
+        UserCard::query()->updateOrCreate(
+            [
+                ...$this->builderOverlayAttributes(),
+                'section_id' => $sectionId,
+                'card_id' => $cardId,
+                'is_hidden' => true,
+            ],
+            ['sort' => 0],
+        );
+    }
+
+    /**
+     * Drops every deviation this layer has accumulated for the current page and
+     * falls back to whatever the layer beneath provides — the "Repor template"
+     * action. Scoped to this builder's layer, so restoring one store never
+     * touches the template or any other store.
+     */
+    public function restoreParentTemplate(): void
+    {
+        if (! $this->writesOverlay()) {
+            return;
+        }
+
+        $sectionIds = Section::query()
+            ->where('page_id', $this->builderPage()->id)
+            ->pluck('id');
+
+        $this->overlayQuery()->whereIn('section_id', $sectionIds)->delete();
+
+        $this->applyOwnedSectionScope(
+            Section::query()->where('page_id', $this->builderPage()->id),
+        )->delete();
+
+        Notification::make()
+            ->title(__('launchpad::launchpad.messages.template_reposto'))
+            ->success()
+            ->send();
+    }
+
+    public function restoreParentTemplateAction(): Action
+    {
+        return Action::make('restoreParentTemplate')
+            ->label(__('launchpad::launchpad.buttons.repor_template'))
+            ->icon('heroicon-o-arrow-uturn-left')
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalDescription(__('launchpad::launchpad.messages.repor_template_aviso'))
+            ->visible(fn (): bool => $this->writesOverlay())
+            ->action(fn () => $this->restoreParentTemplate());
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -122,27 +325,38 @@ trait InteractsWithLaunchpadBuilder
     protected function builderSections(PageModel $page): array
     {
         $personal = $this->isPersonalMode();
-        $userId = $this->currentUserStorageId();
+        $scope = $this->builderScopeName();
+        $ownsSection = fn (Section $section): bool => $this->sectionBelongsToBuilderLayer($section);
 
-        return $page->sections->map(function (Section $section) use ($personal, $userId): array {
+        // In the store layer an inherited card is removable (it tombstones), so
+        // it must NOT come back marked locked the way the personal layer needs.
+        $inheritedLocked = ! $this->mayHideInheritedCards();
+
+        return $page->sections->map(function (Section $section) use ($personal, $scope, $ownsSection, $inheritedLocked): array {
             $cards = [];
-            $owner = $section->user_id === null ? 'admin' : 'user';
+            $owner = $this->sectionOwnerLabel($section);
+            $overlay = $this->sectionOverlayRows($section);
+            $hidden = $overlay
+                ->filter(fn ($row): bool => (bool) ($row->is_hidden ?? false))
+                ->map(fn ($row) => (int) $row->card_id)
+                ->all();
 
-            if ($personal) {
-                if ($section->user_id === null) {
+            if ($personal || $scope === LaunchpadScope::TENANT) {
+                if (! $ownsSection($section)) {
                     foreach ($section->cards as $card) {
                         if (! (bool) ($card->pivot->is_pinned ?? true)) {
-                            continue; // available/catalog card — not shown until the user adds it
+                            continue; // available/catalog card — not shown until it is added
                         }
-                        $cards[] = $this->builderCardData($card, pinned: true, locked: true, origin: 'admin');
+                        if (in_array((int) $card->getKey(), $hidden, true)) {
+                            continue; // tombstoned by this layer
+                        }
+                        $cards[] = $this->builderCardData($card, pinned: true, locked: $inheritedLocked, origin: 'admin');
                     }
                 }
 
-                if ($userId !== null) {
-                    foreach ($section->userCards()->where('user_id', $userId)->with('card')->get() as $userCard) {
-                        if ($userCard->card) {
-                            $cards[] = $this->builderCardData($userCard->card, pinned: false, locked: false, origin: 'user');
-                        }
+                foreach ($overlay->reject(fn ($row): bool => (bool) ($row->is_hidden ?? false))->sortBy('sort') as $row) {
+                    if ($row->card) {
+                        $cards[] = $this->builderCardData($row->card, pinned: false, locked: false, origin: 'user');
                     }
                 }
             } else {
@@ -161,9 +375,40 @@ trait InteractsWithLaunchpadBuilder
                 'title' => $section->title,
                 'cards' => $cards,
                 'owner' => $owner,
-                'locked' => $personal && $owner === 'admin',
+                'locked' => $this->writesOverlay() && ! $ownsSection($section),
             ];
         })->all();
+    }
+
+    /**
+     * Whether a section was authored by the layer this builder is writing —
+     * i.e. whether it can be renamed, reordered or deleted here, as opposed to
+     * being inherited from a layer below.
+     */
+    protected function sectionBelongsToBuilderLayer(Section $section): bool
+    {
+        $sectionTenant = $this->sectionsAreTenantAware() ? ($section->tenant_id ?? null) : null;
+
+        return (string) ($section->user_id ?? '') === (string) ($this->builderUserId() ?? '')
+            && (string) ($sectionTenant ?? '') === (string) ($this->builderTenantId() ?? '');
+    }
+
+    protected function sectionOwnerLabel(Section $section): string
+    {
+        return $this->sectionBelongsToBuilderLayer($section) && $this->writesOverlay()
+            ? 'user'
+            : ($section->user_id === null ? 'admin' : 'user');
+    }
+
+    /**
+     * This layer's overlay rows for one section — additions and tombstones
+     * alike, already narrowed to the current scope.
+     */
+    protected function sectionOverlayRows(Section $section): Collection
+    {
+        return $this->writesOverlay()
+            ? $this->overlayQuery()->where('section_id', $section->id)->with('card')->get()
+            : new Collection;
     }
 
     /**
@@ -296,19 +541,11 @@ trait InteractsWithLaunchpadBuilder
 
     protected function getPageModel(): PageModel
     {
-        $userId = $this->currentUserStorageId();
-        $personal = $this->isPersonalMode();
-
-        return $this->builderPage()->load(['sections' => function ($query) use ($personal, $userId) {
-            $query->when(
-                $personal,
-                fn ($query) => $query->where(function ($query) use ($userId) {
-                    $query->whereNull('user_id')
-                        ->when($userId !== null, fn ($query) => $query->orWhere('user_id', $userId));
-                }),
-                fn ($query) => $query->whereNull('user_id'),
-            )
-                ->orderByRaw('case when user_id is null then 0 else 1 end')
+        return $this->builderPage()->load(['sections' => function ($query) {
+            $this->applyVisibleSectionScope($query)
+                ->orderByRaw($this->sectionsAreTenantAware()
+                    ? 'case when tenant_id is null and user_id is null then 0 when user_id is null then 1 else 2 end'
+                    : 'case when user_id is null then 0 else 1 end')
                 ->orderBy('sort')
                 ->with(['cards' => fn ($q) => $q->orderByPivot('sort')]);
         }]);
@@ -320,37 +557,25 @@ trait InteractsWithLaunchpadBuilder
 
     public function addSection(): void
     {
-        if ($this->isPersonalMode()) {
-            $userId = $this->currentUserStorageId();
-
-            if ($userId === null) {
-                return;
-            }
-
-            $nextSort = ((int) Section::query()
-                ->where('page_id', $this->builderPage()->id)
-                ->where('user_id', $userId)
-                ->max('sort')) + 1;
-
-            Section::query()->create([
-                'page_id' => $this->builderPage()->id,
-                'user_id' => $userId,
-                'title' => __('launchpad::launchpad.buttons.nova_secao'),
-                'sort' => $nextSort,
-            ]);
-
+        // A personal-layer section still requires an authenticated user; the
+        // store and template layers do not, since they belong to nobody.
+        if ($this->builderScopeName() === LaunchpadScope::USER && $this->currentUserStorageId() === null) {
             return;
         }
 
-        $nextSort = ((int) Section::query()
-            ->where('page_id', $this->builderPage()->id)
-            ->whereNull('user_id')
-            ->max('sort')) + 1;
+        $own = $this->sectionsAreTenantAware()
+            ? $this->builderOwnAttributes()
+            : ['user_id' => $this->builderUserId()];
+
+        $nextSort = ((int) $this->applyOwnedSectionScope(
+            Section::query()->where('page_id', $this->builderPage()->id),
+        )->max('sort')) + 1;
 
         Section::query()->create([
             'page_id' => $this->builderPage()->id,
             'title' => __('launchpad::launchpad.buttons.nova_secao'),
             'sort' => $nextSort,
+            ...$own,
         ]);
     }
 
@@ -394,11 +619,7 @@ trait InteractsWithLaunchpadBuilder
     {
         $ownedIds = Section::query()
             ->where('page_id', $this->builderPage()->id)
-            ->when(
-                $this->isPersonalMode(),
-                fn ($query) => $query->where('user_id', $this->currentUserStorageId()),
-                fn ($query) => $query->whereNull('user_id'),
-            )
+            ->tap(fn ($query) => $this->applyOwnedSectionScope($query))
             ->pluck('id')
             ->all();
 
@@ -413,11 +634,7 @@ trait InteractsWithLaunchpadBuilder
     {
         Section::query()
             ->where('page_id', $this->builderPage()->id)
-            ->when(
-                $this->isPersonalMode(),
-                fn ($query) => $query->where('user_id', $this->currentUserStorageId()),
-                fn ($query) => $query->whereNull('user_id'),
-            )
+            ->tap(fn ($query) => $this->applyOwnedSectionScope($query))
             ->orderBy('sort')
             ->pluck('id')
             ->each(function ($id, int $index) {
@@ -430,11 +647,7 @@ trait InteractsWithLaunchpadBuilder
         return Section::query()
             ->where('id', $sectionId)
             ->where('page_id', $this->builderPage()->id)
-            ->when(
-                $this->isPersonalMode(),
-                fn ($query) => $query->where('user_id', $this->currentUserStorageId()),
-                fn ($query) => $query->whereNull('user_id'),
-            )
+            ->tap(fn ($query) => $this->applyOwnedSectionScope($query))
             ->first();
     }
 
@@ -443,16 +656,7 @@ trait InteractsWithLaunchpadBuilder
         return Section::query()
             ->where('id', $sectionId)
             ->where('page_id', $this->builderPage()->id)
-            ->when(
-                $this->isPersonalMode(),
-                fn ($query) => $query->where(function ($query) {
-                    $userId = $this->currentUserStorageId();
-
-                    $query->whereNull('user_id')
-                        ->when($userId !== null, fn ($query) => $query->orWhere('user_id', $userId));
-                }),
-                fn ($query) => $query->whereNull('user_id'),
-            )
+            ->tap(fn ($query) => $this->applyVisibleSectionScope($query))
             ->first();
     }
 
@@ -646,10 +850,42 @@ trait InteractsWithLaunchpadBuilder
      * from the pivot). Non-destructive, so no confirmation is asked — the
      * Card itself, and any other section referencing it, is untouched. The
      * Card is only ever permanently deleted from /admin/cards.
+     *
+     * Phase H: in the STORE layer the pivot row belongs to the parent and must
+     * not be touched, so the same × writes a tombstone instead — the card
+     * disappears for that store and stays for everyone else. The personal layer
+     * still cannot remove an inherited card at all (see mayHideInheritedCards).
      */
     public function removeCard(int|string $sectionId, int|string $cardId): void
     {
-        if ($this->isPersonalMode()) {
+        if ($this->writesOverlay()) {
+            if (! $this->mayHideInheritedCards()) {
+                return;
+            }
+
+            $section = $this->visibleSection($sectionId);
+
+            if (! $section) {
+                return;
+            }
+
+            // A card this layer added itself is simply deleted; only a card
+            // inherited from below needs a tombstone.
+            $own = $this->overlayQuery()
+                ->where('section_id', $section->id)
+                ->where('card_id', $cardId)
+                ->where('is_hidden', false)
+                ->first();
+
+            if ($own) {
+                $own->delete();
+                $this->reindexUserCards($section->id);
+
+                return;
+            }
+
+            $this->hideInheritedCard($section->id, $cardId);
+
             return;
         }
 
@@ -707,9 +943,7 @@ trait InteractsWithLaunchpadBuilder
      */
     public function addUserCard(int|string $sectionId, int|string $cardId, ?int $index = null): void
     {
-        $userId = $this->currentUserStorageId();
-
-        if (! $this->isPersonalMode() || $userId === null) {
+        if (! $this->writesOverlay()) {
             return;
         }
 
@@ -733,7 +967,12 @@ trait InteractsWithLaunchpadBuilder
         }
 
         UserCard::query()->firstOrCreate(
-            ['user_id' => $userId, 'section_id' => $section->id, 'card_id' => $cardId],
+            [
+                ...$this->builderOverlayAttributes(),
+                'section_id' => $section->id,
+                'card_id' => $cardId,
+                'is_hidden' => false,
+            ],
             ['sort' => 0],
         );
 
@@ -746,14 +985,11 @@ trait InteractsWithLaunchpadBuilder
      */
     public function removeUserCard(int|string $sectionId, int|string $cardId): void
     {
-        $userId = $this->currentUserStorageId();
-
-        if (! $this->isPersonalMode() || $userId === null) {
+        if (! $this->writesOverlay()) {
             return;
         }
 
-        UserCard::query()
-            ->where('user_id', $userId)
+        $this->overlayQuery()
             ->where('section_id', $sectionId)
             ->where('card_id', $cardId)
             ->delete();
@@ -766,14 +1002,11 @@ trait InteractsWithLaunchpadBuilder
      */
     public function reorderUserCards(int|string $sectionId, array $orderedIds): void
     {
-        $userId = $this->currentUserStorageId();
-
-        if (! $this->isPersonalMode() || $userId === null) {
+        if (! $this->writesOverlay()) {
             return;
         }
 
-        $ownIds = UserCard::query()
-            ->where('user_id', $userId)
+        $ownIds = $this->overlayQuery()
             ->where('section_id', $sectionId)
             ->pluck('card_id')
             ->all();
@@ -781,8 +1014,7 @@ trait InteractsWithLaunchpadBuilder
         $orderedIds = array_values(array_intersect(array_map('intval', $orderedIds), array_map('intval', $ownIds)));
 
         foreach ($orderedIds as $position => $cardId) {
-            UserCard::query()
-                ->where('user_id', $userId)
+            $this->overlayQuery()
                 ->where('section_id', $sectionId)
                 ->where('card_id', $cardId)
                 ->update(['sort' => $position]);
@@ -795,14 +1027,11 @@ trait InteractsWithLaunchpadBuilder
      */
     public function moveUserCard(int|string $sectionId, int|string $cardId, ?int $index = null): void
     {
-        $userId = $this->currentUserStorageId();
-
-        if (! $this->isPersonalMode() || $userId === null) {
+        if (! $this->writesOverlay()) {
             return;
         }
 
-        $owns = UserCard::query()
-            ->where('user_id', $userId)
+        $owns = $this->overlayQuery()
             ->where('section_id', $sectionId)
             ->where('card_id', $cardId)
             ->exists();
@@ -816,14 +1045,11 @@ trait InteractsWithLaunchpadBuilder
 
     protected function reorderUserCardsAt(int|string $sectionId, int|string $cardId, ?int $index): void
     {
-        $userId = $this->currentUserStorageId();
-
-        if ($userId === null) {
+        if (! $this->writesOverlay()) {
             return;
         }
 
-        $ids = UserCard::query()
-            ->where('user_id', $userId)
+        $ids = $this->overlayQuery()
             ->where('section_id', $sectionId)
             ->orderBy('sort')
             ->pluck('card_id')
@@ -835,8 +1061,7 @@ trait InteractsWithLaunchpadBuilder
         array_splice($ids, $index, 0, [$cardId]);
 
         foreach ($ids as $position => $id) {
-            UserCard::query()
-                ->where('user_id', $userId)
+            $this->overlayQuery()
                 ->where('section_id', $sectionId)
                 ->where('card_id', $id)
                 ->update(['sort' => $position]);
@@ -845,20 +1070,16 @@ trait InteractsWithLaunchpadBuilder
 
     protected function reindexUserCards(int|string $sectionId): void
     {
-        $userId = $this->currentUserStorageId();
-
-        if ($userId === null) {
+        if (! $this->writesOverlay()) {
             return;
         }
 
-        UserCard::query()
-            ->where('user_id', $userId)
+        $this->overlayQuery()
             ->where('section_id', $sectionId)
             ->orderBy('sort')
             ->pluck('card_id')
-            ->each(function ($cardId, int $index) use ($userId, $sectionId) {
-                UserCard::query()
-                    ->where('user_id', $userId)
+            ->each(function ($cardId, int $index) use ($sectionId) {
+                $this->overlayQuery()
                     ->where('section_id', $sectionId)
                     ->where('card_id', $cardId)
                     ->update(['sort' => $index]);

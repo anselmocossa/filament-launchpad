@@ -62,12 +62,21 @@ return [
         'anexar_card' => 'Anexar Card',
         'remover_da_seccao' => 'Remover da Secção',
         'voltar' => 'Voltar',
+        'repor_template' => 'Repor Template',
     ],
 
     // ========== Messages ==========
     'messages' => [
         'card_actualizado' => 'Card actualizado',
         'abrir' => 'Abrir',
+        'template_reposto' => 'Layout da loja reposto para o template do pai',
+        'repor_template_aviso' => 'Todas as alterações que esta loja fez a esta página são descartadas e o template do pai é reposto. As outras lojas não são afectadas.',
+        'camada_loja' => 'A home da loja',
+        'camada_pessoal' => 'A minha home',
+        'a_editar' => 'A editar',
+        'loja_template_global' => 'Template global (todas as lojas)',
+        'loja_alteracoes' => ':count alterações',
+        'loja_sem_alteracoes' => 'sem alterações',
     ],
 
     // ========== Placeholders ==========

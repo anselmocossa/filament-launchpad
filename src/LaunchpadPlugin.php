@@ -24,6 +24,7 @@ use Filament\Launchpad\Pages\EditHome;
 use Filament\Launchpad\Pages\Launchpad;
 use Filament\Launchpad\Support\KpiResolver;
 use Filament\Launchpad\Support\LaunchpadPanel;
+use Filament\Launchpad\Support\LaunchpadTenant;
 use Filament\Launchpad\Support\LaunchpadUrl;
 use Filament\Launchpad\Support\LaunchpadVisibility;
 use Filament\Navigation\MenuItem;
@@ -68,6 +69,21 @@ class LaunchpadPlugin implements Plugin
      * @var array<LaunchpadSpace>
      */
     protected array $spaces = [];
+
+    /**
+     * Phase H. Null keeps the plugin single-tenant: no tenant is ever resolved,
+     * every `tenant_id` stays null, and the queries collapse to their pre-Phase
+     * H shape. The host app opts in by handing over a closure that returns its
+     * own current tenant id — the plugin never learns what a tenant *is*.
+     */
+    protected ?Closure $tenantResolver = null;
+
+    /**
+     * Optional companion to $tenantResolver: the list of tenants the parent may
+     * author on behalf of, as `id => label`. Only ever consumed by the store
+     * selector in the parent panel.
+     */
+    protected ?Closure $tenantOptionsResolver = null;
 
     /** @var array<string, bool> Memoiza a acessibilidade por path de URL (por request). */
     protected array $targetAccessCache = [];
@@ -311,6 +327,11 @@ class LaunchpadPlugin implements Plugin
      */
     public function boot(Panel $panel): void
     {
+        // Restores the parent's store selection for this request. A no-op in a
+        // panel that resolves a tenant of its own, which is what stops the
+        // session key from ever being a way into another store's launchpad.
+        LaunchpadTenant::applySelectorOverride();
+
         FilamentView::registerRenderHook(
             PanelsRenderHook::CONTENT_BEFORE,
             fn () => view('launchpad::hooks.launchpad-bar'),
@@ -409,6 +430,45 @@ class LaunchpadPlugin implements Plugin
         $this->spaces = $spaces;
 
         return $this;
+    }
+
+    /**
+     * Opt this panel into Phase H multi-tenancy.
+     *
+     * The closure returns the host's current tenant id (any scalar; cast to
+     * string) or null. Records with a null `tenant_id` are the parent's shared
+     * template and stay visible to every tenant — the same "null means
+     * everyone" rule `panel_id` already follows in Space::scopeForPanel().
+     *
+     * ->tenantResolver(fn () => tenancy()->tenant()?->id)
+     */
+    public function tenantResolver(?Closure $resolver): static
+    {
+        $this->tenantResolver = $resolver;
+
+        return $this;
+    }
+
+    public function getTenantResolver(): ?Closure
+    {
+        return $this->tenantResolver;
+    }
+
+    /**
+     * The tenants the parent panel may author on behalf of, as `id => label`.
+     *
+     * ->tenants(fn () => Tenant::pluck('business_name', 'id')->all())
+     */
+    public function tenants(?Closure $resolver): static
+    {
+        $this->tenantOptionsResolver = $resolver;
+
+        return $this;
+    }
+
+    public function getTenantOptionsResolver(): ?Closure
+    {
+        return $this->tenantOptionsResolver;
     }
 
     /**
@@ -535,28 +595,54 @@ class LaunchpadPlugin implements Plugin
         $authId = auth()->id();
         $userId = $authId === null ? null : (string) $authId;
 
+        // Phase H: null on a single-tenant install (no resolver wired), which
+        // makes every tenant filter below a no-op against all-null columns.
+        $tenantId = LaunchpadTenant::id();
+        $tenantAware = Schema::hasColumn('launchpad_spaces', 'tenant_id');
+
         $query = SpaceModel::query()->orderBy('sort');
 
         if (Schema::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
             $query->forPanel($panelId);
         }
 
+        if ($tenantAware) {
+            $query->forTenant($tenantId);
+        }
+
         return $query
             ->with([
+                'pages' => fn ($query) => $query
+                    ->when($tenantAware, fn ($q) => $q->forTenant($tenantId)),
                 'pages.sections' => fn ($query) => $query
                     ->where(function ($query) use ($userId) {
                         $query->whereNull('user_id')
                             ->when($userId !== null, fn ($query) => $query->orWhere('user_id', $userId));
                     })
-                    ->orderByRaw('case when user_id is null then 0 else 1 end')
+                    // Sections of another tenant must never surface, and the
+                    // parent's own view must never pick up a tenant's private
+                    // sections — both handled by the same null-means-everyone
+                    // rule used for panel_id.
+                    ->when($tenantAware, fn ($q) => $q->forTenant($tenantId))
+                    // Layer order, lowest first: parent template, then the
+                    // store's own sections, then the viewer's personal ones.
+                    ->orderByRaw($this->sectionLayerOrdering($tenantAware))
                     ->orderBy('sort')
                     ->with([
                         'cards',
-                        // Only the viewing user's own personalisation rows are
-                        // loaded, so each user's launchpad renders their own
-                        // added cards.
+                        // The overlay rows that apply to this viewer: their
+                        // store's layer plus their own. Tombstones come along
+                        // too — they are subtracted in mapSectionToDto().
                         'userCards' => fn ($query) => $query
-                            ->when($userId !== null, fn ($q) => $q->where('user_id', $userId), fn ($q) => $q->whereRaw('1 = 0'))
+                            ->when(
+                                $tenantAware,
+                                fn ($q) => $q->visibleTo($tenantId, $userId),
+                                fn ($q) => $q->when(
+                                    $userId !== null,
+                                    fn ($q) => $q->where('user_id', $userId),
+                                    fn ($q) => $q->whereRaw('1 = 0'),
+                                ),
+                            )
                             ->with('card'),
                     ]),
             ])
@@ -565,6 +651,22 @@ class LaunchpadPlugin implements Plugin
             ->filter()
             ->values()
             ->all();
+    }
+
+    /**
+     * Orders sections by overlay layer, lowest first, so the parent's template
+     * always renders above the store's own sections, which render above the
+     * viewer's personal ones. Collapses to the pre-Phase H two-layer ordering
+     * on an install whose schema predates the tenant columns.
+     */
+    protected function sectionLayerOrdering(bool $tenantAware): string
+    {
+        if (! $tenantAware) {
+            return 'case when user_id is null then 0 else 1 end';
+        }
+
+        return 'case when tenant_id is null and user_id is null then 0 '
+            .'when user_id is null then 1 else 2 end';
     }
 
     /**
@@ -639,10 +741,24 @@ class LaunchpadPlugin implements Plugin
         // A section renders, for the viewing user, the admin's PINNED cards
         // (fixed, shown to everyone, in the admin's order) followed by the
         // user's OWN added cards (from launchpad_user_cards, in their order).
+        //
+        // Phase H inserts one subtraction between the two: cards the viewer's
+        // store (or the viewer) tombstoned are dropped from the parent's pinned
+        // set. This is what makes inheritance an OVERLAY rather than a copy —
+        // the parent keeps owning every slot nobody has overridden, so a card
+        // the parent adds later still flows through, while a slot a store has
+        // already replaced stays replaced.
+        $hidden = $section->userCards
+            ->filter(fn ($userCard): bool => (bool) ($userCard->is_hidden ?? false))
+            ->map(fn ($userCard) => (int) $userCard->card_id)
+            ->all();
+
         $pinned = $section->cards
-            ->filter(fn (CardModel $card): bool => (bool) ($card->pivot->is_pinned ?? true));
+            ->filter(fn (CardModel $card): bool => (bool) ($card->pivot->is_pinned ?? true))
+            ->reject(fn (CardModel $card): bool => in_array((int) $card->getKey(), $hidden, true));
 
         $userCards = $section->userCards
+            ->reject(fn ($userCard): bool => (bool) ($userCard->is_hidden ?? false))
             ->sortBy('sort')
             ->map(fn ($userCard): ?CardModel => $userCard->card)
             ->filter();

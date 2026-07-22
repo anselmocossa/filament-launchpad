@@ -2,11 +2,15 @@
 
 namespace Filament\Launchpad\Pages;
 
+use Filament\Actions\Action;
+use Filament\Forms\Components\Radio;
 use Filament\Launchpad\Filament\Concerns\InteractsWithLaunchpadBuilder;
 use Filament\Launchpad\Models\Page as PageModel;
 use Filament\Launchpad\Models\Space as SpaceModel;
 use Filament\Launchpad\Support\LaunchpadPanel;
 use Filament\Launchpad\Support\LaunchpadPermission;
+use Filament\Launchpad\Support\LaunchpadScope;
+use Filament\Launchpad\Support\LaunchpadTenant;
 use Filament\Launchpad\Support\LaunchpadUrl;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Schema;
@@ -47,26 +51,108 @@ class EditHome extends Page
     }
 
     /**
-     * Edit Home is always the authenticated user's own layer, even for
-     * super_admin users. Global home authoring stays in the Page builder
-     * (/admin/pages/{record}/build); this shortcut must never let one user's
-     * personal changes affect another user's Home.
+     * Which layer this builder writes: 'user' (this person's own home) or
+     * 'tenant' (the store's shared home, seen by every colleague). Live-bound
+     * to the switcher in the toolbar.
+     *
+     * Phase H softened the old absolute rule — Edit Home used to be the
+     * authenticated user's layer and nothing else — because a store owner had
+     * no other way to shape the home their staff actually sees: global
+     * authoring lives in /admin, which a tenant user cannot reach. The rule it
+     * replaces still holds where it matters: the USER layer is still private,
+     * and a user without permission to manage the store can never select the
+     * store layer.
      */
+    public string $layer = LaunchpadScope::USER;
+
     protected function isPersonalMode(): bool
     {
         return true;
+    }
+
+    protected function isTenantLayer(): bool
+    {
+        return $this->layer === LaunchpadScope::TENANT && $this->canManageTenantLayer();
+    }
+
+    /**
+     * The store layer is only offered on a multi-tenant install (a resolver is
+     * wired AND a tenant actually resolves) and only to a user allowed to
+     * manage it — soft-gated like every other ability in the plugin, so an
+     * install without spatie/laravel-permission keeps working.
+     */
+    public function canManageTenantLayer(): bool
+    {
+        return LaunchpadTenant::isEnabled()
+            && filled(LaunchpadTenant::id())
+            && LaunchpadPermission::check(auth()->user(), 'Manage:LaunchpadTenant');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getLayerOptions(): array
+    {
+        return [
+            LaunchpadScope::TENANT => __('launchpad::launchpad.messages.camada_loja'),
+            LaunchpadScope::USER => __('launchpad::launchpad.messages.camada_pessoal'),
+        ];
     }
 
     public function mount(): void
     {
         if (! $this->resolveHomePage() instanceof PageModel) {
             $this->redirect(LaunchpadUrl::panelHome());
+
+            return;
+        }
+
+        // A store manager lands on the store's home, because shaping what the
+        // whole team sees is why they opened this page; personalising their own
+        // is the deliberate second choice.
+        if ($this->canManageTenantLayer()) {
+            $this->layer = LaunchpadScope::TENANT;
         }
     }
 
     public function getTitle(): string
     {
         return __('launchpad::launchpad.nav.editar_inicio');
+    }
+
+    /**
+     * @return array<Action>
+     */
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->layerSwitcherAction(),
+            $this->restoreParentTemplateAction(),
+        ];
+    }
+
+    /**
+     * "A editar: [A home da loja | A minha home]" — the control that makes the
+     * store layer reachable at all for a shopkeeper, who has no /admin.
+     */
+    public function layerSwitcherAction(): Action
+    {
+        return Action::make('switchLaunchpadLayer')
+            ->label(fn (): string => __('launchpad::launchpad.messages.a_editar')
+                .': '.($this->getLayerOptions()[$this->layer] ?? ''))
+            ->icon('heroicon-o-user-group')
+            ->color('gray')
+            ->visible(fn (): bool => $this->canManageTenantLayer())
+            ->fillForm(fn (): array => ['layer' => $this->layer])
+            ->schema([
+                Radio::make('layer')
+                    ->hiddenLabel()
+                    ->options(fn (): array => $this->getLayerOptions())
+                    ->required(),
+            ])
+            ->action(function (array $data): void {
+                $this->layer = $data['layer'] ?? LaunchpadScope::USER;
+            });
     }
 
     /**
@@ -102,6 +188,11 @@ class EditHome extends Page
 
         if (Schema::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
             $query->forPanel($panelId);
+        }
+
+        // Never resolve "home" to a Space belonging to another tenant.
+        if (Schema::hasColumn('launchpad_spaces', 'tenant_id')) {
+            $query->forTenant(LaunchpadTenant::id());
         }
 
         $space = $query
