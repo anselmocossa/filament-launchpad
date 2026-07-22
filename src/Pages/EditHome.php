@@ -144,7 +144,7 @@ class EditHome extends Page
             ->color('gray')
             ->visible(fn (): bool => $this->canManageTenantLayer())
             ->fillForm(fn (): array => ['layer' => $this->layer])
-            ->schema([
+            ->form([
                 Radio::make('layer')
                     ->hiddenLabel()
                     ->options(fn (): array => $this->getLayerOptions())

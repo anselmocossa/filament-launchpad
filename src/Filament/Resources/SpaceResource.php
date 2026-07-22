@@ -14,6 +14,7 @@ use Filament\Launchpad\Filament\Resources\SpaceResource\Pages\ListSpaces;
 use Filament\Launchpad\Filament\Resources\SpaceResource\RelationManagers\PagesRelationManager;
 use Filament\Launchpad\Models\Space;
 use Filament\Launchpad\Support\LaunchpadPanel;
+use Filament\Launchpad\Support\LaunchpadTenant;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -110,8 +111,23 @@ class SpaceResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        if (SchemaFacade::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
-            $query->forPanel($panelId);
+        // The parent may step out of its own panel to author another one's
+        // template — that is the only way to reach the store panel's launchpad
+        // from /admin. A panel that resolves a tenant of its own never gets
+        // this door (LaunchpadTenant::resolved() is filled there), so a store
+        // can never list another panel's spaces.
+        $browsingPanel = LaunchpadPanel::browsing();
+
+        if (SchemaFacade::hasColumn('launchpad_spaces', 'panel_id') && filled($browsingPanel)) {
+            $query->forPanel($browsingPanel);
+        }
+
+        // Phase H: without this a tenant panel with resources enabled would
+        // list every other store's spaces. Not reachable while
+        // autoRegisterResources(false) holds, but the guarantee belongs here,
+        // not in the caller's configuration.
+        if (SchemaFacade::hasColumn('launchpad_spaces', 'tenant_id')) {
+            $query->forTenant(LaunchpadTenant::id());
         }
 
         return $query;

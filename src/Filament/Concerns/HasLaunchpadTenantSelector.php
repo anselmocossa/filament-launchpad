@@ -30,7 +30,7 @@ trait HasLaunchpadTenantSelector
             ->color('gray')
             ->visible(fn (): bool => $this->showsTenantSelector())
             ->fillForm(fn (): array => ['tenant_id' => LaunchpadTenant::selected()])
-            ->schema([
+            ->form([
                 Select::make('tenant_id')
                     ->label(__('launchpad::launchpad.models.space'))
                     ->options(fn (): array => $this->tenantSelectorOptions())

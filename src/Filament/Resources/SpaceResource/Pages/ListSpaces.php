@@ -4,18 +4,53 @@ namespace Filament\Launchpad\Filament\Resources\SpaceResource\Pages;
 
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
+use Filament\Forms\Components\Select;
+use Filament\Launchpad\Filament\Concerns\HasLaunchpadTenantSelector;
 use Filament\Launchpad\Filament\Resources\CardResource;
 use Filament\Launchpad\Filament\Resources\PageResource;
 use Filament\Launchpad\Filament\Resources\SpaceResource;
+use Filament\Launchpad\Support\LaunchpadPanel;
+use Filament\Launchpad\Support\LaunchpadTenant;
 use Filament\Resources\Pages\ListRecords;
 
 class ListSpaces extends ListRecords
 {
+    use HasLaunchpadTenantSelector;
+
     protected static string $resource = SpaceResource::class;
+
+    /**
+     * Lets the parent author another panel's launchpad — in practice, the store
+     * panel's template, which is invisible from /admin because it carries
+     * panel_id = 'store'. Hidden wherever a tenant resolves on its own, so it
+     * never becomes a way for a store to browse the platform's own panel.
+     */
+    protected function panelSelectorAction(): Action
+    {
+        return Action::make('selectLaunchpadPanel')
+            ->label(fn (): string => ucfirst(LaunchpadPanel::browsing() ?? ''))
+            ->icon('heroicon-o-rectangle-group')
+            ->color('gray')
+            ->visible(fn (): bool => blank(LaunchpadTenant::resolved()) && count(LaunchpadPanel::options()) > 1)
+            ->fillForm(fn (): array => ['panel_id' => LaunchpadPanel::browsing()])
+            ->form([
+                Select::make('panel_id')
+                    ->label(__('launchpad::launchpad.messages.painel'))
+                    ->options(fn (): array => LaunchpadPanel::options())
+                    ->required(),
+            ])
+            ->action(function (array $data): void {
+                LaunchpadPanel::selectBrowsing($data['panel_id'] ?? null);
+
+                $this->redirect(SpaceResource::getUrl('index'));
+            });
+    }
 
     protected function getHeaderActions(): array
     {
         return [
+            $this->panelSelectorAction(),
+            $this->tenantSelectorAction(),
             Action::make('pages')
                 ->label(__('launchpad::launchpad.table_columns.paginas'))
                 ->icon('heroicon-o-document-duplicate')

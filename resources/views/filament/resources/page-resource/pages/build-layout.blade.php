@@ -200,7 +200,12 @@
                             @php
                                 $locked = $card['locked'] ?? false;
                                 $isWidget = ($card['type'] ?? null) === 'widget';
-                                $draggable = ! $locked;
+                                $inherited = ($card['origin'] ?? 'user') !== 'user';
+                                // Phase H: in the store layer an inherited card is
+                                // removable (it tombstones) but not re-orderable —
+                                // its placement still belongs to the template, so
+                                // offering a drag handle would be a dead affordance.
+                                $draggable = ! $locked && ! ($mode === 'user' && $inherited);
                             @endphp
                             <div
                                 class="lp-tile @if ($isWidget) lp-tile--widget @endif @if ($locked) lp-tile--locked @endif"
@@ -226,9 +231,10 @@
                                     {{-- Utilizador: card fixo do admin — bloqueado --}}
                                     <span class="lp-tile__lock" title="{{ __('launchpad::launchpad.builder.tag_fixo') }}">@svg('heroicon-s-lock-closed', '', ['style' => 'width:12px;height:12px'])</span>
                                 @else
-                                    {{-- Utilizador: card que ele adicionou — pode remover --}}
+                                    {{-- Card removível: o próprio (apaga a linha) ou, na
+                                         camada da loja, um herdado (grava um tombstone). --}}
                                     <button type="button" class="lp-tile__x"
-                                            x-on:click.stop="$wire.removeUserCard({{ $section['id'] }}, {{ $card['id'] }})"
+                                            x-on:click.stop="$wire.{{ $inherited ? 'removeCard' : 'removeUserCard' }}({{ $section['id'] }}, {{ $card['id'] }})"
                                             title="{{ __('launchpad::launchpad.buttons.remover') }}">&times;</button>
                                 @endif
 
