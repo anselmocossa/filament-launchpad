@@ -26,7 +26,7 @@ trait HasLaunchpadTenantSelector
     {
         return Action::make('selectLaunchpadTenant')
             ->label(fn (): string => $this->tenantSelectorLabel())
-            ->icon('heroicon-o-building-tenant')
+            ->icon('heroicon-o-building-office-2')
             ->color('gray')
             ->visible(fn (): bool => $this->showsTenantSelector())
             ->fillForm(fn (): array => ['tenant_id' => LaunchpadTenant::selected()])

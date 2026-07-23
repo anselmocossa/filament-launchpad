@@ -2,6 +2,14 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.5.1 - 2026-07-23
+
+### Fixed
+- **Tenant selector crashed the page with `SvgNotFound`.** The store selector
+  action referenced a non-existent heroicon (`heroicon-o-building-tenant`),
+  throwing a 500 on any resource page where the selector renders (e.g. the
+  Spaces list). Swapped for the valid `heroicon-o-building-office-2`.
+
 ## 1.5.0 - 2026-07-23
 
 Multi-tenant launchpad. A single install can now serve many tenants: each one
