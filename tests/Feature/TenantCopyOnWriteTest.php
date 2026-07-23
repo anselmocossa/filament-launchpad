@@ -111,3 +111,27 @@ it('a forked space carries its pages, sections and card links (deep copy)', func
     // The catalogue card itself is shared, not duplicated.
     expect(Card::query()->where('title', 'C1')->count())->toBe(1);
 });
+
+it('deleting an inherited space in one tenant only hides it there — never for others', function () {
+    $template = Space::query()->create(['label' => 'Operações', 'panel_id' => 'store', 'sort' => 2]);
+
+    // A tenant deletes the inherited space through the normal model delete
+    // (what every table/header/bulk action ultimately calls).
+    LaunchpadTenant::actingAs('sorelle', fn () => $template->delete());
+
+    // The shared template survives...
+    expect($template->fresh())->not->toBeNull()
+        // ...gone for sorelle...
+        ->and(effectiveSpaceLabels('sorelle'))->not->toContain('Operações')
+        // ...still there for demo and the primary context.
+        ->and(effectiveSpaceLabels('demo'))->toContain('Operações')
+        ->and(effectiveSpaceLabels(null))->toContain('Operações');
+});
+
+it('a tenant deletes its OWN space for real', function () {
+    $own = Space::query()->create(['label' => 'Meu', 'panel_id' => 'store', 'tenant_id' => 'demo', 'sort' => 0]);
+
+    LaunchpadTenant::actingAs('demo', fn () => $own->delete());
+
+    expect(Space::query()->whereKey($own->id)->exists())->toBeFalse();
+});

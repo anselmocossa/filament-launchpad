@@ -78,6 +78,10 @@ return [
         'a_editar' => 'Editando',
         'modelo_global' => 'Modelo global',
         'alteracoes' => ':count alterações',
+        'modo_prefix' => 'Herança',
+        'modo_fork' => 'Perfil isolado — suas alterações ficam só nesta loja; o modelo compartilhado nunca é tocado.',
+        'modo_readonly' => 'Modelo somente-leitura — personalize criando seus itens; os herdados não mudam.',
+        'modo_shared' => 'Modelo compartilhado — editar muda para todas as lojas.',
         'sem_alteracoes' => 'sem alterações',
     ],
 

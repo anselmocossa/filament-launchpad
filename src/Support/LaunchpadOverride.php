@@ -52,9 +52,12 @@ class LaunchpadOverride
     }
 
     /**
-     * Find or create the tenant's fork of a template record.
+     * Find or create the tenant's fork of a template record. A real edit forks
+     * DEEP (the tenant gets a working copy of the whole subtree); a pure hide
+     * forks SHALLOW (a bare tombstone — no point copying a subtree just to
+     * bury it).
      */
-    public static function forkFor(Model $record, string $tenantId): Model
+    public static function forkFor(Model $record, string $tenantId, bool $deep = true): Model
     {
         $existing = $record->newQuery()
             ->where('tenant_id', $tenantId)
@@ -81,7 +84,9 @@ class LaunchpadOverride
 
         $fork->save();
 
-        static::deepCopyChildren($record, $fork, $tenantId);
+        if ($deep) {
+            static::deepCopyChildren($record, $fork, $tenantId);
+        }
 
         return $fork;
     }
@@ -150,6 +155,28 @@ class LaunchpadOverride
     }
 
     /**
+     * The single entry point every delete action must go through. In a tenant
+     * context, deleting an inherited record HIDES it for that tenant alone (a
+     * tombstone) — never destroying the shared template, which would remove it
+     * for every tenant. A record the tenant owns, or a delete in the primary
+     * context, is really deleted.
+     */
+    public static function deleteOrHide(Model $record): void
+    {
+        $tenantId = LaunchpadTenant::id();
+
+        if (filled($tenantId)
+            && static::enabled($record)
+            && (string) ($record->getAttribute('tenant_id') ?? '') !== (string) $tenantId) {
+            static::hideFor($record, $tenantId);
+
+            return;
+        }
+
+        $record->delete();
+    }
+
+    /**
      * Hide an inherited record for one tenant (a tombstone), without touching
      * the template. If the tenant already forked it, the fork is hidden instead.
      */
@@ -166,8 +193,9 @@ class LaunchpadOverride
             return;
         }
 
-        // A template row: create (or reuse) a hidden fork over it.
-        $fork = static::forkFor($record, $tenantId);
+        // A template row: create (or reuse) a SHALLOW hidden fork over it —
+        // just enough to bury it for this tenant, no subtree copy.
+        $fork = static::forkFor($record, $tenantId, deep: false);
         $fork->forceFill(['is_hidden' => true])->save();
     }
 

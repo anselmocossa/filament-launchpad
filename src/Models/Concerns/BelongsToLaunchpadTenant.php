@@ -2,6 +2,9 @@
 
 namespace Filament\Launchpad\Models\Concerns;
 
+use Filament\Launchpad\Support\LaunchpadOverride;
+use Filament\Launchpad\Support\LaunchpadTenant;
+
 /**
  * Phase H tenant scoping for the structural models (Space / Page / Section).
  *
@@ -12,6 +15,34 @@ namespace Filament\Launchpad\Models\Concerns;
  */
 trait BelongsToLaunchpadTenant
 {
+    /**
+     * Central safety net: whatever triggers a delete — a table row action, a
+     * header action, a relation manager, a bulk action — a tenant deleting an
+     * inherited (template) record must never destroy the shared row. It is
+     * converted into a per-tenant hide and the real delete is aborted, so the
+     * template survives for every other tenant. A tenant's OWN record, and any
+     * delete in the primary context, deletes for real.
+     */
+    public static function bootBelongsToLaunchpadTenant(): void
+    {
+        static::deleting(function ($model): ?bool {
+            $tenantId = LaunchpadTenant::id();
+
+            if (blank($tenantId) || ! LaunchpadOverride::enabled($model)) {
+                return null;
+            }
+
+            if ((string) ($model->getAttribute('tenant_id') ?? '') === (string) $tenantId) {
+                return null; // the tenant's own row — delete for real
+            }
+
+            // An inherited template row: hide it for this tenant, abort the delete.
+            LaunchpadOverride::hideFor($model, $tenantId);
+
+            return false;
+        });
+    }
+
     /**
      * A tenant sees its own rows PLUS the shared template. A null $tenantId
      * (single-tenant install, or the parent authoring the template itself) sees

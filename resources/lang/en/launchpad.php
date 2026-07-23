@@ -78,6 +78,10 @@ return [
         'a_editar' => 'Editing',
         'modelo_global' => 'Global template',
         'alteracoes' => ':count changes',
+        'modo_prefix' => 'Inheritance',
+        'modo_fork' => 'Isolated profile — your changes stay in this tenant only; the shared template is never touched.',
+        'modo_readonly' => 'Read-only template — customise by creating your own items; inherited ones cannot be changed.',
+        'modo_shared' => 'Shared template — editing changes it for every tenant.',
         'sem_alteracoes' => 'no changes',
     ],
 

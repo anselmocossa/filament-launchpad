@@ -9,6 +9,7 @@ use Filament\Launchpad\Filament\Concerns\HasLaunchpadTenantSelector;
 use Filament\Launchpad\Filament\Resources\CardResource;
 use Filament\Launchpad\Filament\Resources\PageResource;
 use Filament\Launchpad\Filament\Resources\SpaceResource;
+use Filament\Launchpad\LaunchpadPlugin;
 use Filament\Launchpad\Support\LaunchpadPanel;
 use Filament\Launchpad\Support\LaunchpadTenant;
 use Filament\Resources\Pages\ListRecords;
@@ -18,6 +19,23 @@ class ListSpaces extends ListRecords
     use HasLaunchpadTenantSelector;
 
     protected static string $resource = SpaceResource::class;
+
+    /**
+     * Makes the active inheritance mode plainly visible: inside a tenant panel
+     * the shopkeeper (and the owner testing) sees exactly what an edit or a
+     * delete will do — stay isolated, be blocked, or change the shared template.
+     */
+    public function getSubheading(): ?string
+    {
+        if (blank(LaunchpadTenant::id())) {
+            return null;
+        }
+
+        $mode = LaunchpadPlugin::get()->getTenantInheritance();
+
+        return __('launchpad::launchpad.messages.modo_prefix')
+            .': '.__('launchpad::launchpad.messages.modo_'.$mode);
+    }
 
     /**
      * Lets the parent author another panel's launchpad — in practice, the tenant

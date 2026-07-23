@@ -14,6 +14,7 @@ use Filament\Launchpad\Filament\Resources\SpaceResource\Pages\EditSpace;
 use Filament\Launchpad\Filament\Resources\SpaceResource\Pages\ListSpaces;
 use Filament\Launchpad\Filament\Resources\SpaceResource\RelationManagers\PagesRelationManager;
 use Filament\Launchpad\Models\Space;
+use Filament\Launchpad\Support\LaunchpadOverride;
 use Filament\Launchpad\Support\LaunchpadPanel;
 use Filament\Launchpad\Support\LaunchpadTenant;
 use Filament\Resources\Resource;
@@ -115,7 +116,11 @@ class SpaceResource extends Resource
                     ->visible(fn (Space $record): bool => static::launchpadRecordEditableByCurrentTenant($record)),
                 DeleteAction::make()
                     ->hidden(fn (Space $record): bool => $record->is_default
-                        || ! static::launchpadRecordEditableByCurrentTenant($record)),
+                        || ! static::launchpadRecordEditableByCurrentTenant($record))
+                    // Deleting an inherited space HIDES it for this tenant only;
+                    // it never destroys the shared template (which would remove
+                    // it for every tenant).
+                    ->using(fn (Space $record) => LaunchpadOverride::deleteOrHide($record)),
             ]);
     }
 
