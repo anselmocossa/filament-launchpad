@@ -2,6 +2,44 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.5.0 - 2026-07-23
+
+Multi-tenant launchpad. A single install can now serve many tenants: each one
+inherits a shared template and customises it in isolation, like a Windows
+profile over the system defaults. Fully opt-in — an install that never wires a
+tenant resolver behaves exactly as before.
+
+### Added
+- **Per-tenant management of the whole tree.** With `->autoRegisterResources()`
+  on, a tenant manages its own Spaces/Pages/Sections/Cards, scoped so it only
+  ever sees the shared template plus its own records — never another tenant's.
+- **Injectable, host-owned configuration** (the plugin never learns what a
+  tenant *is*): `->tenantResolver(fn () => …)` (current tenant id),
+  `->tenants(fn () => [id => label])` (the list the parent may author for),
+  `->primaryManager(fn () => bool)` (who may author the shared template), and
+  `->tenantInheritance('fork' | 'readonly' | 'shared')`.
+- **Copy-on-write inheritance (`fork`, default).** Editing an inherited record
+  inside a tenant forks a private, deep-copied working subtree; deleting it
+  hides it for that tenant alone (a tombstone). The shared template and every
+  other tenant stay untouched.
+- **Parent tooling in the admin panel**: a store selector to author a given
+  tenant's launchpad in place (with a per-tenant change count) and a panel
+  selector to reach another panel's template.
+
+### Changed
+- Card target dropdowns are filtered by each target's `canAccess()`, so an
+  authoring dropdown no longer leaks the labels of modules the user cannot open.
+- The icon picker tolerates a value outside its curated list (a seeded icon no
+  longer blocks every save with an "invalid icon" error).
+- Domain-neutral wording throughout — no assumptions about the host's domain.
+
+### Fixed
+- Deleting an inherited record from any path (table, header, relation manager,
+  bulk) hides it per-tenant instead of destroying the shared row for everyone —
+  enforced centrally at the model layer.
+- Forking copies strictly real table columns, so a record loaded with a
+  query-time aggregate (e.g. `pages_count`) no longer breaks the insert.
+
 ## 1.4.2 - 2026-07-13
 
 ### Fixed

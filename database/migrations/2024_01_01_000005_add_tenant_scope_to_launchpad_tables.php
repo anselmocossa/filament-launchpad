@@ -6,29 +6,37 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Phase H — tenant scope.
+ * Phase H — multi-tenant launchpad (scope + copy-on-write override), in one
+ * migration.
  *
  * `tenant_id` mirrors the semantics `panel_id` already established in
- * Space::scopeForPanel(): NULL means "belongs to everyone" (the parent's
- * global template), a value means "belongs to that tenant only". Existing
- * rows therefore become the parent template for free, with no data copy.
+ * Space::scopeForPanel(): NULL means "belongs to everyone" (the shared
+ * template), a value means "belongs to that tenant only". Existing rows become
+ * the template for free, with no data copy.
  *
- * `launchpad_user_cards` is generalised in place (not renamed, not duplicated)
- * into the overlay table for BOTH scopes:
- *   - is_hidden = false → a card ADDED by that scope
- *   - is_hidden = true  → a parent card HIDDEN by that scope (tombstone)
+ * `origin_id` links a tenant's OVERRIDE row back to the template row it
+ * replaces (copy-on-write); `is_hidden` on the structural tables is a
+ * per-tenant tombstone.
  *
- * Uniqueness moves to a derived `scope_key` because the natural key now has
- * nullable parts, and NULLs are distinct in a UNIQUE index on PostgreSQL —
- * `NULLS NOT DISTINCT` would fix it but is PG15+ and not portable to the
- * MySQL/SQLite installs this published plugin also has to serve.
+ * `launchpad_user_cards` is generalised in place (not renamed) into the overlay
+ * table for both the tenant and user layers. Uniqueness moves to a derived
+ * `scope_key` because the natural key now has nullable parts, and NULLs are
+ * distinct in a UNIQUE index on PostgreSQL — `NULLS NOT DISTINCT` would fix it
+ * but is PG15+ and not portable to the MySQL/SQLite installs this published
+ * plugin also has to serve.
+ *
+ * Every step is guarded (hasColumn / try-catch) so the migration is idempotent
+ * and safe to re-run on a partially-migrated schema.
  */
 return new class extends Migration
 {
     /**
+     * Structural tables that gain tenant scope, in the column each new column
+     * anchors after.
+     *
      * @var array<string, string>
      */
-    protected array $tenantTables = [
+    protected array $structuralTables = [
         'launchpad_spaces' => 'panel_id',
         'launchpad_pages' => 'space_id',
         'launchpad_sections' => 'page_id',
@@ -36,16 +44,39 @@ return new class extends Migration
 
     public function up(): void
     {
-        foreach ($this->tenantTables as $table => $after) {
-            if (! Schema::hasTable($table) || Schema::hasColumn($table, 'tenant_id')) {
+        // Structural tables: tenant_id + origin_id + is_hidden.
+        foreach ($this->structuralTables as $table => $after) {
+            if (! Schema::hasTable($table)) {
                 continue;
             }
 
-            Schema::table($table, function (Blueprint $blueprint) use ($after): void {
-                $blueprint->string('tenant_id')->nullable()->after($after)->index();
+            Schema::table($table, function (Blueprint $blueprint) use ($table, $after): void {
+                if (! Schema::hasColumn($table, 'tenant_id')) {
+                    $blueprint->string('tenant_id')->nullable()->after($after)->index();
+                }
+                if (! Schema::hasColumn($table, 'origin_id')) {
+                    $blueprint->unsignedBigInteger('origin_id')->nullable()->index();
+                }
+                if (! Schema::hasColumn($table, 'is_hidden')) {
+                    $blueprint->boolean('is_hidden')->default(false);
+                }
             });
         }
 
+        // Cards: tenant_id + origin_id (no is_hidden — cards hide/show per
+        // tenant through launchpad_user_cards).
+        if (Schema::hasTable('launchpad_cards')) {
+            Schema::table('launchpad_cards', function (Blueprint $blueprint): void {
+                if (! Schema::hasColumn('launchpad_cards', 'tenant_id')) {
+                    $blueprint->string('tenant_id')->nullable()->after('id')->index();
+                }
+                if (! Schema::hasColumn('launchpad_cards', 'origin_id')) {
+                    $blueprint->unsignedBigInteger('origin_id')->nullable()->index();
+                }
+            });
+        }
+
+        // Overlay table.
         if (! Schema::hasTable('launchpad_user_cards')) {
             return;
         }
@@ -58,12 +89,9 @@ return new class extends Migration
             });
         }
 
-        // The old unique key assumed user_id was always present. Drop it before
-        // relaxing the column, then re-key on scope_key. Wrapped because the
-        // index name differs across drivers and may already be gone.
         $this->dropUniqueIfExists('launchpad_user_cards', 'launchpad_user_cards_user_id_section_id_card_id_unique');
 
-        // Backfill BEFORE the NOT NULL is relaxed, so every legacy row carries a
+        // Backfill BEFORE relaxing NOT NULL, so every legacy row carries a
         // scope_key and the new unique index can be created without collisions.
         DB::table('launchpad_user_cards')
             ->whereNull('scope_key')
@@ -83,8 +111,6 @@ return new class extends Migration
         if (Schema::hasTable('launchpad_user_cards')) {
             $this->dropUniqueIfExists('launchpad_user_cards', 'launchpad_user_cards_scope_section_card_unique');
 
-            // Tenant-scoped and tombstone rows have no meaning in the pre-Phase H
-            // schema and would violate the restored NOT NULL / unique key.
             DB::table('launchpad_user_cards')
                 ->where(function ($query): void {
                     $query->whereNull('user_id')->orWhere('is_hidden', true);
@@ -106,13 +132,27 @@ return new class extends Migration
             );
         }
 
-        foreach (array_keys($this->tenantTables) as $table) {
-            if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'tenant_id')) {
+        if (Schema::hasTable('launchpad_cards')) {
+            Schema::table('launchpad_cards', function (Blueprint $blueprint): void {
+                foreach (['tenant_id', 'origin_id'] as $column) {
+                    if (Schema::hasColumn('launchpad_cards', $column)) {
+                        $blueprint->dropColumn($column);
+                    }
+                }
+            });
+        }
+
+        foreach (array_keys($this->structuralTables) as $table) {
+            if (! Schema::hasTable($table)) {
                 continue;
             }
 
-            Schema::table($table, function (Blueprint $blueprint): void {
-                $blueprint->dropColumn('tenant_id');
+            Schema::table($table, function (Blueprint $blueprint) use ($table): void {
+                foreach (['tenant_id', 'origin_id', 'is_hidden'] as $column) {
+                    if (Schema::hasColumn($table, $column)) {
+                        $blueprint->dropColumn($column);
+                    }
+                }
             });
         }
     }
@@ -123,18 +163,14 @@ return new class extends Migration
      */
     protected function legacyScopeKeyExpression(): string
     {
-        $concat = DB::connection()->getDriverName() === 'sqlite'
+        return DB::connection()->getDriverName() === 'sqlite'
             ? "'t:|u:' || user_id"
             : "CONCAT('t:|u:', user_id)";
-
-        return $concat;
     }
 
     /**
      * Follows the driver split established by ..._000004_make_launchpad_user_ids_string:
      * on PostgreSQL a targeted ALTER COLUMN, everywhere else Blueprint::change().
-     * A plain change() on pgsql would have to restate the column type, which is
-     * exactly what that earlier migration went out of its way to avoid.
      */
     protected function setUserIdNullable(string $table, bool $nullable): void
     {
@@ -164,8 +200,7 @@ return new class extends Migration
                 $blueprint->dropUnique($index);
             });
         } catch (Throwable) {
-            // Already absent, or named differently by this driver — the
-            // subsequent unique index is what actually matters.
+            // Already absent, or named differently by this driver.
         }
     }
 
