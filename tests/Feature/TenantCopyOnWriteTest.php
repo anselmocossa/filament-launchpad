@@ -135,3 +135,20 @@ it('a tenant deletes its OWN space for real', function () {
 
     expect(Space::query()->whereKey($own->id)->exists())->toBeFalse();
 });
+
+it('forks a space even when it was loaded with an aggregate like pages_count', function () {
+    $space = Space::query()->create(['label' => 'Comercial', 'panel_id' => 'store', 'sort' => 1]);
+    $space->pages()->create(['label' => 'P', 'sort' => 0]);
+
+    // Reload exactly as the resource table does (withCount adds pages_count,
+    // which is NOT a real column).
+    $loaded = Space::query()->withCount('pages')->findOrFail($space->id);
+    expect($loaded->pages_count)->toBe(1);
+
+    // This used to blow up with "column pages_count does not exist".
+    $fork = LaunchpadOverride::forkFor($loaded, 'demo');
+
+    expect($fork->tenant_id)->toBe('demo')
+        ->and($fork->origin_id)->toBe($space->id)
+        ->and($fork->label)->toBe('Comercial');
+});

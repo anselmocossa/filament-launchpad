@@ -68,20 +68,7 @@ class LaunchpadOverride
             return $existing;
         }
 
-        $fork = $record->replicate(['origin_id', 'is_hidden']);
-        $fork->tenant_id = $tenantId;
-        $fork->origin_id = $record->getKey();
-
-        if (static::hasColumn($fork, 'is_hidden')) {
-            $fork->is_hidden = false;
-        }
-
-        // A fork is never the protected default home; that flag belongs to the
-        // template row alone.
-        if (static::hasColumn($fork, 'is_default')) {
-            $fork->is_default = false;
-        }
-
+        $fork = static::newForkFrom($record, $tenantId);
         $fork->save();
 
         if ($deep) {
@@ -89,6 +76,46 @@ class LaunchpadOverride
         }
 
         return $fork;
+    }
+
+    /**
+     * Build an unsaved fork carrying only REAL table columns.
+     *
+     * replicate() would copy every loaded attribute, including query-time
+     * aggregates like `pages_count` (added by the table's ->counts('pages'))
+     * that have no column — inserting those blows up with an "undefined column"
+     * error. Copying strictly the schema columns sidesteps that for good.
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    protected static function newForkFrom(Model $record, string $tenantId, array $overrides = []): Model
+    {
+        $columns = $record->getConnection()
+            ->getSchemaBuilder()
+            ->getColumnListing($record->getTable());
+
+        $data = array_intersect_key(
+            $record->getAttributes(),
+            array_flip($columns),
+        );
+
+        // Never copy identity/lineage/timestamps — the fork gets its own.
+        unset($data['id'], $data['created_at'], $data['updated_at'], $data['origin_id'], $data['is_hidden']);
+
+        $data['tenant_id'] = $tenantId;
+        $data['origin_id'] = $record->getKey();
+
+        if (in_array('is_hidden', $columns, true)) {
+            $data['is_hidden'] = false;
+        }
+
+        // A fork is never the protected default home; that flag belongs to the
+        // template row alone.
+        if (in_array('is_default', $columns, true)) {
+            $data['is_default'] = false;
+        }
+
+        return $record->newInstance(array_merge($data, $overrides));
     }
 
     /**
@@ -137,18 +164,7 @@ class LaunchpadOverride
      */
     protected static function forkChild(Model $child, string $tenantId, array $overrides): Model
     {
-        $fork = $child->replicate(['origin_id', 'is_hidden']);
-        $fork->tenant_id = $tenantId;
-        $fork->origin_id = $child->getKey();
-
-        if (static::hasColumn($fork, 'is_hidden')) {
-            $fork->is_hidden = false;
-        }
-
-        foreach ($overrides as $key => $value) {
-            $fork->{$key} = $value;
-        }
-
+        $fork = static::newForkFrom($child, $tenantId, $overrides);
         $fork->save();
 
         return $fork;
