@@ -80,10 +80,17 @@ class LaunchpadPlugin implements Plugin
 
     /**
      * Optional companion to $tenantResolver: the list of tenants the parent may
-     * author on behalf of, as `id => label`. Only ever consumed by the store
+     * author on behalf of, as `id => label`. Only ever consumed by the tenant
      * selector in the parent panel.
      */
     protected ?Closure $tenantOptionsResolver = null;
+
+    /**
+     * Optional host predicate deciding whether the current user is "the main"
+     * (may author the shared template). Falls back to the soft-Shield ability
+     * when unset.
+     */
+    protected ?Closure $primaryManagerResolver = null;
 
     /** @var array<string, bool> Memoiza a acessibilidade por path de URL (por request). */
     protected array $targetAccessCache = [];
@@ -151,7 +158,7 @@ class LaunchpadPlugin implements Plugin
      * The plugin also auto-reads widgets already registered on the current
      * Filament panel via Filament::getWidgets(); this array is only for
      * overrides/additions. Each entry: key,class,label,icon,columnSpan. The DB
-     * only ever stores the `key` on a Card (see Models/Card::widget_key) —
+     * only ever tenants the `key` on a Card (see Models/Card::widget_key) —
      * never the class — so rendering only ever resolves registered classes,
      * never an arbitrary string coming from the database.
      *
@@ -327,9 +334,9 @@ class LaunchpadPlugin implements Plugin
      */
     public function boot(Panel $panel): void
     {
-        // Restores the parent's store selection for this request. A no-op in a
+        // Restores the parent's tenant selection for this request. A no-op in a
         // panel that resolves a tenant of its own, which is what stops the
-        // session key from ever being a way into another store's launchpad.
+        // session key from ever being a way into another tenant's launchpad.
         LaunchpadTenant::applySelectorOverride();
 
         FilamentView::registerRenderHook(
@@ -469,6 +476,31 @@ class LaunchpadPlugin implements Plugin
     public function getTenantOptionsResolver(): ?Closure
     {
         return $this->tenantOptionsResolver;
+    }
+
+    /**
+     * Who is "the main" — the user allowed to author the shared template that
+     * every tenant inherits, editing it in place even from inside a tenant
+     * panel. The plugin cannot know this on its own: a host's super-admin may
+     * be team-scoped, so a role check in a tenant context can wrongly say no.
+     * The host answers with a closure returning bool.
+     *
+     * ->primaryManager(fn () => auth()->user()?->isPlatformOwner() ?? false)
+     *
+     * Unset, the plugin falls back to its soft-Shield ability
+     * `Manage:LaunchpadPrimary` (super_admin included) — see
+     * ScopesToLaunchpadTenant::canManageLaunchpadPrimary().
+     */
+    public function primaryManager(?Closure $resolver): static
+    {
+        $this->primaryManagerResolver = $resolver;
+
+        return $this;
+    }
+
+    public function getPrimaryManagerResolver(): ?Closure
+    {
+        return $this->primaryManagerResolver;
     }
 
     /**
@@ -625,13 +657,13 @@ class LaunchpadPlugin implements Plugin
                     // rule used for panel_id.
                     ->when($tenantAware, fn ($q) => $q->forTenant($tenantId))
                     // Layer order, lowest first: parent template, then the
-                    // store's own sections, then the viewer's personal ones.
+                    // tenant's own sections, then the viewer's personal ones.
                     ->orderByRaw($this->sectionLayerOrdering($tenantAware))
                     ->orderBy('sort')
                     ->with([
                         'cards',
                         // The overlay rows that apply to this viewer: their
-                        // store's layer plus their own. Tombstones come along
+                        // tenant's layer plus their own. Tombstones come along
                         // too — they are subtracted in mapSectionToDto().
                         'userCards' => fn ($query) => $query
                             ->when(
@@ -655,7 +687,7 @@ class LaunchpadPlugin implements Plugin
 
     /**
      * Orders sections by overlay layer, lowest first, so the parent's template
-     * always renders above the store's own sections, which render above the
+     * always renders above the tenant's own sections, which render above the
      * viewer's personal ones. Collapses to the pre-Phase H two-layer ordering
      * on an install whose schema predates the tenant columns.
      */
@@ -743,10 +775,10 @@ class LaunchpadPlugin implements Plugin
         // user's OWN added cards (from launchpad_user_cards, in their order).
         //
         // Phase H inserts one subtraction between the two: cards the viewer's
-        // store (or the viewer) tombstoned are dropped from the parent's pinned
+        // tenant (or the viewer) tombstoned are dropped from the parent's pinned
         // set. This is what makes inheritance an OVERLAY rather than a copy —
         // the parent keeps owning every slot nobody has overridden, so a card
-        // the parent adds later still flows through, while a slot a store has
+        // the parent adds later still flows through, while a slot a tenant has
         // already replaced stays replaced.
         $hidden = $section->userCards
             ->filter(fn ($userCard): bool => (bool) ($userCard->is_hidden ?? false))
@@ -1093,8 +1125,8 @@ class LaunchpadPlugin implements Plugin
     /**
      * Scans a directory (recursively) for concrete KpiSource classes and
      * registers each one, à la Filament's own discoverWidgets(). $for is the
-     * base namespace matching $in (e.g. discoverKpis(in: app_path('Filament/Store/Modules/POS/Kpis'),
-     * for: 'App\\Filament\\Store\\Modules\\POS\\Kpis')). Safe to call more
+     * base namespace matching $in (e.g. discoverKpis(in: app_path('Filament/Kpis'),
+     * for: 'App\Filament\Kpis')). Safe to call more
      * than once (idempotent) and silently no-ops when $in doesn't exist yet.
      * Calling this (like kpis()) turns register()'s automatic discovery off
      * — see $autoDiscoverKpis.

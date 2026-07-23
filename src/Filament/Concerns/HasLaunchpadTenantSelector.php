@@ -10,11 +10,11 @@ use Filament\Launchpad\Support\LaunchpadScope;
 use Filament\Launchpad\Support\LaunchpadTenant;
 
 /**
- * The parent's "which store am I looking at?" control.
+ * The parent's "which tenant am I looking at?" control.
  *
- * Selecting a store makes the builder read and write that store's layer, so the
+ * Selecting a tenant makes the builder read and write that tenant's layer, so the
  * parent can shape one shop's home without leaving /admin — and selecting
- * nothing means authoring the shared template every store inherits.
+ * nothing means authoring the shared template every tenant inherits.
  *
  * Only rendered where no tenant resolves on its own (i.e. the parent panel);
  * see LaunchpadTenant::applySelectorOverride() for why that is a boundary
@@ -26,7 +26,7 @@ trait HasLaunchpadTenantSelector
     {
         return Action::make('selectLaunchpadTenant')
             ->label(fn (): string => $this->tenantSelectorLabel())
-            ->icon('heroicon-o-building-storefront')
+            ->icon('heroicon-o-building-tenant')
             ->color('gray')
             ->visible(fn (): bool => $this->showsTenantSelector())
             ->fillForm(fn (): array => ['tenant_id' => LaunchpadTenant::selected()])
@@ -35,7 +35,7 @@ trait HasLaunchpadTenantSelector
                     ->label(__('launchpad::launchpad.models.space'))
                     ->options(fn (): array => $this->tenantSelectorOptions())
                     ->searchable()
-                    ->placeholder(__('launchpad::launchpad.messages.loja_template_global')),
+                    ->placeholder(__('launchpad::launchpad.messages.modelo_global')),
             ])
             ->action(function (array $data): void {
                 LaunchpadTenant::select($data['tenant_id'] ?? null);
@@ -45,8 +45,8 @@ trait HasLaunchpadTenantSelector
     }
 
     /**
-     * Whether a store selector makes sense here: the host declared at least one
-     * store, and this panel is not itself a store's.
+     * Whether a tenant selector makes sense here: the host declared at least one
+     * tenant, and this panel is not itself a tenant's.
      *
      * Deliberately keyed on ->tenants() rather than ->tenantResolver(), so the
      * parent panel — which by definition resolves no tenant — enables the
@@ -64,15 +64,15 @@ trait HasLaunchpadTenantSelector
         $selected = LaunchpadTenant::selected();
 
         if (blank($selected)) {
-            return __('launchpad::launchpad.messages.loja_template_global');
+            return __('launchpad::launchpad.messages.modelo_global');
         }
 
         return LaunchpadTenant::options()[$selected] ?? $selected;
     }
 
     /**
-     * Every store, annotated with how far it has drifted from the template —
-     * the answer to "what did my stores change?" without opening each one.
+     * Every tenant, annotated with how far it has drifted from the template —
+     * the answer to "what did my tenants change?" without opening each one.
      *
      * @return array<string, string>
      */
@@ -80,22 +80,22 @@ trait HasLaunchpadTenantSelector
     {
         $counts = $this->tenantChangeCounts();
 
-        $options = ['' => __('launchpad::launchpad.messages.loja_template_global')];
+        $options = ['' => __('launchpad::launchpad.messages.modelo_global')];
 
         foreach (LaunchpadTenant::options() as $id => $label) {
             $count = $counts[$id] ?? 0;
 
             $options[$id] = $label.' — '.($count === 0
-                ? __('launchpad::launchpad.messages.loja_sem_alteracoes')
-                : __('launchpad::launchpad.messages.loja_alteracoes', ['count' => $count]));
+                ? __('launchpad::launchpad.messages.sem_alteracoes')
+                : __('launchpad::launchpad.messages.alteracoes', ['count' => $count]));
         }
 
         return $options;
     }
 
     /**
-     * Deviations per store: overlay rows (additions and tombstones alike) plus
-     * sections the store authored itself.
+     * Deviations per tenant: overlay rows (additions and tombstones alike) plus
+     * sections the tenant authored itself.
      *
      * @return array<string, int>
      */

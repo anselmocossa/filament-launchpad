@@ -36,27 +36,40 @@ it('lists the template plus the store own spaces, never another store', function
     expect($ids)->toContain($template->id, $mine->id)->not->toContain($other->id);
 });
 
-it('makes an inherited record read-only for a store but editable for its owner', function () {
+it('keeps the shared template read-only for a plain tenant user, editable for its own', function () {
+    actingAsLaunchpadTenantUser();
+
     $template = Space::query()->create(['label' => 'Template', 'tenant_id' => null, 'sort' => 0]);
     $mine = Space::query()->create(['label' => 'Minha', 'tenant_id' => 'demo', 'sort' => 1]);
 
     LaunchpadTenant::actingAs('demo', function () use ($template, $mine): void {
         expect(SpaceResource::launchpadRecordEditableByCurrentTenant($template))->toBeFalse()
             ->and(SpaceResource::launchpadRecordEditableByCurrentTenant($mine))->toBeTrue()
-            ->and(SpaceResource::launchpadRecordIsInherited($template))->toBeTrue()
-            ->and(SpaceResource::launchpadRecordIsInherited($mine))->toBeFalse();
+            ->and(SpaceResource::launchpadRecordIsInherited($template))->toBeTrue();
     });
 });
 
-it('lets the parent edit everything, including the template', function () {
+it('lets the main edit the shared template even from inside a tenant panel', function () {
+    // actingAsLaunchpadAdmin() is the super_admin — the main who authors and
+    // distributes. A tenant resolves, yet the template stays editable for them.
     $template = Space::query()->create(['label' => 'Template', 'tenant_id' => null, 'sort' => 0]);
 
-    // No tenant resolved (parent panel): the template is editable.
+    LaunchpadTenant::actingAs('demo', function () use ($template): void {
+        expect(SpaceResource::launchpadRecordEditableByCurrentTenant($template))->toBeTrue();
+    });
+});
+
+it('lets the main edit everything from the primary panel too', function () {
+    $template = Space::query()->create(['label' => 'Template', 'tenant_id' => null, 'sort' => 0]);
+
+    // No tenant resolved (primary panel): the template is editable.
     expect(SpaceResource::launchpadRecordEditableByCurrentTenant($template))->toBeTrue()
         ->and(SpaceResource::launchpadRecordIsInherited($template))->toBeFalse();
 });
 
 it('scopes pages, sections and cards the same way', function () {
+    actingAsLaunchpadTenantUser();
+
     $space = Space::query()->create(['label' => 'S', 'tenant_id' => null, 'sort' => 0]);
     $page = Page::query()->create(['space_id' => $space->id, 'label' => 'P', 'tenant_id' => null, 'sort' => 0]);
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Sec', 'tenant_id' => null, 'sort' => 0]);
@@ -66,10 +79,12 @@ it('scopes pages, sections and cards the same way', function () {
     $otherCard = Card::query()->create(['title' => 'Alheio', 'type' => 'kpi', 'tenant_id' => 'tech']);
 
     LaunchpadTenant::actingAs('demo', function () use ($page, $section, $card, $mineCard, $otherCard): void {
+        // Read-only template for a plain tenant user, across every resource.
         expect(PageResource::launchpadRecordEditableByCurrentTenant($page))->toBeFalse()
             ->and(SectionResource::launchpadRecordEditableByCurrentTenant($section))->toBeFalse()
             ->and(CardResource::launchpadRecordEditableByCurrentTenant($card))->toBeFalse();
 
+        // Scope is independent of the viewer: template + own, never another tenant.
         $cardIds = CardResource::getEloquentQuery()->pluck('id')->all();
         expect($cardIds)->toContain($card->id, $mineCard->id)->not->toContain($otherCard->id);
     });

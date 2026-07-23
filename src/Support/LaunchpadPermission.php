@@ -2,6 +2,7 @@
 
 namespace Filament\Launchpad\Support;
 
+use Filament\Launchpad\LaunchpadPlugin;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Throwable;
 
@@ -36,6 +37,30 @@ use Throwable;
  */
 class LaunchpadPermission
 {
+    /**
+     * Whether the current user is "the main" — allowed to author the shared
+     * template that every tenant inherits. The host's own predicate
+     * (LaunchpadPlugin::primaryManager()) wins when wired, because a host's
+     * super-admin may be team-scoped and a role check inside a tenant context
+     * would misfire. Unset, it falls back to the `Manage:LaunchpadPrimary`
+     * ability (super_admin included), and — absent spatie/permission — to
+     * "allowed", the plugin's standard soft-gate default.
+     */
+    public static function managesPrimary(): bool
+    {
+        try {
+            $resolver = LaunchpadPlugin::get()->getPrimaryManagerResolver();
+
+            if ($resolver instanceof \Closure) {
+                return (bool) $resolver();
+            }
+        } catch (Throwable) {
+            // Fall through to the ability check.
+        }
+
+        return static::check(auth()->user(), 'Manage:LaunchpadPrimary');
+    }
+
     public static function check(mixed $user, string $ability): bool
     {
         if (! LaunchpadVisibility::spatieAvailable()) {

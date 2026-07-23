@@ -2,16 +2,17 @@
 
 namespace Filament\Launchpad\Filament\Resources\Concerns;
 
+use Filament\Launchpad\Support\LaunchpadPermission;
 use Filament\Launchpad\Support\LaunchpadTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Phase H.2 — makes a management Resource tenant-aware, so a store may run the
- * full Spaces/Pages/Sections/Cards CRUD at /store without ever seeing or
- * touching another store's records, nor the parent's shared template.
+ * Phase H.2 — makes a management Resource tenant-aware, so a tenant may run the
+ * full Spaces/Pages/Sections/Cards CRUD at /tenant without ever seeing or
+ * touching another tenant's records, nor the parent's shared template.
  *
- * The rule in one line: a store SEES the template (read-only) plus its own
+ * The rule in one line: a tenant SEES the template (read-only) plus its own
  * (editable); it CREATES into its own layer; it EDITS/DELETES only its own.
  * The parent (no tenant resolves) sees and edits the template, exactly as
  * before. A single-tenant install (no resolver) is unchanged — every record is
@@ -31,10 +32,11 @@ trait ScopesToLaunchpadTenant
     }
 
     /**
-     * A record inherited from the parent (null tenant) is read-only for a store:
-     * editing it would change the shared template every store depends on.
-     * Customising the parent's home is done through the overlay (edit-home),
-     * never by mutating the template in place.
+     * The shared template (a null-tenant record) is authored by whoever manages
+     * the PRIMARY layer — the "main" who creates and distributes to every
+     * tenant. That user edits it freely, from any panel, and the change reaches
+     * every tenant that inherits it. A plain tenant user cannot touch it; they
+     * customise by creating their own records, which stay in their own tenant.
      */
     public static function canEdit(Model $record): bool
     {
@@ -49,25 +51,44 @@ trait ScopesToLaunchpadTenant
     }
 
     /**
-     * Public so table row actions can hide themselves for inherited records,
-     * not just rely on the page-level canEdit/canDelete gate.
+     * Public so table row actions can hide themselves, not just rely on the
+     * page-level canEdit/canDelete gate.
      */
     public static function launchpadRecordEditableByCurrentTenant(Model $record): bool
     {
-        $tenantId = LaunchpadTenant::id();
-
-        // The parent (no tenant resolved) may edit everything, including the
-        // template. A store may edit only records stamped with its own id.
-        if (blank($tenantId)) {
+        // No tenant resolved (the primary panel): everything is editable.
+        if (blank(LaunchpadTenant::id())) {
             return true;
         }
 
-        return (string) ($record->getAttribute('tenant_id') ?? '') === (string) $tenantId;
+        $recordTenant = $record->getAttribute('tenant_id');
+
+        // A tenant-owned record: only its own tenant may edit it.
+        if (filled($recordTenant)) {
+            return (string) $recordTenant === (string) LaunchpadTenant::id();
+        }
+
+        // A shared-template record: editable in place only by someone who
+        // manages the primary layer (the "main"). This is what lets the owner
+        // edit and distribute from within a tenant panel, while keeping the
+        // template read-only for ordinary tenant users.
+        return static::canManageLaunchpadPrimary();
     }
 
     /**
-     * A record that belongs to the parent's template while a store is the
-     * viewer — shown read-only, badged "inherited".
+     * Whether the current user authors the shared template ("the main").
+     * Soft-gated like every ability in the plugin: absent spatie/permission,
+     * everyone qualifies (the host owns auth); present, the Shield super_admin
+     * or a holder of `Manage:LaunchpadPrimary` qualifies.
+     */
+    public static function canManageLaunchpadPrimary(): bool
+    {
+        return LaunchpadPermission::managesPrimary();
+    }
+
+    /**
+     * A shared-template record (null tenant) seen from inside a tenant panel —
+     * badged, and read-only unless the viewer manages the primary layer.
      */
     public static function launchpadRecordIsInherited(Model $record): bool
     {

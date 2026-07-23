@@ -16,7 +16,7 @@ class CreateSpace extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         // StampsLaunchpadTenant adds tenant_id; panel_id is stamped on top so a
-        // space a store creates carries both its panel and its tenant.
+        // space a tenant creates carries both its panel and its tenant.
         $data = $this->stampLaunchpadTenant($data);
 
         if (filled($panelId = LaunchpadPanel::id())) {

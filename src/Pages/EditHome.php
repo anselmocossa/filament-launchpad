@@ -52,16 +52,16 @@ class EditHome extends Page
 
     /**
      * Which layer this builder writes: 'user' (this person's own home) or
-     * 'tenant' (the store's shared home, seen by every colleague). Live-bound
+     * 'tenant' (the tenant's shared home, seen by every colleague). Live-bound
      * to the switcher in the toolbar.
      *
      * Phase H softened the old absolute rule — Edit Home used to be the
-     * authenticated user's layer and nothing else — because a store owner had
+     * authenticated user's layer and nothing else — because a tenant owner had
      * no other way to shape the home their staff actually sees: global
      * authoring lives in /admin, which a tenant user cannot reach. The rule it
      * replaces still holds where it matters: the USER layer is still private,
-     * and a user without permission to manage the store can never select the
-     * store layer.
+     * and a user without permission to manage the tenant can never select the
+     * tenant layer.
      */
     public string $layer = LaunchpadScope::USER;
 
@@ -76,7 +76,7 @@ class EditHome extends Page
     }
 
     /**
-     * The store layer is only offered on a multi-tenant install (a resolver is
+     * The tenant layer is only offered on a multi-tenant install (a resolver is
      * wired AND a tenant actually resolves) and only to a user allowed to
      * manage it — soft-gated like every other ability in the plugin, so an
      * install without spatie/laravel-permission keeps working.
@@ -94,7 +94,7 @@ class EditHome extends Page
     public function getLayerOptions(): array
     {
         return [
-            LaunchpadScope::TENANT => __('launchpad::launchpad.messages.camada_loja'),
+            LaunchpadScope::TENANT => __('launchpad::launchpad.messages.camada_partilhada'),
             LaunchpadScope::USER => __('launchpad::launchpad.messages.camada_pessoal'),
         ];
     }
@@ -107,7 +107,7 @@ class EditHome extends Page
             return;
         }
 
-        // A store manager lands on the store's home, because shaping what the
+        // A tenant manager lands on the tenant's home, because shaping what the
         // whole team sees is why they opened this page; personalising their own
         // is the deliberate second choice.
         if ($this->canManageTenantLayer()) {
@@ -132,8 +132,8 @@ class EditHome extends Page
     }
 
     /**
-     * "A editar: [A home da loja | A minha home]" — the control that makes the
-     * store layer reachable at all for a shopkeeper, who has no /admin.
+     * "A editar: [A home da tenant | A minha home]" — the control that makes the
+     * tenant layer reachable at all for a tenant user, who has no /admin.
      */
     public function layerSwitcherAction(): Action
     {

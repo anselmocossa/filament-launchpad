@@ -21,12 +21,12 @@ class LaunchpadPanel
      * The panel whose launchpad is currently being AUTHORED, which is normally
      * the current one.
      *
-     * The parent needs one exception: the store panel's launchpad has
-     * panel_id = 'store', so from /admin it is invisible — and /admin is the
+     * The parent needs one exception: the tenant panel's launchpad has
+     * panel_id = 'tenant', so from /admin it is invisible — and /admin is the
      * only console the parent has. Selecting a panel here opens that door.
      *
      * Deliberately refused wherever a tenant resolves on its own, so the door
-     * exists only in the parent's console and a store can never use it to
+     * exists only in the parent's console and a tenant can never use it to
      * browse another panel.
      */
     public static function browsing(): ?string

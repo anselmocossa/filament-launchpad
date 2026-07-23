@@ -2,16 +2,17 @@
 
 namespace Filament\Launchpad\Filament\Resources\Concerns;
 
+use Filament\Launchpad\Support\LaunchpadPermission;
 use Filament\Launchpad\Support\LaunchpadTenant;
 
 /**
- * Phase H.2 — stamps the resolved tenant on records a store creates through the
- * management resources, so a new Space/Page/Section/Card lands in that store's
- * layer and never in the shared template.
+ * Stamps the layer a newly created Space/Page/Section/Card belongs to.
  *
- * A null tenant (the parent authoring the template, or a single-tenant install)
- * leaves the column untouched, which keeps the record part of the template —
- * exactly the pre-Phase H behaviour.
+ * A plain tenant user's record lands in their own tenant — it stays with them
+ * and never touches the shared template. Someone who manages the primary layer
+ * (the "main") creates INTO the shared template instead, so what they create is
+ * distributed to every tenant — even when they happen to be inside a tenant
+ * panel. A single-tenant install (no resolver) always leaves the column null.
  */
 trait StampsLaunchpadTenant
 {
@@ -30,6 +31,12 @@ trait StampsLaunchpadTenant
      */
     protected function stampLaunchpadTenant(array $data): array
     {
+        // The main authors the shared template, so their new records stay
+        // null-tenant and distribute to everyone.
+        if (LaunchpadPermission::managesPrimary()) {
+            return $data;
+        }
+
         if (filled($tenantId = LaunchpadTenant::id())) {
             $data['tenant_id'] = $tenantId;
         }

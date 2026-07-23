@@ -101,7 +101,7 @@ trait InteractsWithLaunchpadBuilder
     // ------------------------------------------------------------------
 
     /**
-     * Whether the personal-mode builder is currently pointed at the STORE's
+     * Whether the personal-mode builder is currently pointed at the tenant's
      * shared layer rather than the individual's own. Overridden by EditHome,
      * which exposes it as a switcher; false everywhere else keeps the
      * pre-Phase H meaning of personal mode ("my own home") intact.
@@ -113,11 +113,11 @@ trait InteractsWithLaunchpadBuilder
 
     /**
      * GLOBAL — the parent's template (tenant_id null, user_id null).
-     * TENANT — one store's shared layout (tenant_id set, user_id null).
+     * TENANT — one tenant's shared layout (tenant_id set, user_id null).
      * USER   — one person's own additions (user_id set).
      *
-     * Note that the parent authoring "as" a store via the /admin selector and
-     * the store owner editing their own home both land on TENANT: it is a
+     * Note that the parent authoring "as" a tenant via the /admin selector and
+     * the tenant owner editing their own home both land on TENANT: it is a
      * single layer with two doors, not two parallel layers that could drift.
      */
     protected function builderScopeName(): string
@@ -138,7 +138,7 @@ trait InteractsWithLaunchpadBuilder
 
     /**
      * The user whose layer is being written — only ever set in USER scope, so
-     * a store-layer edit can never be mistaken for one person's private one.
+     * a tenant-layer edit can never be mistaken for one person's private one.
      */
     protected function builderUserId(): ?string
     {
@@ -178,7 +178,7 @@ trait InteractsWithLaunchpadBuilder
     }
 
     /**
-     * Only the store layer may tombstone a parent card. The personal layer
+     * Only the tenant layer may tombstone a parent card. The personal layer
      * stays purely additive, exactly as before Phase H — letting one employee
      * hide a card their manager pinned was never asked for and would silently
      * change published behaviour.
@@ -230,7 +230,7 @@ trait InteractsWithLaunchpadBuilder
     /**
      * Overlay rows belonging to the layer this builder writes — the single
      * gate every mutation goes through, so no code path can reach across into
-     * another store's or another person's rows.
+     * another tenant's or another person's rows.
      */
     protected function overlayQuery()
     {
@@ -259,8 +259,8 @@ trait InteractsWithLaunchpadBuilder
     /**
      * Drops every deviation this layer has accumulated for the current page and
      * falls back to whatever the layer beneath provides — the "Repor template"
-     * action. Scoped to this builder's layer, so restoring one store never
-     * touches the template or any other store.
+     * action. Scoped to this builder's layer, so restoring one tenant never
+     * touches the template or any other tenant.
      */
     public function restoreParentTemplate(): void
     {
@@ -328,7 +328,7 @@ trait InteractsWithLaunchpadBuilder
         $scope = $this->builderScopeName();
         $ownsSection = fn (Section $section): bool => $this->sectionBelongsToBuilderLayer($section);
 
-        // In the store layer an inherited card is removable (it tombstones), so
+        // In the tenant layer an inherited card is removable (it tombstones), so
         // it must NOT come back marked locked the way the personal layer needs.
         $inheritedLocked = ! $this->mayHideInheritedCards();
 
@@ -495,7 +495,7 @@ trait InteractsWithLaunchpadBuilder
 
         $query = Card::query()
             // Only the template's cards plus this layer's own — never another
-            // store's, which would leak its private cards into this catalog.
+            // tenant's, which would leak its private cards into this catalog.
             ->when(
                 Schema::hasColumn('launchpad_cards', 'tenant_id'),
                 fn ($query) => $query->forTenant($this->builderTenantId()),
@@ -564,7 +564,7 @@ trait InteractsWithLaunchpadBuilder
     public function addSection(): void
     {
         // A personal-layer section still requires an authenticated user; the
-        // store and template layers do not, since they belong to nobody.
+        // tenant and template layers do not, since they belong to nobody.
         if ($this->builderScopeName() === LaunchpadScope::USER && $this->currentUserStorageId() === null) {
             return;
         }
@@ -715,7 +715,7 @@ trait InteractsWithLaunchpadBuilder
         }
 
         $card = Card::query()->create([
-            // A card a store creates belongs to that store; the parent's stay null.
+            // A card a tenant creates belongs to that tenant; the parent's stay null.
             'tenant_id' => $this->builderTenantId(),
             'library_key' => $preset['key'] ?? null,
             'title' => $preset['title'] ?? 'Novo Card',
@@ -860,9 +860,9 @@ trait InteractsWithLaunchpadBuilder
      * Card itself, and any other section referencing it, is untouched. The
      * Card is only ever permanently deleted from /admin/cards.
      *
-     * Phase H: in the STORE layer the pivot row belongs to the parent and must
+     * Phase H: in the tenant layer the pivot row belongs to the parent and must
      * not be touched, so the same × writes a tombstone instead — the card
-     * disappears for that store and stays for everyone else. The personal layer
+     * disappears for that tenant and stays for everyone else. The personal layer
      * still cannot remove an inherited card at all (see mayHideInheritedCards).
      */
     public function removeCard(int|string $sectionId, int|string $cardId): void

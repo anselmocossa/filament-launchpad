@@ -5,6 +5,7 @@ use Filament\Launchpad\Models\Section;
 use Filament\Launchpad\Tests\Support\TestUser;
 use Filament\Launchpad\Tests\TestCase;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 uses(TestCase::class)->in('Feature', 'Unit');
@@ -18,6 +19,26 @@ function actingAsLaunchpadAdmin(): TestUser
 
     $user = TestUser::query()->create(['name' => 'Admin']);
     $user->assignRole('super_admin');
+
+    auth()->login($user);
+
+    return $user;
+}
+
+/**
+ * A plain tenant user: authenticated, but NOT the main. The
+ * `Manage:LaunchpadPrimary` permission is created so it genuinely EXISTS (a
+ * missing permission would soft-degrade to "allowed"), and the user is left
+ * without it — so it may customise its own layer but never the shared template.
+ */
+function actingAsLaunchpadTenantUser(): TestUser
+{
+    Permission::query()->firstOrCreate([
+        'name' => 'Manage:LaunchpadPrimary',
+        'guard_name' => 'web',
+    ]);
+
+    $user = TestUser::query()->create(['name' => 'Tenant User']);
 
     auth()->login($user);
 

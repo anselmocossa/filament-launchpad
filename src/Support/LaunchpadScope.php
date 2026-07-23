@@ -8,7 +8,7 @@ namespace Filament\Launchpad\Support;
  *
  * Layer precedence, lowest first:
  *   GLOBAL  tenant_id NULL, user_id NULL  — the parent's template
- *   TENANT  tenant_id set,  user_id NULL  — one store's layout
+ *   TENANT  tenant_id set,  user_id NULL  — one tenant's layout
  *   USER    user_id set                   — one person's own additions
  *
  * The key is derived rather than stored as a composite UNIQUE because the

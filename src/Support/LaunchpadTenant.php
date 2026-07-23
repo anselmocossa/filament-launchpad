@@ -16,7 +16,7 @@ use Throwable;
  * every id is null, every `tenant_id` column stays null, and the queries
  * degrade to the pre-Phase H shape.
  *
- * `override()` exists for one caller: the parent's store selector in /admin,
+ * `override()` exists for one caller: the parent's tenant selector in /admin,
  * which needs to read and write the launchpad AS a given tenant without the
  * request itself belonging to that tenant.
  */
@@ -83,7 +83,7 @@ class LaunchpadTenant
 
     /**
      * Whether this install is multi-tenant at all — i.e. whether a resolver was
-     * ever wired up. Drives whether tenant-only UI (the store selector, the
+     * ever wired up. Drives whether tenant-only UI (the tenant selector, the
      * EditHome layer switcher) is worth rendering.
      */
     public static function isEnabled(): bool
@@ -102,7 +102,7 @@ class LaunchpadTenant
     }
 
     /**
-     * Session key backing the parent's store selector across requests.
+     * Session key backing the parent's tenant selector across requests.
      */
     public const SESSION_KEY = 'launchpad.tenant_override';
 
@@ -111,8 +111,8 @@ class LaunchpadTenant
      * no tenant of its own.
      *
      * That condition is the whole security of the feature: in a tenant panel
-     * the host's resolver always answers, so a store user who managed to write
-     * this session key still cannot be served another store's launchpad. The
+     * the host's resolver always answers, so a tenant user who managed to write
+     * this session key still cannot be served another tenant's launchpad. The
      * override is reachable only from the parent panel, where "no tenant"
      * is the honest answer and choosing one is the point.
      */

@@ -20,10 +20,10 @@ class ListSpaces extends ListRecords
     protected static string $resource = SpaceResource::class;
 
     /**
-     * Lets the parent author another panel's launchpad — in practice, the store
+     * Lets the parent author another panel's launchpad — in practice, the tenant
      * panel's template, which is invisible from /admin because it carries
-     * panel_id = 'store'. Hidden wherever a tenant resolves on its own, so it
-     * never becomes a way for a store to browse the platform's own panel.
+     * panel_id = 'tenant'. Hidden wherever a tenant resolves on its own, so it
+     * never becomes a way for a tenant to browse the platform's own panel.
      */
     protected function panelSelectorAction(): Action
     {

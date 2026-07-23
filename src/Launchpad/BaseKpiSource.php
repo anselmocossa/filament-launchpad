@@ -60,7 +60,7 @@ abstract class BaseKpiSource implements KpiSource
 
     /**
      * Empty array = visible on every panel. Override to restrict this
-     * source to specific panel ids, e.g. return ['store'];
+     * source to specific panel ids, e.g. return ['admin'];
      *
      * @return array<int, string>
      */

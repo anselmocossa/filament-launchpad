@@ -192,7 +192,7 @@ trait HasCardForm
      *
      * The rendered tile was already gated by the target's own canAccess(), but
      * the authoring dropdown was not — so on a multi-tenant panel a retail
-     * shopkeeper browsing card targets could read the label of every module the
+     * tenant user browsing card targets could read the label of every module the
      * engine ships (Housekeeping, Hotel Reservations, Chart of Accounts…). That
      * is a product leak rather than a privilege one, but the fix is the same
      * gate, applied one step earlier.

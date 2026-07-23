@@ -123,9 +123,9 @@ class SpaceResource extends Resource
         $query = parent::getEloquentQuery();
 
         // The parent may step out of its own panel to author another one's
-        // template — that is the only way to reach the store panel's launchpad
+        // template — that is the only way to reach the tenant panel's launchpad
         // from /admin. A panel that resolves a tenant of its own never gets
-        // this door (LaunchpadTenant::resolved() is filled there), so a store
+        // this door (LaunchpadTenant::resolved() is filled there), so a tenant
         // can never list another panel's spaces.
         $browsingPanel = LaunchpadPanel::browsing();
 
@@ -134,7 +134,7 @@ class SpaceResource extends Resource
         }
 
         // Phase H: without this a tenant panel with resources enabled would
-        // list every other store's spaces. Not reachable while
+        // list every other tenant's spaces. Not reachable while
         // autoRegisterResources(false) holds, but the guarantee belongs here,
         // not in the caller's configuration.
         if (SchemaFacade::hasColumn('launchpad_spaces', 'tenant_id')) {

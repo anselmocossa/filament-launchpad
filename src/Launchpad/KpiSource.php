@@ -49,7 +49,7 @@ interface KpiSource
     public function authorize(?Authenticatable $user): bool;
 
     /**
-     * Panel ids this source is available on, e.g. ['store']. An empty array
+     * Panel ids this source is available on, e.g. ['admin']. An empty array
      * (the BaseKpiSource default) means "every panel" — no restriction. When
      * non-empty, the source is only resolved/listed while the current panel
      * (Support\LaunchpadPanel::id()) is in this list — see
