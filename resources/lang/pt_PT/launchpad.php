@@ -78,7 +78,7 @@ return [
         'a_editar' => 'A editar',
         'modelo_global' => 'Modelo global',
         'alteracoes' => ':count alterações',
-        'spaces_intro' => 'Os espaços, páginas e cards da sua loja — organize à sua maneira.',
+        'spaces_intro' => 'Os seus espaços, páginas e cards — organize à sua maneira.',
         'sem_alteracoes' => 'sem alterações',
     ],
 

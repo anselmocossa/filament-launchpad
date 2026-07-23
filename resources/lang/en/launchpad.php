@@ -78,7 +78,7 @@ return [
         'a_editar' => 'Editing',
         'modelo_global' => 'Global template',
         'alteracoes' => ':count changes',
-        'spaces_intro' => 'Your store\'s spaces, pages and cards — arrange them your way.',
+        'spaces_intro' => 'Your spaces, pages and cards — arrange them your way.',
         'sem_alteracoes' => 'no changes',
     ],
 

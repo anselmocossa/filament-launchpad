@@ -2,6 +2,15 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.5.2 - 2026-07-23
+
+### Fixed
+- **Removed store-specific wording from a public string.** The `spaces_intro`
+  subheading said "your store's…" / "da sua loja" in every locale; a generic,
+  domain-agnostic plugin must not assume the host is a store. Reworded to
+  "Your spaces, pages and cards…" (and the pt/pt_PT/pt_BR equivalents). Apps
+  that want domain-specific wording can override the translation key.
+
 ## 1.5.1 - 2026-07-23
 
 ### Fixed
