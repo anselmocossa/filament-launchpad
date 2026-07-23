@@ -494,6 +494,12 @@ trait InteractsWithLaunchpadBuilder
         $search = trim($this->catalogSearch);
 
         $query = Card::query()
+            // Only the template's cards plus this layer's own — never another
+            // store's, which would leak its private cards into this catalog.
+            ->when(
+                Schema::hasColumn('launchpad_cards', 'tenant_id'),
+                fn ($query) => $query->forTenant($this->builderTenantId()),
+            )
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
                     $query->where('title', 'like', "%{$search}%")
@@ -709,6 +715,8 @@ trait InteractsWithLaunchpadBuilder
         }
 
         $card = Card::query()->create([
+            // A card a store creates belongs to that store; the parent's stay null.
+            'tenant_id' => $this->builderTenantId(),
             'library_key' => $preset['key'] ?? null,
             'title' => $preset['title'] ?? 'Novo Card',
             'subtitle' => $preset['subtitle'] ?? null,
@@ -777,6 +785,7 @@ trait InteractsWithLaunchpadBuilder
         }
 
         $card = Card::query()->create([
+            'tenant_id' => $this->builderTenantId(),
             'widget_key' => $widgetKey,
             'widget_column_span' => (string) ($widget['columnSpan'] ?? 'full'),
             'title' => $widget['label'] ?? 'Widget',

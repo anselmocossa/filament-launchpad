@@ -8,6 +8,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadIconOptions;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadVisibilityField;
+use Filament\Launchpad\Filament\Resources\Concerns\ScopesToLaunchpadTenant;
 use Filament\Launchpad\Filament\Resources\SpaceResource\Pages\CreateSpace;
 use Filament\Launchpad\Filament\Resources\SpaceResource\Pages\EditSpace;
 use Filament\Launchpad\Filament\Resources\SpaceResource\Pages\ListSpaces;
@@ -29,6 +30,7 @@ class SpaceResource extends Resource
 {
     use HasLaunchpadIconOptions;
     use HasLaunchpadVisibilityField;
+    use ScopesToLaunchpadTenant;
 
     protected static ?string $model = Space::class;
 
@@ -92,11 +94,20 @@ class SpaceResource extends Resource
                     ->label(__('launchpad::launchpad.table_columns.paginas'))
                     ->counts('pages')
                     ->badge(),
+                TextColumn::make('tenant_id')
+                    ->label('')
+                    ->badge()
+                    ->color('gray')
+                    ->state(fn (Space $record): ?string => static::launchpadRecordIsInherited($record)
+                        ? __('launchpad::launchpad.messages.badge_template')
+                        : null),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn (Space $record): bool => static::launchpadRecordEditableByCurrentTenant($record)),
                 DeleteAction::make()
-                    ->hidden(fn (Space $record): bool => $record->is_default),
+                    ->hidden(fn (Space $record): bool => $record->is_default
+                        || ! static::launchpadRecordEditableByCurrentTenant($record)),
             ]);
     }
 

@@ -44,6 +44,7 @@ class LaunchpadServiceProvider extends PackageServiceProvider
                 '2024_01_01_000003_add_panel_id_to_launchpad_spaces_table',
                 '2024_01_01_000004_make_launchpad_user_ids_string',
                 '2024_01_01_000005_add_tenant_scope_to_launchpad_tables',
+                '2024_01_01_000006_add_tenant_id_to_launchpad_cards',
             ])
             ->runsMigrations();
     }

@@ -5,6 +5,7 @@ namespace Filament\Launchpad\Filament\Resources;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadVisibilityField;
+use Filament\Launchpad\Filament\Resources\Concerns\ScopesToLaunchpadTenant;
 use Filament\Launchpad\Filament\Resources\SectionResource\Pages\CreateSection;
 use Filament\Launchpad\Filament\Resources\SectionResource\Pages\EditSection;
 use Filament\Launchpad\Filament\Resources\SectionResource\Pages\ListSections;
@@ -24,6 +25,7 @@ use Filament\Tables\Table;
 class SectionResource extends Resource
 {
     use HasLaunchpadVisibilityField;
+    use ScopesToLaunchpadTenant;
 
     protected static ?string $model = Section::class;
 
@@ -77,7 +79,8 @@ class SectionResource extends Resource
                     ->badge(),
             ])
             ->recordActions([
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->visible(fn (Section $record): bool => static::launchpadRecordEditableByCurrentTenant($record)),
             ]);
     }
 

@@ -7,6 +7,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadIconOptions;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadVisibilityField;
+use Filament\Launchpad\Filament\Resources\Concerns\ScopesToLaunchpadTenant;
 use Filament\Launchpad\Filament\Resources\PageResource\Pages\BuildLayout;
 use Filament\Launchpad\Filament\Resources\PageResource\Pages\CreatePage;
 use Filament\Launchpad\Filament\Resources\PageResource\Pages\EditPage;
@@ -29,6 +30,7 @@ class PageResource extends Resource
 {
     use HasLaunchpadIconOptions;
     use HasLaunchpadVisibilityField;
+    use ScopesToLaunchpadTenant;
 
     protected static ?string $model = Page::class;
 
@@ -86,7 +88,8 @@ class PageResource extends Resource
                     ->badge(),
             ])
             ->recordActions([
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->visible(fn (Page $record): bool => static::launchpadRecordEditableByCurrentTenant($record)),
             ]);
     }
 

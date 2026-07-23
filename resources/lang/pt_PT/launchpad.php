@@ -73,6 +73,7 @@ return [
         'repor_template_aviso' => 'Todas as alterações que esta loja fez a esta página são descartadas e o template do pai é reposto. As outras lojas não são afectadas.',
         'camada_loja' => 'A home da loja',
         'camada_pessoal' => 'A minha home',
+        'badge_template' => 'Herdado',
         'painel' => 'Painel',
         'a_editar' => 'A editar',
         'loja_template_global' => 'Template global (todas as lojas)',

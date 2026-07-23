@@ -7,6 +7,7 @@ use Filament\Actions\EditAction;
 use Filament\Launchpad\Filament\Resources\CardResource\Pages\ListCards;
 use Filament\Launchpad\Filament\Resources\Concerns\HasCardForm;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadIconOptions;
+use Filament\Launchpad\Filament\Resources\Concerns\ScopesToLaunchpadTenant;
 use Filament\Launchpad\Models\Card;
 use Filament\Launchpad\Support\LaunchpadUrl;
 use Filament\Launchpad\Support\LaunchpadVisibility;
@@ -34,6 +35,7 @@ class CardResource extends Resource
 {
     use HasCardForm;
     use HasLaunchpadIconOptions;
+    use ScopesToLaunchpadTenant;
 
     protected static ?string $model = Card::class;
 
@@ -162,10 +164,12 @@ class CardResource extends Resource
             ->recordActions([
                 EditAction::make()
                     ->slideOver()
-                    ->schema(fn (): array => static::cardFormComponents()),
+                    ->schema(fn (): array => static::cardFormComponents())
+                    ->visible(fn (Card $record): bool => static::launchpadRecordEditableByCurrentTenant($record)),
                 // The ONLY place a Card is permanently destroyed — cascades
                 // its `launchpad_section_card` pivot rows via the FK.
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->visible(fn (Card $record): bool => static::launchpadRecordEditableByCurrentTenant($record)),
             ]);
     }
 

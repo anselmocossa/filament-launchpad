@@ -73,6 +73,7 @@ return [
         'repor_template_aviso' => 'Every change this store made to this page is discarded and the parent template restored. Other stores are unaffected.',
         'camada_loja' => 'The store\'s home',
         'camada_pessoal' => 'My own home',
+        'badge_template' => 'Inherited',
         'painel' => 'Panel',
         'a_editar' => 'Editing',
         'loja_template_global' => 'Global template (all stores)',

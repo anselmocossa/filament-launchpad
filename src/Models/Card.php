@@ -2,6 +2,7 @@
 
 namespace Filament\Launchpad\Models;
 
+use Filament\Launchpad\Models\Concerns\BelongsToLaunchpadTenant;
 use Filament\Launchpad\Models\Concerns\HasLaunchpadVisibility;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Card extends Model
 {
+    use BelongsToLaunchpadTenant;
     use HasLaunchpadVisibility;
 
     protected $table = 'launchpad_cards';
