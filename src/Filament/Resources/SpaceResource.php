@@ -61,7 +61,7 @@ class SpaceResource extends Resource
                         ->maxLength(255),
                     Select::make('icon')
                         ->label(__('launchpad::launchpad.labels.icone'))
-                        ->options(static::launchpadIconOptions())
+                        ->options(fn (?string $state): array => static::launchpadIconOptionsWith($state))
                         ->searchable(),
                     TextInput::make('sort')
                         ->label(__('launchpad::launchpad.labels.ordem'))
@@ -77,8 +77,16 @@ class SpaceResource extends Resource
 
     public static function table(Table $table): Table
     {
+        // Drag-reorder writes `sort` straight onto the listed rows. In a tenant
+        // context those rows include shared-template ones, so a drag would
+        // change the template for every tenant. Enabled only in the primary
+        // context; a tenant reorders through the per-space "Ordem" field, which
+        // forks a private copy.
+        if (blank(LaunchpadTenant::id())) {
+            $table->reorderable('sort');
+        }
+
         return $table
-            ->reorderable('sort')
             ->defaultSort('sort')
             ->columns([
                 IconColumn::make('icon')
@@ -133,12 +141,11 @@ class SpaceResource extends Resource
             $query->forPanel($browsingPanel);
         }
 
-        // Phase H: without this a tenant panel with resources enabled would
-        // list every other tenant's spaces. Not reachable while
-        // autoRegisterResources(false) holds, but the guarantee belongs here,
-        // not in the caller's configuration.
+        // Phase H.3: the tenant's effective set under copy-on-write — the
+        // template it hasn't diverged, plus its own overrides and new spaces.
+        // Never another tenant's rows.
         if (SchemaFacade::hasColumn('launchpad_spaces', 'tenant_id')) {
-            $query->forTenant(LaunchpadTenant::id());
+            $query->effectiveForTenant(LaunchpadTenant::id());
         }
 
         return $query;

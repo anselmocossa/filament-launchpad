@@ -4,12 +4,15 @@ namespace Filament\Launchpad\Filament\Resources\PageResource\Pages;
 
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
+use Filament\Launchpad\Filament\Resources\Concerns\ForksLaunchpadRecordOnEdit;
 use Filament\Launchpad\Filament\Resources\PageResource;
 use Filament\Launchpad\Filament\Resources\SpaceResource;
 use Filament\Resources\Pages\EditRecord;
 
 class EditPage extends EditRecord
 {
+    use ForksLaunchpadRecordOnEdit;
+
     protected static string $resource = PageResource::class;
 
     protected function getHeaderActions(): array

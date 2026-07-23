@@ -36,17 +36,33 @@ it('lists the template plus the store own spaces, never another store', function
     expect($ids)->toContain($template->id, $mine->id)->not->toContain($other->id);
 });
 
-it('keeps the shared template read-only for a plain tenant user, editable for its own', function () {
+it('fork mode: a tenant may edit the template (it forks) and its own', function () {
     actingAsLaunchpadTenantUser();
+    LaunchpadPlugin::get()->tenantInheritance('fork');
+
+    $template = Space::query()->create(['label' => 'Template', 'tenant_id' => null, 'sort' => 0]);
+    $mine = Space::query()->create(['label' => 'Minha', 'tenant_id' => 'demo', 'sort' => 1]);
+
+    LaunchpadTenant::actingAs('demo', function () use ($template, $mine): void {
+        expect(SpaceResource::launchpadRecordEditableByCurrentTenant($template))->toBeTrue()
+            ->and(SpaceResource::launchpadRecordEditableByCurrentTenant($mine))->toBeTrue()
+            ->and(SpaceResource::launchpadRecordIsInherited($template))->toBeTrue();
+    });
+});
+
+it('readonly mode: the template is read-only for a plain tenant user', function () {
+    actingAsLaunchpadTenantUser();
+    LaunchpadPlugin::get()->tenantInheritance('readonly');
 
     $template = Space::query()->create(['label' => 'Template', 'tenant_id' => null, 'sort' => 0]);
     $mine = Space::query()->create(['label' => 'Minha', 'tenant_id' => 'demo', 'sort' => 1]);
 
     LaunchpadTenant::actingAs('demo', function () use ($template, $mine): void {
         expect(SpaceResource::launchpadRecordEditableByCurrentTenant($template))->toBeFalse()
-            ->and(SpaceResource::launchpadRecordEditableByCurrentTenant($mine))->toBeTrue()
-            ->and(SpaceResource::launchpadRecordIsInherited($template))->toBeTrue();
+            ->and(SpaceResource::launchpadRecordEditableByCurrentTenant($mine))->toBeTrue();
     });
+
+    LaunchpadPlugin::get()->tenantInheritance('fork');
 });
 
 it('lets the main edit the shared template even from inside a tenant panel', function () {
@@ -78,16 +94,21 @@ it('scopes pages, sections and cards the same way', function () {
     $mineCard = Card::query()->create(['title' => 'Meu', 'type' => 'kpi', 'tenant_id' => 'demo']);
     $otherCard = Card::query()->create(['title' => 'Alheio', 'type' => 'kpi', 'tenant_id' => 'tech']);
 
+    LaunchpadPlugin::get()->tenantInheritance('readonly');
+
     LaunchpadTenant::actingAs('demo', function () use ($page, $section, $card, $mineCard, $otherCard): void {
-        // Read-only template for a plain tenant user, across every resource.
+        // readonly mode: template read-only for a plain tenant user, every resource.
         expect(PageResource::launchpadRecordEditableByCurrentTenant($page))->toBeFalse()
             ->and(SectionResource::launchpadRecordEditableByCurrentTenant($section))->toBeFalse()
             ->and(CardResource::launchpadRecordEditableByCurrentTenant($card))->toBeFalse();
 
-        // Scope is independent of the viewer: template + own, never another tenant.
+        // Scope is independent of the viewer: effective set = template + own,
+        // never another tenant's.
         $cardIds = CardResource::getEloquentQuery()->pluck('id')->all();
         expect($cardIds)->toContain($card->id, $mineCard->id)->not->toContain($otherCard->id);
     });
+
+    LaunchpadPlugin::get()->tenantInheritance('fork');
 });
 
 it('single-tenant install keeps every record editable (no resolver)', function () {

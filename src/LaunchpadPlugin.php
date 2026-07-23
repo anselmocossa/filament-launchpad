@@ -92,6 +92,18 @@ class LaunchpadPlugin implements Plugin
      */
     protected ?Closure $primaryManagerResolver = null;
 
+    /**
+     * How an inherited (template) record behaves when edited inside a tenant
+     * panel. Configurable so the host stays in control:
+     *   'fork'     copy-on-write — the edit forks a private copy for that
+     *              tenant and never touches the template or other tenants
+     *              (the "Windows profile" model). Default.
+     *   'readonly' the template is read-only in tenant panels; a tenant
+     *              customises only by creating its own records.
+     *   'shared'   editing changes the shared template for everyone (pre-H.3).
+     */
+    protected string $tenantInheritance = 'fork';
+
     /** @var array<string, bool> Memoiza a acessibilidade por path de URL (por request). */
     protected array $targetAccessCache = [];
 
@@ -504,6 +516,27 @@ class LaunchpadPlugin implements Plugin
     }
 
     /**
+     * Set how inherited records behave when a tenant edits them.
+     *
+     * ->tenantInheritance('fork') // copy-on-write (default)
+     * ->tenantInheritance('readonly')
+     * ->tenantInheritance('shared')
+     */
+    public function tenantInheritance(string $mode): static
+    {
+        $this->tenantInheritance = in_array($mode, ['fork', 'readonly', 'shared'], true)
+            ? $mode
+            : 'fork';
+
+        return $this;
+    }
+
+    public function getTenantInheritance(): string
+    {
+        return $this->tenantInheritance;
+    }
+
+    /**
      * @deprecated Use spaces() instead. Every LaunchpadTab IS a LaunchpadSpace
      *             (its ->groups() sugar wraps the given sections in a single
      *             default LaunchpadPage), so legacy tab configs are stored
@@ -639,13 +672,15 @@ class LaunchpadPlugin implements Plugin
         }
 
         if ($tenantAware) {
-            $query->forTenant($tenantId);
+            // Phase H.3: the tenant's effective set — template it hasn't
+            // diverged, plus its own overrides and new spaces.
+            $query->effectiveForTenant($tenantId);
         }
 
         return $query
             ->with([
                 'pages' => fn ($query) => $query
-                    ->when($tenantAware, fn ($q) => $q->forTenant($tenantId)),
+                    ->when($tenantAware, fn ($q) => $q->effectiveForTenant($tenantId)),
                 'pages.sections' => fn ($query) => $query
                     ->where(function ($query) use ($userId) {
                         $query->whereNull('user_id')
@@ -655,7 +690,7 @@ class LaunchpadPlugin implements Plugin
                     // parent's own view must never pick up a tenant's private
                     // sections — both handled by the same null-means-everyone
                     // rule used for panel_id.
-                    ->when($tenantAware, fn ($q) => $q->forTenant($tenantId))
+                    ->when($tenantAware, fn ($q) => $q->effectiveForTenant($tenantId))
                     // Layer order, lowest first: parent template, then the
                     // tenant's own sections, then the viewer's personal ones.
                     ->orderByRaw($this->sectionLayerOrdering($tenantAware))

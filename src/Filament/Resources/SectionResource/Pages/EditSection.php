@@ -3,6 +3,7 @@
 namespace Filament\Launchpad\Filament\Resources\SectionResource\Pages;
 
 use Filament\Actions\DeleteAction;
+use Filament\Launchpad\Filament\Resources\Concerns\ForksLaunchpadRecordOnEdit;
 use Filament\Launchpad\Filament\Resources\PageResource;
 use Filament\Launchpad\Filament\Resources\SectionResource;
 use Filament\Launchpad\Filament\Resources\SpaceResource;
@@ -10,6 +11,8 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditSection extends EditRecord
 {
+    use ForksLaunchpadRecordOnEdit;
+
     protected static string $resource = SectionResource::class;
 
     protected function getHeaderActions(): array

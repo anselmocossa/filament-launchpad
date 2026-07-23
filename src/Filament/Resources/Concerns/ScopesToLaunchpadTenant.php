@@ -2,6 +2,7 @@
 
 namespace Filament\Launchpad\Filament\Resources\Concerns;
 
+use Filament\Launchpad\LaunchpadPlugin;
 use Filament\Launchpad\Support\LaunchpadPermission;
 use Filament\Launchpad\Support\LaunchpadTenant;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,7 +26,9 @@ trait ScopesToLaunchpadTenant
         $query = parent::getEloquentQuery();
 
         if (static::tenantColumnExists()) {
-            $query->forTenant(LaunchpadTenant::id());
+            // Copy-on-write resolution: the tenant sees the template it hasn't
+            // diverged, plus its own overrides and new records — its "profile".
+            $query->effectiveForTenant(LaunchpadTenant::id());
         }
 
         return $query;
@@ -68,11 +71,25 @@ trait ScopesToLaunchpadTenant
             return (string) $recordTenant === (string) LaunchpadTenant::id();
         }
 
-        // A shared-template record: editable in place only by someone who
-        // manages the primary layer (the "main"). This is what lets the owner
-        // edit and distribute from within a tenant panel, while keeping the
-        // template read-only for ordinary tenant users.
-        return static::canManageLaunchpadPrimary();
+        // A shared-template record, seen inside a tenant panel — behaviour is
+        // the host's choice (LaunchpadPlugin::tenantInheritance):
+        return match (static::launchpadInheritanceMode()) {
+            // copy-on-write: editable — the edit forks a private copy.
+            'fork' => true,
+            // the template changes for everyone: only the main may.
+            'shared' => static::canManageLaunchpadPrimary(),
+            // read-only: never editable in place.
+            default => false,
+        };
+    }
+
+    protected static function launchpadInheritanceMode(): string
+    {
+        try {
+            return LaunchpadPlugin::get()->getTenantInheritance();
+        } catch (\Throwable) {
+            return 'fork';
+        }
     }
 
     /**

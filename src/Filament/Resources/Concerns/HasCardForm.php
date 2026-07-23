@@ -45,7 +45,7 @@ trait HasCardForm
                         ->maxLength(255),
                     Select::make('icon')
                         ->label(__('launchpad::launchpad.labels.icone'))
-                        ->options(static::launchpadIconOptions())
+                        ->options(fn (?string $state): array => static::launchpadIconOptionsWith($state))
                         ->searchable(),
                     ToggleButtons::make('type')
                         ->label(__('launchpad::launchpad.labels.tipo'))

@@ -35,4 +35,70 @@ trait BelongsToLaunchpadTenant
     {
         return blank($this->tenant_id);
     }
+
+    /**
+     * Whether this row is a tenant's OVERRIDE of a template row (copy-on-write),
+     * as opposed to a template row or a tenant's brand-new row.
+     */
+    public function isLaunchpadOverride(): bool
+    {
+        return filled($this->tenant_id) && filled($this->origin_id);
+    }
+
+    /**
+     * Phase H.3 — the EFFECTIVE set a tenant sees under copy-on-write: its own
+     * rows (overrides + brand-new, minus the ones it hid) PLUS every template
+     * row it has NOT overridden or hidden. This is what makes a tenant a
+     * "profile" over the shared defaults — it diverges without touching the
+     * template or any other tenant.
+     *
+     * A null $tenantId (the primary context) resolves to the template alone.
+     * Falls back to the plain forTenant() shape on a schema that predates the
+     * override columns.
+     */
+    public function scopeEffectiveForTenant($query, ?string $tenantId)
+    {
+        if (! $this->launchpadHasOverrideColumns()) {
+            return $this->scopeForTenant($query, $tenantId);
+        }
+
+        if (blank($tenantId)) {
+            return $query->whereNull($this->qualifyColumn('tenant_id'));
+        }
+
+        $table = $this->getTable();
+        $hasHidden = $this->launchpadHasHiddenColumn();
+
+        return $query->where(function ($query) use ($tenantId, $table, $hasHidden): void {
+            // The tenant's own visible rows.
+            $query->where(function ($own) use ($tenantId, $hasHidden): void {
+                $own->where($this->qualifyColumn('tenant_id'), $tenantId);
+
+                if ($hasHidden) {
+                    $own->where($this->qualifyColumn('is_hidden'), false);
+                }
+            })
+                // ...plus template rows this tenant has neither overridden nor hidden
+                // (both are rows carrying origin_id under that tenant).
+                ->orWhere(function ($tpl) use ($tenantId, $table): void {
+                    $tpl->whereNull($this->qualifyColumn('tenant_id'))
+                        ->whereNotIn($this->qualifyColumn('id'), function ($sub) use ($tenantId, $table): void {
+                            $sub->select('origin_id')
+                                ->from($table)
+                                ->where('tenant_id', $tenantId)
+                                ->whereNotNull('origin_id');
+                        });
+                });
+        });
+    }
+
+    protected function launchpadHasOverrideColumns(): bool
+    {
+        return $this->getConnection()->getSchemaBuilder()->hasColumn($this->getTable(), 'origin_id');
+    }
+
+    protected function launchpadHasHiddenColumn(): bool
+    {
+        return $this->getConnection()->getSchemaBuilder()->hasColumn($this->getTable(), 'is_hidden');
+    }
 }

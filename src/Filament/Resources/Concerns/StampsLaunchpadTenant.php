@@ -2,6 +2,7 @@
 
 namespace Filament\Launchpad\Filament\Resources\Concerns;
 
+use Filament\Launchpad\LaunchpadPlugin;
 use Filament\Launchpad\Support\LaunchpadPermission;
 use Filament\Launchpad\Support\LaunchpadTenant;
 
@@ -31,15 +32,27 @@ trait StampsLaunchpadTenant
      */
     protected function stampLaunchpadTenant(array $data): array
     {
-        // The main authors the shared template, so their new records stay
-        // null-tenant and distribute to everyone.
-        if (LaunchpadPermission::managesPrimary()) {
+        $tenantId = LaunchpadTenant::id();
+
+        // Primary context (no tenant): a new record joins the shared template.
+        if (blank($tenantId)) {
             return $data;
         }
 
-        if (filled($tenantId = LaunchpadTenant::id())) {
-            $data['tenant_id'] = $tenantId;
+        // Only in 'shared' mode does the main author the template from inside a
+        // tenant panel. Under 'fork' (and 'readonly') a tenant's new record
+        // stays with that tenant — isolation, even for the platform owner.
+        try {
+            $mode = LaunchpadPlugin::get()->getTenantInheritance();
+        } catch (\Throwable) {
+            $mode = 'fork';
         }
+
+        if ($mode === 'shared' && LaunchpadPermission::managesPrimary()) {
+            return $data;
+        }
+
+        $data['tenant_id'] = $tenantId;
 
         return $data;
     }

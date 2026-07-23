@@ -18,6 +18,7 @@ class Page extends Model
     protected $guarded = [];
 
     protected $casts = [
+        'is_hidden' => 'boolean',
         'sort' => 'integer',
     ];
 

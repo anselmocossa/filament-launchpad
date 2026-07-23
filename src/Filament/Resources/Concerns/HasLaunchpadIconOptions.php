@@ -32,4 +32,23 @@ trait HasLaunchpadIconOptions
             'heroicon-o-exclamation-triangle' => __('launchpad::launchpad.icons.alert'),
         ];
     }
+
+    /**
+     * The curated list PLUS whatever icon the record already carries — so a
+     * value seeded (or set elsewhere) outside the curated set stays selectable
+     * and, crucially, still passes the Select's in-options validation instead
+     * of blocking every save. The stray icon is shown by its raw key.
+     *
+     * @return array<string, string>
+     */
+    protected static function launchpadIconOptionsWith(?string $current): array
+    {
+        $options = static::launchpadIconOptions();
+
+        if (filled($current) && ! array_key_exists($current, $options)) {
+            $options[$current] = $current;
+        }
+
+        return $options;
+    }
 }
