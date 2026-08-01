@@ -2,6 +2,17 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Added
+- **Configurable visibility-role scoping.** `->visibilityRolesQuery()` lets a
+  host application constrain the roles offered by Launchpad's Permission field
+  with its own Eloquent query. This supports tenant, organisation, guard,
+  status, or other domain-specific isolation without coupling the public
+  plugin to any one tenancy implementation. The callback applies to Spaces,
+  Pages, Sections, Cards, and the drag-and-drop card editor; leaving it unset
+  preserves the existing unrestricted role list.
+
 ## 1.5.2 - 2026-07-23
 
 ### Fixed

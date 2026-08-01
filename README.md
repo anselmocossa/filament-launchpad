@@ -318,6 +318,27 @@ Once installed:
 
 Without `spatie/laravel-permission` installed, none of the above applies: the "Permission" field is simply not rendered, and every ability is granted.
 
+### Scoping selectable roles
+
+The plugin deliberately does not assume how applications isolate roles. In a
+multi-tenant application, restrict the roles offered by the Permission field
+with a query callback on the panel plugin:
+
+```php
+use Filament\Launchpad\LaunchpadPlugin;
+use Illuminate\Database\Eloquent\Builder;
+
+LaunchpadPlugin::make()
+    ->visibilityRolesQuery(fn (Builder $query) => $query
+        ->where('tenant_id', tenancy()->tenant()?->id));
+```
+
+The callback applies consistently to Spaces, Pages, Sections and Cards,
+including the card editor in the drag-and-drop builder. It receives the role
+model query, so applications can use any suitable isolation rule (tenant,
+organisation, guard, status, and so on). Leaving it unset preserves the
+plugin's existing behaviour.
+
 ## Localization
 
 Translation catalogs are included for:

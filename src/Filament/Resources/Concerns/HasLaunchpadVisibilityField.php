@@ -3,9 +3,11 @@
 namespace Filament\Launchpad\Filament\Resources\Concerns;
 
 use Filament\Forms\Components\Select;
+use Filament\Launchpad\LaunchpadPlugin;
 use Filament\Launchpad\Support\LaunchpadVisibility;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section as FormSection;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Shared "Visível para (papéis)" field, added to every launchpad item's
@@ -37,7 +39,21 @@ trait HasLaunchpadVisibilityField
         return [
             Select::make('visibilityRoles')
                 ->label(__('launchpad::launchpad.labels.permissao'))
-                ->relationship('visibilityRoles', 'name')
+                ->relationship(
+                    'visibilityRoles',
+                    'name',
+                    static function (Builder $query): Builder {
+                        $resolver = LaunchpadPlugin::get()->getVisibilityRolesQueryResolver();
+
+                        if (! $resolver instanceof \Closure) {
+                            return $query;
+                        }
+
+                        $resolvedQuery = $resolver($query);
+
+                        return $resolvedQuery instanceof Builder ? $resolvedQuery : $query;
+                    },
+                )
                 ->multiple()
                 ->preload()
                 ->searchable()

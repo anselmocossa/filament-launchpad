@@ -93,6 +93,14 @@ class LaunchpadPlugin implements Plugin
     protected ?Closure $primaryManagerResolver = null;
 
     /**
+     * Optional host query customisation for the roles offered by Launchpad's
+     * visibility field. This deliberately knows nothing about tenancy: a host
+     * may scope by tenant, guard, organisation, status, or any other role
+     * attribute its permission model exposes.
+     */
+    protected ?Closure $visibilityRolesQueryResolver = null;
+
+    /**
      * How an inherited (template) record behaves when edited inside a tenant
      * panel. Configurable so the host stays in control:
      *   'fork'     copy-on-write — the edit forks a private copy for that
@@ -513,6 +521,28 @@ class LaunchpadPlugin implements Plugin
     public function getPrimaryManagerResolver(): ?Closure
     {
         return $this->primaryManagerResolver;
+    }
+
+    /**
+     * Restrict the roles selectable in Space/Page/Section/Card visibility.
+     *
+     * The callback receives the role model's Eloquent query and may mutate it
+     * or return a replacement query. It is intentionally opt-in so existing
+     * single-tenant installations retain their current behaviour.
+     *
+     * ->visibilityRolesQuery(fn (Builder $query) => $query
+     *     ->where('tenant_id', tenancy()->tenant()?->id))
+     */
+    public function visibilityRolesQuery(?Closure $resolver): static
+    {
+        $this->visibilityRolesQueryResolver = $resolver;
+
+        return $this;
+    }
+
+    public function getVisibilityRolesQueryResolver(): ?Closure
+    {
+        return $this->visibilityRolesQueryResolver;
     }
 
     /**

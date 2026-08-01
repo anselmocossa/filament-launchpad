@@ -7,16 +7,23 @@ use Filament\Launchpad\Filament\Resources\SectionResource\Pages\EditSection;
 use Filament\Launchpad\Filament\Resources\SectionResource\RelationManagers\CardsRelationManager;
 use Filament\Launchpad\Filament\Resources\SpaceResource\Pages\CreateSpace;
 use Filament\Launchpad\Filament\Resources\SpaceResource\Pages\EditSpace;
+use Filament\Launchpad\LaunchpadPlugin;
 use Filament\Launchpad\Models\Card;
 use Filament\Launchpad\Models\Page;
 use Filament\Launchpad\Models\Section;
 use Filament\Launchpad\Models\Space;
 use Filament\Launchpad\Tests\Support\TestUser;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     actingAsLaunchpadAdmin();
+});
+
+afterEach(function () {
+    LaunchpadPlugin::get()->visibilityRolesQuery(null);
 });
 
 // ---------------------------------------------------------------------
@@ -58,6 +65,29 @@ it('clears the roles on a Space when the field is emptied, making it visible to 
         ->assertHasNoFormErrors();
 
     expect($space->refresh()->isRestricted())->toBeFalse();
+});
+
+it('limits visibility-role choices through the host query callback', function () {
+    Schema::table('roles', function ($table): void {
+        $table->string('tenant_id')->nullable()->index();
+    });
+
+    $lojaA = Role::create(['name' => 'Caixa Loja A', 'guard_name' => 'web']);
+    $lojaA->forceFill(['tenant_id' => 'loja-a'])->save();
+
+    $lojaB = Role::create(['name' => 'Caixa Loja B', 'guard_name' => 'web']);
+    $lojaB->forceFill(['tenant_id' => 'loja-b'])->save();
+
+    LaunchpadPlugin::get()->visibilityRolesQuery(
+        fn (Builder $query): Builder => $query->where('tenant_id', 'loja-a'),
+    );
+
+    Livewire::test(CreateSpace::class)
+        ->assertSchemaComponentExists('visibilityRoles', 'form', function ($component) use ($lojaA): bool {
+            expect($component->getOptions())->toBe([$lojaA->id => 'Caixa Loja A']);
+
+            return true;
+        });
 });
 
 // ---------------------------------------------------------------------
