@@ -85,6 +85,7 @@ return [
     // ========== Placeholders ==========
     'placeholders' => [
         'todos_podem_ver' => 'Todos podem ver',
+        'escolher_papeis' => 'Escolha quem pode ver',
         'valor_fixo' => 'Valor fixo',
         'pesquisar_cards' => 'Pesquisar cards…',
         'badge_exemplo' => 'ex: 2 pendentes',
@@ -93,6 +94,7 @@ return [
     // ========== Helper Texts ==========
     'helpers' => [
         'permissao_vazia' => 'Deixe em branco para todos verem.',
+        'permissao_obrigatoria' => 'Escolha pelo menos um papel. Mais ninguém verá isto.',
         'fonte_ou_valor' => 'Se você escolher uma fonte, o número é calculado em tempo real; caso contrário, usa o Valor fixo abaixo.',
         'valor_sem_fonte' => 'Usado apenas se não houver uma fonte ao vivo selecionada.',
     ],

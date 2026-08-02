@@ -57,8 +57,22 @@ trait HasLaunchpadVisibilityField
                 ->multiple()
                 ->preload()
                 ->searchable()
-                ->placeholder(__('launchpad::launchpad.placeholders.todos_podem_ver'))
-                ->helperText(__('launchpad::launchpad.helpers.permissao_vazia')),
+                /*
+                 * Off by default: an empty field means "everyone can see". A
+                 * host where the launchpad IS the way in turns this on, because
+                 * there a blank field silently publishes the item to the whole
+                 * installation and nothing on screen says so.
+                 */
+                ->required(LaunchpadPlugin::get()->getVisibilityRolesRequired())
+                // The placeholder and the hint state the rule for empty. When
+                // empty stops being allowed they would be telling the person
+                // the opposite of what the form will accept.
+                ->placeholder(fn (Select $component): string => $component->isRequired()
+                    ? __('launchpad::launchpad.placeholders.escolher_papeis')
+                    : __('launchpad::launchpad.placeholders.todos_podem_ver'))
+                ->helperText(fn (Select $component): string => $component->isRequired()
+                    ? __('launchpad::launchpad.helpers.permissao_obrigatoria')
+                    : __('launchpad::launchpad.helpers.permissao_vazia')),
         ];
     }
 

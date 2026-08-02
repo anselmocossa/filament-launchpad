@@ -85,6 +85,7 @@ return [
     // ========== Placeholders ==========
     'placeholders' => [
         'todos_podem_ver' => 'Everyone can see',
+        'escolher_papeis' => 'Choose who can see',
         'valor_fixo' => 'Fixed value',
         'pesquisar_cards' => 'Search cards…',
         'badge_exemplo' => 'e.g., 2 pending',
@@ -93,6 +94,7 @@ return [
     // ========== Helper Texts ==========
     'helpers' => [
         'permissao_vazia' => 'Leave empty so everyone can see.',
+        'permissao_obrigatoria' => 'Choose at least one role. Nobody else will see this.',
         'fonte_ou_valor' => 'If you choose a source, the number is calculated live; otherwise uses the Fixed Value below.',
         'valor_sem_fonte' => 'Used only if no live source is selected.',
     ],

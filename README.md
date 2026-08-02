@@ -339,6 +339,38 @@ model query, so applications can use any suitable isolation rule (tenant,
 organisation, guard, status, and so on). Leaving it unset preserves the
 plugin's existing behaviour.
 
+### Requiring a permission on every item
+
+By default the Permission field is optional, and an empty field means *everyone
+can see*. That is the right default where the launchpad is a convenience layer
+over a panel people already reached by other means.
+
+It is the wrong default where the launchpad **is** the way in and every item is
+meant to belong to somebody. There, saving a space with the field blank quietly
+publishes it to the whole installation, and nothing on screen says so. Turn the
+field mandatory:
+
+```php
+use Filament\Launchpad\LaunchpadPlugin;
+
+LaunchpadPlugin::make()
+    ->visibilityRolesRequired();
+```
+
+A closure decides case by case — useful when the same codebase serves a primary
+panel that authors a shared template and tenant panels where every item has an
+owner:
+
+```php
+LaunchpadPlugin::make()
+    ->visibilityRolesRequired(fn (): bool => tenancy()->tenant() !== null);
+```
+
+The switch reaches Spaces, Pages, Sections and Cards — every item that shares
+the field — and the placeholder and hint change with it, so the form stops
+promising that an empty field lets everyone see. Left unset (the default),
+nothing changes on upgrade.
+
 ### Hiding the management resources entirely
 
 Policies answer *"may this person manage spaces?"*. They cannot answer *"does

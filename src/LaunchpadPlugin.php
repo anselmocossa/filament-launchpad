@@ -101,6 +101,13 @@ class LaunchpadPlugin implements Plugin
     protected ?Closure $visibilityRolesQueryResolver = null;
 
     /**
+     * Whether the visibility field must be filled in before an item can be
+     * saved. False by default: an empty field means "everyone can see", which
+     * is the right default for a panel where the launchpad is a convenience.
+     */
+    protected bool|Closure $visibilityRolesRequired = false;
+
+    /**
      * Optional host predicate deciding whether Launchpad's own management
      * resources (Space/Page/Section/Card) are reachable at all. Unset, they
      * behave exactly as before — reachable, subject only to their policies.
@@ -550,6 +557,33 @@ class LaunchpadPlugin implements Plugin
     public function getVisibilityRolesQueryResolver(): ?Closure
     {
         return $this->visibilityRolesQueryResolver;
+    }
+
+    /**
+     * Decide whether the visibility field is mandatory.
+     *
+     * Unset, an empty field means "everyone can see" — fine where the launchpad
+     * is a convenience layer over a panel people already reached. It is the
+     * wrong default where the launchpad IS the way in and every item is meant
+     * to belong to somebody: there, saving a space with the field blank quietly
+     * publishes it to the whole installation, and nothing on screen says so.
+     *
+     * ->visibilityRolesRequired()
+     * ->visibilityRolesRequired(fn (): bool => tenancy()->tenant() !== null)
+     *
+     * A closure is handed to Filament untouched, so it may take the usual
+     * injected arguments (`Get $get`, `?Model $record`, …) and decide per form.
+     */
+    public function visibilityRolesRequired(bool|Closure $condition = true): static
+    {
+        $this->visibilityRolesRequired = $condition;
+
+        return $this;
+    }
+
+    public function getVisibilityRolesRequired(): bool|Closure
+    {
+        return $this->visibilityRolesRequired;
     }
 
     /**

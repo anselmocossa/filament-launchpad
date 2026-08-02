@@ -5,6 +5,28 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 ## Unreleased
 
 ### Added
+- **Optional or mandatory Permission field.** `->visibilityRolesRequired()` lets
+  a host decide whether an item may be saved with nobody chosen. The field stays
+  optional by default — an empty field means "everyone can see", which is right
+  where the launchpad is a convenience over a panel people already reached. It
+  is wrong where the launchpad IS the way in and every item belongs to somebody:
+  there, saving with the field blank quietly publishes the item to the whole
+  installation, and nothing on screen says so.
+
+  ```php
+  LaunchpadPlugin::make()
+      ->visibilityRolesRequired()
+
+  // or per form — mandatory inside a tenant panel, optional in the primary one
+  LaunchpadPlugin::make()
+      ->visibilityRolesRequired(fn (): bool => tenancy()->tenant() !== null)
+  ```
+
+  The switch reaches every item that shares the field (Space, Page, Section,
+  Card), and the placeholder and hint change with it, so the form stops
+  promising that an empty field lets everyone see. Left unset, nothing changes
+  on upgrade.
+
 - **Installation-level gate for the management resources.** `->resourceAccess()`
   lets a host application decide whether Launchpad's own Space/Page/Section/Card
   resources are reachable at all. The plugin's policies already answer "may this
