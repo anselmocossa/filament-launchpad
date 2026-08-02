@@ -5,6 +5,26 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 ## Unreleased
 
 ### Added
+- **Installation-level gate for the management resources.** `->resourceAccess()`
+  lets a host application decide whether Launchpad's own Space/Page/Section/Card
+  resources are reachable at all. The plugin's policies already answer "may this
+  person manage spaces?"; they cannot answer "does this installation include
+  Launchpad?" — a licence tier, a feature flag, an activated module. A host that
+  sells its panel in parts had no way to express that without editing files in
+  `vendor/`. The callback receives the resource's class name, so one closure
+  answers for all four:
+
+  ```php
+  LaunchpadPlugin::make()
+      ->resourceAccess(fn (string $resource): bool => $tenant->hasModule('core'))
+  ```
+
+  The predicate runs **in addition to** the resource's policy, never instead of
+  it — it can hide a resource, never expose one the policy would have refused.
+  Left unset (the default), nothing changes on upgrade. Soft like every other
+  gate in this plugin: a predicate that throws degrades to "allowed" rather than
+  taking the panel down.
+
 - **Configurable visibility-role scoping.** `->visibilityRolesQuery()` lets a
   host application constrain the roles offered by Launchpad's Permission field
   with its own Eloquent query. This supports tenant, organisation, guard,

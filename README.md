@@ -339,6 +339,29 @@ model query, so applications can use any suitable isolation rule (tenant,
 organisation, guard, status, and so on). Leaving it unset preserves the
 plugin's existing behaviour.
 
+### Hiding the management resources entirely
+
+Policies answer *"may this person manage spaces?"*. They cannot answer *"does
+this installation include Launchpad at all?"* — a licence tier, a feature flag,
+an activated module. Applications that sell their panel in parts can gate the
+four management resources with a host predicate:
+
+```php
+use Filament\Launchpad\LaunchpadPlugin;
+
+LaunchpadPlugin::make()
+    ->resourceAccess(fn (string $resource): bool => $tenant->hasModule('core'));
+```
+
+The callback receives the resource's fully-qualified class name, so a single
+closure can answer for `SpaceResource`, `PageResource`, `SectionResource` and
+`CardResource` — or treat them differently.
+
+This predicate runs **in addition to** the resource's policy, never instead of
+it: it can hide a resource, never expose one the policy would have refused.
+Leaving it unset keeps every resource reachable, exactly as before. A predicate
+that throws degrades to "allowed" rather than taking the panel down.
+
 ## Localization
 
 Translation catalogs are included for:

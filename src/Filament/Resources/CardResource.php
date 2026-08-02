@@ -5,6 +5,7 @@ namespace Filament\Launchpad\Filament\Resources;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Launchpad\Filament\Resources\CardResource\Pages\ListCards;
+use Filament\Launchpad\Filament\Resources\Concerns\GatedByResourceAccess;
 use Filament\Launchpad\Filament\Resources\Concerns\HasCardForm;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadIconOptions;
 use Filament\Launchpad\Filament\Resources\Concerns\ScopesToLaunchpadTenant;
@@ -33,6 +34,7 @@ use Throwable;
  */
 class CardResource extends Resource
 {
+    use GatedByResourceAccess;
     use HasCardForm;
     use HasLaunchpadIconOptions;
     use ScopesToLaunchpadTenant;

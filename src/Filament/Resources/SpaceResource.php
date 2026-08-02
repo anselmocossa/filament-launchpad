@@ -6,6 +6,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Launchpad\Filament\Resources\Concerns\GatedByResourceAccess;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadIconOptions;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadVisibilityField;
 use Filament\Launchpad\Filament\Resources\Concerns\ScopesToLaunchpadTenant;
@@ -29,6 +30,7 @@ use Illuminate\Support\Facades\Schema as SchemaFacade;
 
 class SpaceResource extends Resource
 {
+    use GatedByResourceAccess;
     use HasLaunchpadIconOptions;
     use HasLaunchpadVisibilityField;
     use ScopesToLaunchpadTenant;

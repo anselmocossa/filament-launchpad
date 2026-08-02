@@ -101,6 +101,13 @@ class LaunchpadPlugin implements Plugin
     protected ?Closure $visibilityRolesQueryResolver = null;
 
     /**
+     * Optional host predicate deciding whether Launchpad's own management
+     * resources (Space/Page/Section/Card) are reachable at all. Unset, they
+     * behave exactly as before — reachable, subject only to their policies.
+     */
+    protected ?Closure $resourceAccessResolver = null;
+
+    /**
      * How an inherited (template) record behaves when edited inside a tenant
      * panel. Configurable so the host stays in control:
      *   'fork'     copy-on-write — the edit forks a private copy for that
@@ -543,6 +550,38 @@ class LaunchpadPlugin implements Plugin
     public function getVisibilityRolesQueryResolver(): ?Closure
     {
         return $this->visibilityRolesQueryResolver;
+    }
+
+    /**
+     * Gate Launchpad's own management resources behind a host predicate.
+     *
+     * The plugin's policies already answer "may this person manage spaces?".
+     * They cannot answer "does this installation include Launchpad at all?" —
+     * that is a host question: a licence tier, a feature flag, an activated
+     * module. A host that sells its panel in parts needs the Space/Page/
+     * Section/Card resources to disappear along with the rest of the bundle
+     * they belong to, and it cannot express that by editing files in vendor/.
+     *
+     * The callback receives the resource's fully-qualified class name, so one
+     * predicate can answer for all four, and returns a boolean.
+     *
+     * ->resourceAccess(fn (string $resource): bool => tenant()->hasModule('core'))
+     *
+     * Unset (the default), nothing changes: the resources stay reachable and
+     * their policies remain the only gate. When set, the predicate is an
+     * ADDITIONAL gate — it can hide a resource, never expose one the policy
+     * would have refused.
+     */
+    public function resourceAccess(?Closure $resolver): static
+    {
+        $this->resourceAccessResolver = $resolver;
+
+        return $this;
+    }
+
+    public function getResourceAccessResolver(): ?Closure
+    {
+        return $this->resourceAccessResolver;
     }
 
     /**

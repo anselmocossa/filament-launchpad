@@ -5,6 +5,7 @@ namespace Filament\Launchpad\Filament\Resources;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Launchpad\Filament\Resources\Concerns\GatedByResourceAccess;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadIconOptions;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadVisibilityField;
 use Filament\Launchpad\Filament\Resources\Concerns\ScopesToLaunchpadTenant;
@@ -28,6 +29,7 @@ use Filament\Tables\Table;
  */
 class PageResource extends Resource
 {
+    use GatedByResourceAccess;
     use HasLaunchpadIconOptions;
     use HasLaunchpadVisibilityField;
     use ScopesToLaunchpadTenant;

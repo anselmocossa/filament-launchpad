@@ -4,6 +4,7 @@ namespace Filament\Launchpad\Filament\Resources;
 
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\TextInput;
+use Filament\Launchpad\Filament\Resources\Concerns\GatedByResourceAccess;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadVisibilityField;
 use Filament\Launchpad\Filament\Resources\Concerns\ScopesToLaunchpadTenant;
 use Filament\Launchpad\Filament\Resources\SectionResource\Pages\CreateSection;
@@ -24,6 +25,7 @@ use Filament\Tables\Table;
  */
 class SectionResource extends Resource
 {
+    use GatedByResourceAccess;
     use HasLaunchpadVisibilityField;
     use ScopesToLaunchpadTenant;
 
