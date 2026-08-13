@@ -50,6 +50,9 @@ class PagesRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('label')
+            // reorder(): Space::pages() already orders by sort, and SQL Server
+            // rejects a repeated column in ORDER BY.
+            ->modifyQueryUsing(fn ($query) => $query->reorder())
             ->reorderable('sort')
             ->defaultSort('sort')
             ->columns([

@@ -42,6 +42,9 @@ class SectionsRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('title')
+            // reorder(): Page::sections() already orders by sort, and SQL Server
+            // rejects a repeated column in ORDER BY.
+            ->modifyQueryUsing(fn ($query) => $query->reorder())
             ->reorderable('sort')
             ->defaultSort('sort')
             ->columns([

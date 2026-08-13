@@ -46,6 +46,9 @@ class CardsRelationManager extends RelationManager
             ->recordTitleAttribute('title')
             // `sort` vive na pivot `launchpad_section_card` (não em `launchpad_cards`);
             // qualificar a tabela evita "Column 'sort' is ambiguous" com o orderByPivot da relação.
+            // reorder(): Section::cards() já aplica orderByPivot('sort') e o SQL Server
+            // rejeita a mesma coluna repetida no ORDER BY.
+            ->modifyQueryUsing(fn ($query) => $query->reorder())
             ->reorderable('launchpad_section_card.sort')
             ->defaultSort('launchpad_section_card.sort')
             ->columns([

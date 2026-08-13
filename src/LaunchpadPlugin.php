@@ -796,6 +796,9 @@ class LaunchpadPlugin implements Plugin
                     ->when($tenantAware, fn ($q) => $q->effectiveForTenant($tenantId))
                     // Layer order, lowest first: parent template, then the
                     // tenant's own sections, then the viewer's personal ones.
+                    // reorder() first: Page::sections() already orders by sort,
+                    // and SQL Server rejects a repeated column in ORDER BY.
+                    ->reorder()
                     ->orderByRaw($this->sectionLayerOrdering($tenantAware))
                     ->orderBy('sort')
                     ->with([

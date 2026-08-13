@@ -199,8 +199,11 @@ class EditHome extends Page
             ->orderBy('id')
             ->first();
 
+        // reorder(): Space::pages() already orders by sort, and SQL Server
+        // rejects a repeated column in ORDER BY.
         $page = $space
             ?->pages()
+            ->reorder()
             ->orderBy('sort')
             ->orderBy('id')
             ->first();

@@ -4,6 +4,16 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+### Fixed
+- **SQL Server: the launchpad could not render at all.** Every query that
+  re-ordered an already-ordered relation ended up with the same column twice in
+  the `ORDER BY`, which MySQL and Postgres tolerate but SQL Server rejects with
+  *"A column has been specified more than once in the order by list"*. The home
+  page, the page builder and the Sections, Pages and Cards relation managers all
+  hit it. They now call `reorder()` before applying their own ordering, which
+  clears the ordering inherited from `Page::sections()`, `Space::pages()` and
+  `Section::cards()`.
+
 ### Added
 - **Optional or mandatory Permission field.** `->visibilityRolesRequired()` lets
   a host decide whether an item may be saved with nobody chosen. The field stays

@@ -548,12 +548,16 @@ trait InteractsWithLaunchpadBuilder
     protected function getPageModel(): PageModel
     {
         return $this->builderPage()->load(['sections' => function ($query) {
+            // reorder() first: Page::sections() already orders by sort, and
+            // SQL Server rejects a repeated column in ORDER BY. Same reason
+            // for cards, whose relation already applies orderByPivot('sort').
             $this->applyVisibleSectionScope($query)
+                ->reorder()
                 ->orderByRaw($this->sectionsAreTenantAware()
                     ? 'case when tenant_id is null and user_id is null then 0 when user_id is null then 1 else 2 end'
                     : 'case when user_id is null then 0 else 1 end')
                 ->orderBy('sort')
-                ->with(['cards' => fn ($q) => $q->orderByPivot('sort')]);
+                ->with(['cards' => fn ($q) => $q->reorder()->orderByPivot('sort')]);
         }]);
     }
 
@@ -1155,7 +1159,8 @@ trait InteractsWithLaunchpadBuilder
             return;
         }
 
-        $section->cards()->orderByPivot('sort')->pluck('launchpad_cards.id')
+        // reorder(): Section::cards() already applies orderByPivot('sort').
+        $section->cards()->reorder()->orderByPivot('sort')->pluck('launchpad_cards.id')
             ->each(function ($id, int $index) use ($section) {
                 $section->cards()->updateExistingPivot($id, ['sort' => $index]);
             });
