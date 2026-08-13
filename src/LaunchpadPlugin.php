@@ -373,18 +373,27 @@ class LaunchpadPlugin implements Plugin
         // session key from ever being a way into another tenant's launchpad.
         LaunchpadTenant::applySelectorOverride();
 
+        // Render hooks are global to the installation, not to the panel that
+        // booted the plugin. In an app with more than one panel they would also
+        // fire on panels where the launchpad was never registered, and the views
+        // call LaunchpadPlugin::get(), which throws "Plugin [launchpad] is not
+        // registered for panel [...]" and takes that panel down. Both hooks
+        // therefore render only while the request is inside this panel.
+        $panelId = $panel->getId();
+        $inThisPanel = fn (): bool => Filament::getCurrentPanel()?->getId() === $panelId;
+
         FilamentView::registerRenderHook(
             PanelsRenderHook::CONTENT_BEFORE,
-            fn () => view('launchpad::hooks.launchpad-bar'),
+            fn () => $inThisPanel() ? view('launchpad::hooks.launchpad-bar') : null,
         );
 
         // A "‹" back control placed right before the brand in the native
         // Filament topbar (TOPBAR_LOGO_BEFORE). Returns to the previous page via
         // the browser history — handy after drilling into a resource/page from a
-        // launchpad tile. Unscoped: shows on every panel page next to the brand.
+        // launchpad tile. Shows on every page of this panel, next to the brand.
         FilamentView::registerRenderHook(
             PanelsRenderHook::TOPBAR_LOGO_BEFORE,
-            fn () => view('launchpad::hooks.back-button'),
+            fn () => $inThisPanel() ? view('launchpad::hooks.back-button') : null,
         );
     }
 
