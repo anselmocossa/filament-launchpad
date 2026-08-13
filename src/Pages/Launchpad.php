@@ -7,7 +7,6 @@ use Filament\Launchpad\Launchpad\Tile;
 use Filament\Launchpad\Launchpad\TileGroup;
 use Filament\Launchpad\LaunchpadPlugin;
 use Filament\Launchpad\Support\LaunchpadPermission;
-use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Livewire\Attributes\On;
 
@@ -150,13 +149,15 @@ class Launchpad extends Page
 
         if (filled($href)) {
             $this->redirect($href);
-
-            return;
         }
 
-        Notification::make()
-            ->title('Abrir «'.$tile->getTitle().'»')
-            ->send();
+        // A tile with neither an action nor a URL has nowhere to go, so
+        // clicking it does nothing. This used to raise a "Abrir «title»"
+        // notification — a placeholder that shipped by accident: it told the
+        // user their click had registered while doing nothing, which reads as
+        // a broken link rather than as a tile that is deliberately inert.
+        // Silence is the honest response; a tile that should navigate is fixed
+        // by giving it a target, not by announcing that it has none.
     }
 
     /**

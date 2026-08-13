@@ -118,6 +118,19 @@ it('does not crash when opening a tile without a resolvable index', function () 
         ->assertOk();
 });
 
+it('stays silent when opening a tile that has no target, instead of raising a placeholder notification', function () {
+    // "Vendas do Dia" is a pure KPI tile: no ->url(), no ->action(). Clicking
+    // it used to send a "Abrir «Vendas do Dia»" notification, which told the
+    // user the click had registered while doing nothing — indistinguishable
+    // from a broken link. A tile with nowhere to go must simply do nothing.
+    Livewire::test(Launchpad::class)
+        ->call('selectPage', 'ponto-de-venda', 'vendas')
+        ->call('open', 0, 0)
+        ->assertOk()
+        ->assertNoRedirect()
+        ->assertNotNotified();
+});
+
 it('reacts to the launchpad-page-selected event dispatched by the LaunchpadBar component', function () {
     // The page no longer owns the sub-nav UI: the standalone LaunchpadBar
     // component dispatches this event when a space/page is clicked, and the

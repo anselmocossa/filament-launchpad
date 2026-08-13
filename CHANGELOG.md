@@ -4,6 +4,16 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.6.1] - 2026-08-13
+
+### Fixed
+- **Clicking a tile with no target raised a placeholder notification.** A tile
+  with neither an action nor a URL popped up *"Abrir «title»"* — a development
+  placeholder that shipped by accident. It told the user their click had
+  registered while nothing happened, which reads as a broken link rather than as
+  a tile that is deliberately inert. Such a tile is now silent; a tile that
+  should navigate is fixed by giving it a target, not by announcing it has none.
+
 ## [1.6.0] - 2026-08-13
 
 ### Fixed
