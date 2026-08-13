@@ -4,7 +4,15 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.6.0] - 2026-08-13
+
 ### Fixed
+- **Multi-panel apps: the launchpad took down the other panels.** Both render
+  hooks were registered globally rather than scoped to the panel that booted the
+  plugin, so they also fired on panels where the launchpad was never registered.
+  Their views call `LaunchpadPlugin::get()`, which threw *"Plugin [launchpad] is
+  not registered for panel [...]"* and returned a 500 on every page of those
+  panels. They now render only inside the panel that registered the plugin.
 - **SQL Server: the launchpad could not render at all.** Every query that
   re-ordered an already-ordered relation ended up with the same column twice in
   the `ORDER BY`, which MySQL and Postgres tolerate but SQL Server rejects with
