@@ -118,6 +118,27 @@ it('does not crash when opening a tile without a resolvable index', function () 
         ->assertOk();
 });
 
+it('lays the badge out beside the title instead of over it', function () {
+    // The badge used to be `position:absolute` in the tile corner while the
+    // title reserved a fixed `padding-right:26px` — room for a two-character
+    // badge and nothing else. A worded badge ("3 waiting on HR") printed
+    // straight over the title. Title and badge now share a flex row, so the
+    // title gives way instead of being covered.
+    $html = $this->get('/test')->assertOk()->getContent();
+
+    $badgePosition = strpos($html, '>24<');
+    expect($badgePosition)->not->toBeFalse();
+
+    // The badge's own span must not be absolutely positioned. Look at the tag
+    // it sits in, not at the whole document: other tile chrome legitimately is.
+    $badgeTagStart = strrpos(substr($html, 0, $badgePosition), '<span');
+    $badgeTag = substr($html, $badgeTagStart, $badgePosition - $badgeTagStart);
+
+    expect($badgeTag)
+        ->not->toContain('position:absolute')
+        ->toContain('text-overflow:ellipsis');
+});
+
 it('stays silent when opening a tile that has no target, instead of raising a placeholder notification', function () {
     // "Vendas do Dia" is a pure KPI tile: no ->url(), no ->action(). Clicking
     // it used to send a "Abrir «Vendas do Dia»" notification, which told the

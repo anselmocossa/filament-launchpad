@@ -50,12 +50,17 @@
         .lp-tile__x{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:999px;border:none;background:var(--lp-badge-bg);color:var(--lp-muted);cursor:pointer;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;z-index:2}
         .lp-tile__x:hover{background:#ef4444;color:#fff}
         .lp-tile__lock{position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:999px;background:rgba(22,163,74,.12);color:#16a34a;z-index:2;display:flex;align-items:center;justify-content:center}
-        .lp-tile__title{font-size:13.5px;font-weight:600;color:var(--lp-text);line-height:1.3;padding-right:22px;margin-top:14px}
+        .lp-tile__title{font-size:13.5px;font-weight:600;color:var(--lp-text);line-height:1.3;padding-right:22px;margin-top:14px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
         .lp-tile__sub{font-size:11.5px;color:var(--lp-muted);margin-top:2px}
         .lp-tile__kpi{font-size:26px;font-weight:700;color:var(--lp-text);letter-spacing:-.02em}
         .lp-tile__unit{font-size:12px;font-weight:600;color:var(--lp-muted)}
         .lp-tile__trend{font-size:10.5px;font-weight:500;margin-top:2px}
-        .lp-tile__badge{position:absolute;top:10px;right:34px;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--lp-badge-bg);color:var(--lp-badge-text)}
+        /* Stays absolutely positioned here (unlike the rendered launchpad, where
+           it shares a flex row with the title): in the builder the tile corner is
+           already occupied by the remove and lock controls, which the drag&drop
+           layout positions the same way. The cap on max-width is what keeps a
+           worded badge from growing across the title underneath it. */
+        .lp-tile__badge{position:absolute;top:10px;right:34px;max-width:calc(100% - 46px);font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--lp-badge-bg);color:var(--lp-badge-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}
         .lp-lib{background:var(--lp-canvas-bg);border:1px solid var(--lp-border);border-radius:14px;padding:14px}
         .lp-lib__title{font-size:12px;font-weight:600;color:var(--lp-muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px}
         .lp-lib__search{width:100%;box-sizing:border-box;font-family:inherit;font-size:12.5px;color:var(--lp-text);background:var(--lp-surface);border:1px solid var(--lp-border);border-radius:8px;padding:7px 10px;margin-bottom:12px}

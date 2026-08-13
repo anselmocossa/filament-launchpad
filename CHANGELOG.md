@@ -4,6 +4,19 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.6.2] - 2026-08-13
+
+### Fixed
+- **A worded badge printed over the tile title.** The badge was
+  `position:absolute` in the tile corner while the title reserved a fixed
+  `padding-right:26px` — room for a two-character badge such as `24` and nothing
+  more. Anything longer ("3 waiting on HR") ran straight across the title. Title
+  and badge now share a flex row: the title takes the remaining space and
+  truncates at two lines, the badge keeps its natural width up to 60% of the
+  tile. In the layout builder, where the tile corner is already taken by the
+  remove and lock controls, the badge stays absolute but is capped and
+  ellipsised instead.
+
 ## [1.6.1] - 2026-08-13
 
 ### Fixed

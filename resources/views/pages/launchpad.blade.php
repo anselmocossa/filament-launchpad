@@ -138,18 +138,27 @@
                             x-on:mouseup="active = false"
                             x-bind:style="'position:relative;width:{{ $tileWidth }};box-sizing:border-box;height:{{ $tileW }}px;background:var(--lp-surface);border:0;border-radius:12px;padding:14px;display:flex;flex-direction:column;align-items:stretch;text-align:left;cursor:pointer;font-family:inherit;text-decoration:none;transition:box-shadow .15s,transform .15s;box-shadow:' + (hover ? 'var(--lp-shadow-hover)' : 'var(--lp-shadow)') + ';transform:' + (active ? 'scale(.97)' : 'scale(1)')"
                         >
-                            @if ($tile['badge'])
-                                @php
-                                    // The default gray badge palette (from Tile::$badgeBg/$badgeColor)
-                                    // is theme-aware via CSS vars; explicit colored badges (amber,
-                                    // green, etc.) set via ->badge($text, $bg, $color) are left as-is.
-                                    $isDefaultGrayBadge = $tile['badgeBg'] === '#f3f4f6' && $tile['badgeColor'] === '#374151';
-                                    $badgeBg = $isDefaultGrayBadge ? 'var(--lp-badge-bg)' : $tile['badgeBg'];
-                                    $badgeColor = $isDefaultGrayBadge ? 'var(--lp-badge-text)' : $tile['badgeColor'];
-                                @endphp
-                                <span style="position:absolute;top:10px;right:10px;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:{{ $badgeBg }};color:{{ $badgeColor }}">{{ $tile['badge'] }}</span>
-                            @endif
-                            <div style="font-size:13.5px;font-weight:600;color:var(--lp-text);line-height:1.3;padding-right:26px">{{ $tile['t'] }}</div>
+                            {{-- Title and badge share one flex row rather than the badge being
+                                 absolutely positioned over the corner. It used to be
+                                 `position:absolute` with the title reserving a fixed
+                                 `padding-right:26px` — enough for a two-character badge and
+                                 nothing more, so any worded badge ("3 waiting on HR") printed
+                                 straight over the title. Here the title takes the leftover space
+                                 and truncates; the badge keeps its natural width. --}}
+                            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                                <div style="flex:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--lp-text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">{{ $tile['t'] }}</div>
+                                @if ($tile['badge'])
+                                    @php
+                                        // The default gray badge palette (from Tile::$badgeBg/$badgeColor)
+                                        // is theme-aware via CSS vars; explicit colored badges (amber,
+                                        // green, etc.) set via ->badge($text, $bg, $color) are left as-is.
+                                        $isDefaultGrayBadge = $tile['badgeBg'] === '#f3f4f6' && $tile['badgeColor'] === '#374151';
+                                        $badgeBg = $isDefaultGrayBadge ? 'var(--lp-badge-bg)' : $tile['badgeBg'];
+                                        $badgeColor = $isDefaultGrayBadge ? 'var(--lp-badge-text)' : $tile['badgeColor'];
+                                    @endphp
+                                    <span style="flex:none;max-width:60%;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:{{ $badgeBg }};color:{{ $badgeColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ $tile['badge'] }}</span>
+                                @endif
+                            </div>
                             <div style="font-size:11.5px;color:var(--lp-muted);margin-top:2px">{{ $tile['s'] }}</div>
                             <div style="flex:1"></div>
 
