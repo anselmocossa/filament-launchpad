@@ -3,6 +3,7 @@
 namespace Filament\Launchpad\Filament\Concerns;
 
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Launchpad\Filament\Resources\Concerns\HasCardForm;
 use Filament\Launchpad\Filament\Resources\Concerns\HasLaunchpadIconOptions;
 use Filament\Launchpad\LaunchpadPlugin;
@@ -535,6 +536,7 @@ trait InteractsWithLaunchpadBuilder
         return $query
             ->orderBy('title')
             ->get()
+            ->filter(fn (Card $card): bool => $this->cardIsReachable($card))
             ->map(fn (Card $card): array => [
                 'id' => $card->id,
                 'title' => $card->title,
@@ -542,7 +544,55 @@ trait InteractsWithLaunchpadBuilder
                 'icon' => $card->icon,
                 'type' => $card->type,
             ])
+            ->values()
             ->all();
+    }
+
+    /**
+     * Whether this card leads somewhere the current user can actually go, in
+     * the panel they are in right now.
+     *
+     * Cards are a single global catalog, but resources and pages are registered
+     * PER PANEL and gated per user. Offering the whole catalog everywhere meant
+     * a colleague on the staff panel could add "Lista de Exclusão" — an
+     * admin-only resource — and land on a RouteNotFoundException, or add a card
+     * they are simply not allowed to open and get a 403. Neither is a choice
+     * worth showing: a card the user cannot reach is not an option, it is a
+     * trap.
+     *
+     * Cards with no class target (plain URLs, actions, widgets) are left alone —
+     * there is nothing here to verify, and guessing would hide working tiles.
+     */
+    protected function cardIsReachable(Card $card): bool
+    {
+        $target = $card->target_value;
+
+        if (! in_array($card->target_type, ['resource', 'page'], true) || blank($target) || ! class_exists($target)) {
+            return true;
+        }
+
+        try {
+            $panel = Filament::getCurrentPanel();
+
+            if ($panel !== null) {
+                $registered = $card->target_type === 'resource'
+                    ? $panel->getResources()
+                    : $panel->getPages();
+
+                if (! in_array($target, $registered, true)) {
+                    return false;
+                }
+            }
+
+            if ($card->target_type === 'resource') {
+                return ! method_exists($target, 'canViewAny') || $target::canViewAny();
+            }
+
+            return ! method_exists($target, 'canAccess') || $target::canAccess();
+        } catch (\Throwable) {
+            // A target that cannot even be interrogated is not one to offer.
+            return false;
+        }
     }
 
     protected function getPageModel(): PageModel

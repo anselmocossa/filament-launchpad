@@ -65,3 +65,41 @@ it('carries badge, subtitle, icon and note through to the array', function () {
         ->and($data['badgeColor'])->toBe('#3730a3')
         ->and($data['nota'])->toBe('novo');
 });
+
+it('degrades a resource whose route does not exist in this panel to no target, instead of taking the page down', function () {
+    // Cards live in one global catalog while resources are registered per
+    // panel, so a tile can end up pointing at a resource this panel never
+    // registered. getUrl('index') then throws RouteNotFoundException — which,
+    // unhandled, replaces the user's home page with a stack trace.
+    $resource = new class
+    {
+        public static function getUrl(string $name = 'index'): string
+        {
+            throw new Symfony\Component\Routing\Exception\RouteNotFoundException(
+                'Route [filament.colaborador.resources.lista-exclusao-avaliacaos.index] not defined.'
+            );
+        }
+    };
+
+    $tile = Tile::make('Lista de Exclusão')->resource($resource::class);
+
+    expect($tile->getUrl())->toBeNull();
+});
+
+it('degrades a page whose route does not exist to no target as well', function () {
+    $page = new class
+    {
+        public static function getUrl(): string
+        {
+            throw new Symfony\Component\Routing\Exception\RouteNotFoundException('nope');
+        }
+    };
+
+    expect(Tile::make('Página')->page($page::class)->getUrl())->toBeNull();
+});
+
+it('degrades a throwing url closure to no target', function () {
+    $tile = Tile::make('X')->url(fn () => throw new RuntimeException('boom'));
+
+    expect($tile->getUrl())->toBeNull();
+});

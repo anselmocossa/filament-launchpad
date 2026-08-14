@@ -4,6 +4,26 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.6.5] - 2026-08-14
+
+### Fixed
+- **The card catalog offered cards the user cannot reach, and adding one broke
+  the page.** Cards are a single global catalog, but resources and pages are
+  registered PER PANEL and gated per user. The "available cards" sidebar showed
+  all of them regardless, so a user on a staff panel was offered admin-only
+  entries: adding one either 403'd or — when the resource is not registered in
+  that panel at all — threw `RouteNotFoundException` and replaced their home
+  page with a stack trace. The catalog now only offers cards whose target is
+  registered in the current panel AND passes `canViewAny()` / `canAccess()`.
+  Cards with no class target (plain URLs, actions, widgets) are untouched.
+
+- **`Tile::getUrl()` no longer lets an unresolvable target take the page down.**
+  It degrades to no target, so the tile renders inert — the same treatment a
+  throwing KPI closure already got. The catalog filter above should stop such a
+  card being offered in the first place, but one that was seeded, imported, or
+  left behind by a resource that has since moved panels must not be able to
+  break the render.
+
 ## [1.6.4] - 2026-08-14
 
 ### Fixed

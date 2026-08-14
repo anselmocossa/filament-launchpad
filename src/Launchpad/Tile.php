@@ -210,33 +210,48 @@ class Tile
 
     /**
      * Resolve the tile's navigation target, if any.
+     *
+     * A target that cannot be resolved degrades to null — the tile renders as
+     * inert rather than taking the page down with it. Cards live in a single
+     * global catalog while resources and pages are registered PER PANEL, so a
+     * card pointing at an admin-only resource, dropped onto a panel that never
+     * registered it, makes `getUrl('index')` throw RouteNotFoundException. That
+     * exception escapes the whole launchpad render: one unreachable tile and
+     * the user gets a stack trace instead of their home page. The catalog is
+     * filtered so such a card should not be offered in the first place, but a
+     * card seeded, imported, or left behind by a resource that has since moved
+     * panels must not be able to break the page.
      */
     public function getUrl(): ?string
     {
-        if ($this->resource !== null) {
-            /** @var class-string $resource */
-            $resource = $this->resource;
+        try {
+            if ($this->resource !== null) {
+                /** @var class-string $resource */
+                $resource = $this->resource;
 
-            if (method_exists($resource, 'getUrl')) {
-                return $resource::getUrl('index');
+                if (method_exists($resource, 'getUrl')) {
+                    return $resource::getUrl('index');
+                }
+
+                return null;
             }
 
-            return null;
-        }
+            if ($this->page !== null) {
+                /** @var class-string<Page> $page */
+                $page = $this->page;
 
-        if ($this->page !== null) {
-            /** @var class-string<Page> $page */
-            $page = $this->page;
+                if (method_exists($page, 'getUrl')) {
+                    return $page::getUrl();
+                }
 
-            if (method_exists($page, 'getUrl')) {
-                return $page::getUrl();
+                return null;
             }
 
+            if ($this->url !== null) {
+                return $this->url instanceof Closure ? call_user_func($this->url) : $this->url;
+            }
+        } catch (Throwable) {
             return null;
-        }
-
-        if ($this->url !== null) {
-            return $this->url instanceof Closure ? call_user_func($this->url) : $this->url;
         }
 
         return null;
