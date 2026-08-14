@@ -4,6 +4,23 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.7.1] - 2026-08-14
+
+### Fixed
+- **The page polled every ~2 seconds, and eventually threw the Livewire error
+  screen at the user.** `wire:poll.keep-alive` carried no interval, so Livewire
+  used its ~2s default and every cycle re-rendered the whole page — meaning
+  every KPI queried the database again. A refresh slower than the interval let
+  the next one start before the previous finished; the requests piled up until
+  one exceeded `max_execution_time`, and a failed Livewire request paints the
+  error screen over whatever the user was doing. Measured on a real panel:
+  60 requests in 8 minutes, one of them 32 seconds long.
+
+  Now `wire:poll.60s.keep-alive`. These are indicators that move over hours or
+  days — how many active staff, how many appraisals still open — so a minute is
+  frequent enough, and it still keeps the session alive, which is what the
+  `.keep-alive` is for.
+
 ## [1.7.0] - 2026-08-14
 
 ### Added

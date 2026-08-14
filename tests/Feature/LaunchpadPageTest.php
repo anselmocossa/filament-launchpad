@@ -171,3 +171,14 @@ it('falls back to the first page of a space when an unknown page id is selected,
         ->assertSee('Abrir Caixa')      // falls back to "Visão Geral", the first page
         ->assertDontSee('Vendas do Dia');
 });
+
+it('polls on an explicit interval, so refreshes cannot pile up on each other', function () {
+    // Sem intervalo o Livewire assume ~2s e cada ciclo reconsulta todos os KPIs:
+    // um refresh mais lento do que o intervalo faz os pedidos empilharem-se até
+    // um estourar o max_execution_time, e o utilizador recebe o ecrã de erro do
+    // Livewire sem ter tocado em nada.
+    Livewire::test(Launchpad::class)
+        ->assertOk()
+        ->assertSeeHtml('wire:poll.60s.keep-alive')
+        ->assertDontSeeHtml('wire:poll.keep-alive="$refresh"');
+});

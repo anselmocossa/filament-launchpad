@@ -39,7 +39,22 @@
         @media (max-width: 768px){.lp-mixed-tile{grid-column:auto / span 6 !important}}
     </style>
 
-    <div style="font-family:inherit;background:transparent" wire:poll.keep-alive="$refresh">
+    {{-- wire:poll com intervalo EXPLÍCITO de 60s.
+
+         Sem intervalo, o Livewire assume ~2 segundos, e cada ciclo re-renderiza
+         a página inteira: todos os KPIs voltam a consultar a base de dados. Um
+         refresh que demore mais do que o intervalo faz o seguinte chegar antes
+         de o anterior acabar, os pedidos empilham-se, e mais cedo ou mais tarde
+         um estoura o max_execution_time — o utilizador recebe o ecrã de erro do
+         Livewire no meio do trabalho, sem ter tocado em nada. Medido a
+         2026-08-14 no Portal do Colaborador: 60 pedidos em 8 minutos, um deles
+         de 32 segundos.
+
+         Estes são indicadores que mudam ao ritmo de horas ou dias — quantos
+         colaboradores activos, quantas avaliações por fechar. Um minuto é
+         frequente que chegue, e mantém a sessão viva, que é o propósito do
+         .keep-alive. --}}
+    <div style="font-family:inherit;background:transparent" wire:poll.60s.keep-alive="$refresh">
         {{-- Content: tile groups for the active tab --}}
         @foreach ($groups as $groupIndex => $group)
             <section style="margin-bottom:34px">
