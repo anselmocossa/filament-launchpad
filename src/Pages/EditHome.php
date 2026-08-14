@@ -44,10 +44,18 @@ class EditHome extends Page
      * behaviour). Present, only a user holding the `View:EditHome`
      * permission (or the Shield `super_admin` role) may open this
      * shortcut into the home tile builder.
+     *
+     * Tolerates an unconfigured permission for the same reason the home page
+     * does, and it is the same kind of destination: this is the END USER
+     * customizing THEIR OWN home (the 'user' layer), reached from the user
+     * menu — not the management tree, which lives behind PageResource /
+     * BuildLayout and stays strict. A `shield:generate` that creates
+     * `View:EditHome` and grants it only to super_admin would otherwise take
+     * "personalise your home" away from every user of the host app at once.
      */
     public static function canAccess(): bool
     {
-        return LaunchpadPermission::check(auth()->user(), 'View:EditHome');
+        return LaunchpadPermission::check(auth()->user(), 'View:EditHome', tolerateUnconfigured: true);
     }
 
     /**

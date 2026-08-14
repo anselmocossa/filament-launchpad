@@ -34,10 +34,16 @@ use Throwable;
  * catch-all super_admin) holds counts as still unconfigured, and the door
  * stays open until someone actually decides who should hold it.
  *
- * Management abilities (Space/Page/Section/Card, `EditHome`) deliberately do
- * NOT opt in. There, "nobody was granted it" has to keep meaning "nobody gets
- * in" — falling open would hand the launchpad's own configuration to every
- * authenticated user the moment the permissions are regenerated.
+ * `EditHome::canAccess()` opts in too, and for the same reason: despite
+ * driving the same builder, it is an END-USER destination — this person
+ * customizing THEIR OWN home, reached from the user menu — not an
+ * administrative one.
+ *
+ * The management abilities (Space/Page/Section/Card, and the builder reached
+ * through PageResource/BuildLayout) deliberately do NOT opt in. There, "nobody
+ * was granted it" has to keep meaning "nobody gets in" — falling open would
+ * hand the launchpad's own configuration to every authenticated user the
+ * moment the permissions are regenerated.
  *
  * The super_admin check is duplicated here (rather than relying solely on
  * filament-shield's own Gate::before) because this class must also behave

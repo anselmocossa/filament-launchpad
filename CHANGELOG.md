@@ -4,6 +4,23 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.6.4] - 2026-08-14
+
+### Fixed
+- **"Edit Home" was treated as a management page, so `shield:generate` took
+  personalisation away from every end user.** `EditHome` drives the same
+  builder as the management tree, and 1.6.3 classified it accordingly —
+  strict. But it is an end-user destination: this person customizing THEIR OWN
+  home (the `user` layer), reached from the user menu, not the shared
+  configuration. Once `View:EditHome` was generated and granted only to
+  `super_admin`, every other user got a 403 on `/edit-home` and lost the
+  ability to arrange their own tiles. It now tolerates an unconfigured
+  permission, exactly like the home page it belongs to.
+
+  The management path — `PageResource` / `BuildLayout`, and the
+  Space/Page/Section/Card abilities — stays strict. The distinction is who the
+  page is *for*, not which builder it happens to render.
+
 ## [1.6.3] - 2026-08-14
 
 ### Fixed

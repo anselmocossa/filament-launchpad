@@ -188,3 +188,17 @@ it('gates EditHome behind View:EditHome the same way', function () {
     expect(EditHome::canAccess())->toBeFalse();
     auth()->logout();
 });
+
+it('keeps EditHome open in the state left by shield:generate: personalising your own home is an end-user destination, not a management one', function () {
+    Permission::create(['name' => 'View:EditHome', 'guard_name' => 'web']);
+
+    $role = Role::create(['name' => 'super_admin', 'guard_name' => 'web']);
+    $role->givePermissionTo('View:EditHome');
+
+    $user = TestUser::create(['name' => 'Colaborador Comum']);
+    auth()->login($user);
+
+    expect(EditHome::canAccess())->toBeTrue();
+
+    auth()->logout();
+});
