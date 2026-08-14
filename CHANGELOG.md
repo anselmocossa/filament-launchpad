@@ -4,6 +4,21 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.7.0] - 2026-08-14
+
+### Added
+- **A narrow widget can now share a row with the tiles before it.** Until now a
+  widget always closed the tile row and started its own, so a layout of "two
+  indicators and a banner beside them" was impossible — the banner took a full
+  row of its own and pushed everything down. A widget whose `columnSpan` is
+  under 12 now sits in the same row as the preceding tiles, provided it fits:
+  the row is measured in the widgets' 12-column grid, where each tile counts as
+  2. It falls back to its own row when there is no space, and everything
+  collapses to full width on mobile.
+
+  Extracted the tile markup to `pages/partials/tile.blade.php` so the mixed row
+  and the tiles-only row share it instead of carrying sixty duplicated lines.
+
 ## [1.6.6] - 2026-08-14
 
 ### Fixed

@@ -321,3 +321,49 @@ it('does not 500 when a widget card key is not registered, and still renders the
         ->assertSee('Tile Normal')
         ->assertDontSee('Fantasma');
 });
+
+it('seats a narrow widget in the same row as the tiles before it, instead of pushing them up', function () {
+    LaunchpadPlugin::get()
+        ->spaces([])
+        ->widgets([
+            ['key' => 'stats', 'class' => TestStatsWidget::class, 'label' => 'Estatísticas', 'columnSpan' => '8'],
+        ]);
+
+    $space = Space::query()->create(['label' => 'Início', 'sort' => 0]);
+    $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Início', 'sort' => 0]);
+    $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Secção', 'sort' => 0]);
+
+    // Dois tiles (2 colunas cada) e um widget de 8 = 12: cabe tudo numa fila.
+    $section->cards()->create(['title' => 'Tile A', 'type' => 'kpi', 'target_type' => 'none', 'sort' => 0]);
+    $section->cards()->create(['title' => 'Tile B', 'type' => 'kpi', 'target_type' => 'none', 'sort' => 1]);
+    $section->cards()->create(['title' => 'Faixa', 'type' => 'widget', 'widget_key' => 'stats', 'widget_column_span' => '8', 'target_type' => 'none', 'sort' => 2]);
+
+    Livewire::test(Launchpad::class)
+        ->assertOk()
+        ->assertSeeHtml('class="lp-mixed-tile"')               // o atributo, e nao a regra CSS com o mesmo nome
+        ->assertSeeHtml('grid-column:span 8 / span 8')         // e o widget ficou com as 8 restantes
+        ->assertSeeHtml('Tile A')
+        ->assertSeeHtml('Tile B');
+});
+
+it('keeps a narrow widget on its own row when the tiles before it leave no space', function () {
+    LaunchpadPlugin::get()
+        ->spaces([])
+        ->widgets([
+            ['key' => 'stats', 'class' => TestStatsWidget::class, 'label' => 'Estatísticas', 'columnSpan' => '8'],
+        ]);
+
+    $space = Space::query()->create(['label' => 'Início', 'sort' => 0]);
+    $page = Page::query()->create(['space_id' => $space->id, 'label' => 'Início', 'sort' => 0]);
+    $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Secção', 'sort' => 0]);
+
+    // Três tiles (6 colunas) + widget de 8 = 14: não cabe, o widget desce.
+    foreach (['A', 'B', 'C'] as $i => $nome) {
+        $section->cards()->create(['title' => 'Tile '.$nome, 'type' => 'kpi', 'target_type' => 'none', 'sort' => $i]);
+    }
+    $section->cards()->create(['title' => 'Faixa', 'type' => 'widget', 'widget_key' => 'stats', 'widget_column_span' => '8', 'target_type' => 'none', 'sort' => 3]);
+
+    Livewire::test(Launchpad::class)
+        ->assertOk()
+        ->assertDontSeeHtml('class="lp-mixed-tile"');
+});
