@@ -24,6 +24,21 @@ use Throwable;
  * If the permission row has not been generated yet, access stays allowed.
  * This keeps upgrades safe until the host app regenerates Shield permissions.
  *
+ * A permission that exists but that nobody has been given yet is a separate
+ * case, and it is opt-in per call (`$tolerateUnconfigured`). `shield:generate`
+ * creates the row AND hands it to `super_admin` in one go, so "generated" and
+ * "configured" are not the same moment: in between, every other role holds
+ * nothing. For the panel's own home page that is fatal — a 403 at the front
+ * door locks every user of the host app out at once, before they can reach
+ * anything. So `Launchpad::canAccess()` opts in: a permission nobody (bar the
+ * catch-all super_admin) holds counts as still unconfigured, and the door
+ * stays open until someone actually decides who should hold it.
+ *
+ * Management abilities (Space/Page/Section/Card, `EditHome`) deliberately do
+ * NOT opt in. There, "nobody was granted it" has to keep meaning "nobody gets
+ * in" — falling open would hand the launchpad's own configuration to every
+ * authenticated user the moment the permissions are regenerated.
+ *
  * The super_admin check is duplicated here (rather than relying solely on
  * filament-shield's own Gate::before) because this class must also behave
  * correctly in the plugin's own test suite, which exercises
@@ -61,7 +76,14 @@ class LaunchpadPermission
         return static::check(auth()->user(), 'Manage:LaunchpadPrimary');
     }
 
-    public static function check(mixed $user, string $ability): bool
+    /**
+     * @param  bool  $tolerateUnconfigured  Whether a permission that exists but
+     *      nobody holds should be treated as still unconfigured (and therefore
+     *      allowed). Reserved for the panel's home page — see the class docblock.
+     *      Management abilities leave it off: for those, "nobody was granted it"
+     *      must keep meaning "nobody gets in", which is the safe default.
+     */
+    public static function check(mixed $user, string $ability, bool $tolerateUnconfigured = false): bool
     {
         if (! LaunchpadVisibility::spatieAvailable()) {
             return true;
@@ -80,6 +102,10 @@ class LaunchpadPermission
         }
 
         if (! static::permissionExists($ability)) {
+            return true;
+        }
+
+        if ($tolerateUnconfigured && ! static::permissionIsConfigured($ability)) {
             return true;
         }
 
@@ -107,6 +133,46 @@ class LaunchpadPermission
                 ->exists();
         } catch (Throwable) {
             return false;
+        }
+    }
+
+    /**
+     * Whether anyone has actually been given this permission — i.e. whether a
+     * human ever decided who should hold it, as opposed to it merely existing
+     * because a generator created the row.
+     *
+     * `super_admin` is excluded on purpose: Shield grants it every permission
+     * automatically, so counting it would make every freshly generated
+     * permission look configured, which is exactly the case this guards.
+     */
+    protected static function permissionIsConfigured(string $ability): bool
+    {
+        $permissionClass = config('permission.models.permission');
+
+        if (! is_string($permissionClass) || ! class_exists($permissionClass) || ! method_exists($permissionClass, 'query')) {
+            return false;
+        }
+
+        try {
+            $permission = $permissionClass::query()->where('name', $ability)->first();
+
+            if ($permission === null) {
+                return false;
+            }
+
+            $superAdminRole = config('filament-shield.super_admin.name', 'super_admin');
+
+            if ($permission->roles()->where('name', '!=', $superAdminRole)->exists()) {
+                return true;
+            }
+
+            return $permission->users()->exists();
+        } catch (Throwable) {
+            // Same posture as everywhere else in this class: an unreadable
+            // pivot must not decide who gets in. Treat it as configured so the
+            // caller falls through to the user's own can(), rather than
+            // silently opening the page to everyone.
+            return true;
         }
     }
 

@@ -4,6 +4,26 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.6.3] - 2026-08-14
+
+### Fixed
+- **`shield:generate` locked every user out of the panel's home page.** The
+  command creates the `View:Launchpad` permission row and grants it to
+  `super_admin` in the same run — so the instant it is executed, the permission
+  exists (which is what the gate keyed on) while every other role holds nothing.
+  The result was a 403 at the front door for the entire host app: not a hidden
+  tile, but no way in at all, and no clue as to why. The home page now treats a
+  permission that nobody (bar the catch-all `super_admin`) has been given as
+  still unconfigured, and stays open until someone actually decides who should
+  hold it. The moment it is granted to any role or user, the gate is live again.
+
+  The tolerance is opt-in per call (`LaunchpadPermission::check(...,
+  tolerateUnconfigured: true)`) and only the home page opts in. Management
+  abilities — Space/Page/Section/Card and `EditHome` — stay strict on purpose:
+  there, "nobody was granted it" has to keep meaning "nobody gets in", or
+  regenerating permissions would hand the launchpad's own configuration to
+  every authenticated user.
+
 ## [1.6.2] - 2026-08-13
 
 ### Fixed

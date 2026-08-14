@@ -23,10 +23,16 @@ class Launchpad extends Page
      * role) may open it — a role without it is denied the panel's home,
      * which IS the intended effect of wiring the launchpad's own page into
      * Shield's "Pages" permission tab.
+     *
+     * Denied, however, only once someone has been given the permission. Until
+     * then it stays open to everyone: this is the panel's FRONT DOOR, and a
+     * `shield:generate` that creates `View:Launchpad` without granting it to
+     * any role would otherwise 403 every user in the host app at once. See
+     * LaunchpadPermission for the full reasoning.
      */
     public static function canAccess(): bool
     {
-        return LaunchpadPermission::check(auth()->user(), 'View:Launchpad');
+        return LaunchpadPermission::check(auth()->user(), 'View:Launchpad', tolerateUnconfigured: true);
     }
 
     /**

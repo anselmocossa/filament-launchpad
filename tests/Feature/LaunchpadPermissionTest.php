@@ -32,6 +32,81 @@ it('grants a user when the requested permission has not been generated yet', fun
     expect(LaunchpadPermission::check($user, 'View:EditHome'))->toBeTrue();
 });
 
+it('keeps a management ability strict when nobody holds it: unconfigured must not mean open', function () {
+    Permission::create(['name' => 'View:Space', 'guard_name' => 'web']);
+
+    $user = TestUser::create(['name' => 'Ninguém Configurou Nada']);
+
+    expect(LaunchpadPermission::check($user, 'View:Space'))->toBeFalse();
+});
+
+it('tolerates an unconfigured permission only when the caller asks for it', function () {
+    Permission::create(['name' => 'View:Launchpad', 'guard_name' => 'web']);
+
+    $user = TestUser::create(['name' => 'Colaborador Comum']);
+
+    expect(LaunchpadPermission::check($user, 'View:Launchpad'))->toBeFalse()
+        ->and(LaunchpadPermission::check($user, 'View:Launchpad', tolerateUnconfigured: true))->toBeTrue();
+});
+
+it('lets everyone into the home page in the state left by shield:generate, where only super_admin holds View:Launchpad', function () {
+    Permission::create(['name' => 'View:Launchpad', 'guard_name' => 'web']);
+
+    // shield:generate creates the row and hands it to super_admin in one go.
+    $role = Role::create(['name' => 'super_admin', 'guard_name' => 'web']);
+    $role->givePermissionTo('View:Launchpad');
+
+    $user = TestUser::create(['name' => 'Colaborador Comum']);
+    auth()->login($user);
+
+    expect(Launchpad::canAccess())->toBeTrue();
+
+    auth()->logout();
+});
+
+it('closes the home page as soon as the permission is given to a role other than super_admin', function () {
+    Permission::create(['name' => 'View:Launchpad', 'guard_name' => 'web']);
+
+    $superAdmin = Role::create(['name' => 'super_admin', 'guard_name' => 'web']);
+    $superAdmin->givePermissionTo('View:Launchpad');
+
+    $outsider = TestUser::create(['name' => 'Sem Direito']);
+    auth()->login($outsider);
+    expect(Launchpad::canAccess())->toBeTrue();
+    auth()->logout();
+
+    // The moment a human decides who should hold it, the gate is live.
+    $rh = Role::create(['name' => 'rh', 'guard_name' => 'web']);
+    $rh->givePermissionTo('View:Launchpad');
+
+    $entitled = TestUser::create(['name' => 'Com Direito']);
+    $entitled->assignRole('rh');
+
+    auth()->login($outsider);
+    expect(Launchpad::canAccess())->toBeFalse();
+    auth()->logout();
+
+    auth()->login($entitled);
+    expect(Launchpad::canAccess())->toBeTrue();
+    auth()->logout();
+});
+
+it('closes the home page when the permission is given directly to a user, with no role involved', function () {
+    Permission::create(['name' => 'View:Launchpad', 'guard_name' => 'web']);
+
+    $outsider = TestUser::create(['name' => 'Sem Direito']);
+    auth()->login($outsider);
+    expect(Launchpad::canAccess())->toBeTrue();
+    auth()->logout();
+
+    $entitled = TestUser::create(['name' => 'Com Direito']);
+    $entitled->givePermissionTo('View:Launchpad');
+
+    auth()->login($outsider);
+    expect(Launchpad::canAccess())->toBeFalse();
+    auth()->logout();
+});
+
 it('grants a user holding the permission and denies one who does not', function () {
     Permission::create(['name' => 'View:Space', 'guard_name' => 'web']);
 
