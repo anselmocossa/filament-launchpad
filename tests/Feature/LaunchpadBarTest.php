@@ -106,3 +106,22 @@ it('exposes the space and page icons to the view data, rendering an icon for the
     Livewire::test(LaunchpadBar::class)
         ->assertSeeHtml('fi-topbar-item-icon');
 });
+
+it('redirects Home to the bare panel root, without pinning space and page in the URL', function () {
+    // "inicio" is the first configured space and its own first page — exactly
+    // what mount() picks when the URL carries nothing. Spelling that out as
+    // ?space=inicio&page=inicio turns the panel's canonical address into a
+    // deep link whose ids a user then copies and bookmarks.
+    Livewire::test(LaunchpadBar::class)
+        ->call('selectSpace', 'clientes')   // leave the default first...
+        ->call('selectSpace', 'inicio')     // ...and come back to it
+        ->assertSet('activeSpace', 'inicio')
+        ->assertSet('activePage', 'inicio')
+        ->assertRedirect(url('/'));
+});
+
+it('keeps space and page in the URL for anywhere that is not the default', function () {
+    Livewire::test(LaunchpadBar::class)
+        ->call('selectPage', 'ponto-de-venda', 'vendas')
+        ->assertRedirect(url('/?space=ponto-de-venda&page=vendas'));
+});

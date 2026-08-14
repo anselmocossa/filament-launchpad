@@ -4,6 +4,19 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.6.6] - 2026-08-14
+
+### Fixed
+- **Clicking "Home" landed the user on `/?space=3&page=5`.** The first space and
+  its first page are exactly what the launchpad picks when the URL carries no
+  parameters at all, so spelling them out turned the panel's canonical address
+  into a deep link. Worse, it is a deep link built on database ids: the URL a
+  user copies or bookmarks pins today's space and page, and a reordered
+  launchpad — or a restored database with different ids — sends them somewhere
+  else, or nowhere. Home now redirects to the bare panel root. The parameters
+  still appear for anywhere that is not the default, where they actually carry
+  information.
+
 ## [1.6.5] - 2026-08-14
 
 ### Fixed

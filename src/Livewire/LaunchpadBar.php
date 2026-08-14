@@ -106,16 +106,42 @@ class LaunchpadBar extends Component
 
     protected function redirectToLaunchpadWhenNeeded(): void
     {
-        $url = LaunchpadUrl::panelHome([
-            'space' => $this->activeSpace,
-            'page' => $this->activePage,
-        ]);
+        $url = $this->isDefaultLocation()
+            ? LaunchpadUrl::panelHome()
+            : LaunchpadUrl::panelHome([
+                'space' => $this->activeSpace,
+                'page' => $this->activePage,
+            ]);
 
         if (url()->current() === strtok($url, '?')) {
             return;
         }
 
         $this->redirect($url);
+    }
+
+    /**
+     * Whether the current space/page pair is the one `mount()` picks when the
+     * URL carries no parameters at all — the first space and its first page.
+     *
+     * Clicking "Home" was landing the user on `/?space=3&page=5`: a canonical
+     * address dressed up as a deep link. It is the panel's root, it is where an
+     * unadorned `/` already goes, and spelling it out has real costs — the URL
+     * a user copies or bookmarks pins today's space and page ids, so a
+     * reordered launchpad (or a restored database with different ids) sends
+     * them somewhere else or nowhere at all. The parameters now appear only
+     * when they actually say something: a space or page other than the default.
+     */
+    protected function isDefaultLocation(): bool
+    {
+        $firstSpace = $this->getPlugin()->getSpaces()[0] ?? null;
+
+        if (! $firstSpace instanceof LaunchpadSpace) {
+            return false;
+        }
+
+        return $this->activeSpace === $firstSpace->getId()
+            && $this->activePage === $this->firstPageId($firstSpace);
     }
 
     /**
