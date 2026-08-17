@@ -4,6 +4,34 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.8.0] - 2026-08-17
+
+### Changed
+- **The browser tab now says where the user is.** `getTitle()` returned the
+  brand name on every space and every page, so a user with three tabs open saw
+  three tabs reading "Launchpad — Portal" and could not tell them apart. It now
+  resolves to the active page's label, falling back to the space's label, and
+  only then to the brand name. When page and space share a name (a space with a
+  single, eponymous page) it is not repeated — "Cursos", not "Cursos — Cursos".
+
+  This changes the title of an existing page, so it is a behaviour change
+  rather than a fix: hosts that relied on the tab reading the brand name should
+  call `->title('…')`.
+
+### Added
+- **`->title()` on the plugin**, to override what the tab says. Accepts a plain
+  string for a fixed title, or a closure receiving the active
+  `?LaunchpadSpace` and `?LaunchpadPage`:
+
+  ```php
+  LaunchpadPlugin::make()
+      ->title(fn (?LaunchpadSpace $space, ?LaunchpadPage $page): string =>
+          $page?->getLabel() ?? 'Portal')
+  ```
+
+  Passing `null` restores the default. The panel name is still appended by
+  Filament itself, so only the specific part belongs here.
+
 ## [1.7.1] - 2026-08-14
 
 ### Fixed

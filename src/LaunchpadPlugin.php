@@ -48,6 +48,9 @@ class LaunchpadPlugin implements Plugin
 
     protected string $brandName = 'Launchpad';
 
+    /** Ver title() / resolveTitle(). Null = escrever onde a pessoa esta'. */
+    protected Closure | string | null $title = null;
+
     protected ?string $brandLogo = null;
 
     protected ?string $brandInitials = null;
@@ -426,6 +429,59 @@ class LaunchpadPlugin implements Plugin
         $this->brandInitials = $initials;
 
         return $this;
+    }
+
+    /**
+     * O que o separador do browser escreve quando se esta' no launchpad.
+     *
+     * Por omissao escreve ONDE a pessoa esta' — o nome da pagina activa, ou o
+     * do space quando a pagina nao acrescenta nada. Antes escrevia sempre o
+     * nome da marca, o que dava separadores todos iguais ("Launchpad") e
+     * impossiveis de distinguir com varios abertos.
+     *
+     * Aceita:
+     *   - `null`   volta ao comportamento por omissao (onde a pessoa esta')
+     *   - `string` um titulo fixo
+     *   - `Closure` recebe (?LaunchpadSpace $space, ?LaunchpadPage $page) e
+     *               devolve a string; util para prefixos ou traducoes proprias
+     *
+     * Exemplo:
+     *   ->title(fn (?LaunchpadSpace $s, ?LaunchpadPage $p) => $p?->getLabel() ?? 'Portal')
+     */
+    public function title(Closure | string | null $title): static
+    {
+        $this->title = $title;
+
+        return $this;
+    }
+
+    /**
+     * Resolve o titulo da pagina do launchpad.
+     *
+     * Ordem: o que foi configurado > nome da pagina activa > nome do space >
+     * nome da marca. O nome do painel e' acrescentado pelo proprio Filament,
+     * por isso aqui devolve-se so' a parte especifica.
+     */
+    public function resolveTitle(?LaunchpadSpace $space, ?LaunchpadPage $page): string
+    {
+        if ($this->title instanceof Closure) {
+            return (string) ($this->title)($space, $page);
+        }
+
+        if (filled($this->title)) {
+            return (string) $this->title;
+        }
+
+        $rotuloPagina = $page?->getLabel();
+        $rotuloSpace = $space?->getLabel();
+
+        // Quando os dois dizem o mesmo (space com uma unica pagina homonima),
+        // repetir seria ruido: "Cursos — Cursos".
+        if (filled($rotuloPagina) && $rotuloPagina !== $rotuloSpace) {
+            return $rotuloPagina;
+        }
+
+        return $rotuloSpace ?: $this->brandName;
     }
 
     public function accentColor(string $hex): static

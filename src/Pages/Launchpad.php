@@ -2,6 +2,7 @@
 
 namespace Filament\Launchpad\Pages;
 
+use Filament\Launchpad\Launchpad\LaunchpadPage;
 use Filament\Launchpad\Launchpad\LaunchpadSpace;
 use Filament\Launchpad\Launchpad\Tile;
 use Filament\Launchpad\Launchpad\TileGroup;
@@ -56,9 +57,33 @@ class Launchpad extends Page
         $this->activePage = $this->pageBelongsToSpace($space, $pageId) ? $pageId : $this->firstPageId($space);
     }
 
+    /**
+     * O separador do browser passa a dizer ONDE a pessoa esta'.
+     *
+     * Antes devolvia sempre o nome da marca, o que dava separadores todos
+     * iguais ("Launchpad — Portal") e indistinguiveis com varios abertos. A
+     * regra vive no plugin, para o host poder personaliza-la com ->title().
+     */
     public function getTitle(): string
     {
-        return $this->getPlugin()->getBrandName();
+        $space = $this->findSpace($this->activeSpace);
+
+        return $this->getPlugin()->resolveTitle($space, $this->findPage($space, $this->activePage));
+    }
+
+    protected function findPage(?LaunchpadSpace $space, string $pageId): ?LaunchpadPage
+    {
+        if (! $space instanceof LaunchpadSpace || blank($pageId)) {
+            return null;
+        }
+
+        foreach ($space->getPages() as $page) {
+            if ($page->getId() === $pageId) {
+                return $page;
+            }
+        }
+
+        return null;
     }
 
     /**
