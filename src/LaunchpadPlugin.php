@@ -51,6 +51,9 @@ class LaunchpadPlugin implements Plugin
     /** Ver title() / resolveTitle(). Null = escrever onde a pessoa esta'. */
     protected Closure | string | null $title = null;
 
+    /** Ver getSpacesFromDatabase(): trava contra reentrancia. */
+    protected bool $aConstruirSpaces = false;
+
     protected ?string $brandLogo = null;
 
     protected ?string $brandInitials = null;
@@ -825,6 +828,29 @@ class LaunchpadPlugin implements Plugin
             return [];
         }
 
+        // Trava contra reentrancia. Construir um space avalia o canAccess() de
+        // cada card, e um card pode apontar para uma pagina cujo canAccess()
+        // volte a perguntar quais sao os spaces. A ida e volta nao tem fim e
+        // esgota a memoria do processo. A quem pergunta a meio da construcao
+        // responde-se com a verdade que ha' nesse instante: ainda nenhum.
+        if ($this->aConstruirSpaces) {
+            return [];
+        }
+
+        $this->aConstruirSpaces = true;
+
+        try {
+            return $this->buildSpacesFromDatabase();
+        } finally {
+            $this->aConstruirSpaces = false;
+        }
+    }
+
+    /**
+     * @return array<LaunchpadSpace>
+     */
+    protected function buildSpacesFromDatabase(): array
+    {
         $authId = auth()->id();
         $userId = $authId === null ? null : (string) $authId;
 

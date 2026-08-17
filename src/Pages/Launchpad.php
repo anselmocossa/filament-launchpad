@@ -66,6 +66,17 @@ class Launchpad extends Page
      */
     public function getTitle(): string
     {
+        // Sem space activo nao ha' nada para resolver — e sobretudo nao se vai
+        // a' base de dados. Quem chega aqui assim nao e' o browser: e' o Shield,
+        // que instancia esta pagina so' para ler o rotulo da permissao. Essa
+        // instancia nunca passou pelo mount(), e resolver na mesma punha o
+        // getSpaces() a correr NO MEIO da construcao dos spaces — que avalia o
+        // canAccess() de cada card, que volta ao Shield, que volta aqui. Sem
+        // fim: 500 com a memoria esgotada e nem uma linha no log da aplicacao.
+        if (blank($this->activeSpace)) {
+            return $this->getPlugin()->resolveTitle(null, null);
+        }
+
         $space = $this->findSpace($this->activeSpace);
 
         return $this->getPlugin()->resolveTitle($space, $this->findPage($space, $this->activePage));

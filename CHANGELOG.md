@@ -4,6 +4,29 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.8.1] - 2026-08-17
+
+### Fixed
+- **The panel home died with a 500 and an exhausted memory limit, on any panel
+  where a card points at a Shield-gated page.** Regression introduced by 1.8.0.
+
+  Building the spaces evaluates every card's `canAccess()`. A card pointing at
+  a page whose gate asks Shield for permission labels makes Shield read those
+  labels by calling `getTitle()` on every registered page — the launchpad's own
+  included. And `getTitle()`, as of 1.8.0, resolved the active space's name,
+  which built the spaces again. Round and round until the process ran out of
+  memory: a blank 500 in the browser, and nothing in the application log,
+  because the process dies before it can write the line.
+
+  Two guards, either of which breaks the cycle:
+  - `getTitle()` returns the fallback title straight away when there is no
+    active space. An instance that never went through `mount()` — which is
+    exactly how Shield builds it — has nothing to resolve, and now does not go
+    to the database to find that out.
+  - `getSpacesFromDatabase()` refuses to re-enter. Whoever asks for the spaces
+    while they are being built is told there are none yet, instead of starting
+    a second build.
+
 ## [1.8.0] - 2026-08-17
 
 ### Changed
