@@ -4,6 +4,27 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.8.2] - 2026-08-17
+
+### Fixed
+- **The launchpad rebuilt its whole tree on every call, and asked the database
+  about every single item's visibility, one item at a time.** On a real portal
+  a single page ran **636 queries — 532 of them identical** — and built the
+  spaces **seven times**.
+
+  Three changes, no behaviour difference:
+  - `getSpaces()` remembers what it built, per request and per viewer. A page
+    that asks four times now builds once. The memory is dropped whenever any
+    launchpad model is saved or deleted, so someone editing a space still sees
+    their edit in the same request.
+  - `visibilityRoles` is eager-loaded down the whole tree, and `isRestricted()`
+    / `visibleToRoleIds()` read the loaded relation instead of firing their own
+    query per space, page, section and card.
+  - The viewer's own role ids are resolved once instead of once per card.
+
+  Three tests cover it, including one that asserts the query count does not
+  grow when the number of cards doubles.
+
 ## [1.8.1] - 2026-08-17
 
 ### Fixed

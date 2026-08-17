@@ -54,6 +54,16 @@ class LaunchpadPlugin implements Plugin
     /** Ver getSpacesFromDatabase(): trava contra reentrancia. */
     protected bool $aConstruirSpaces = false;
 
+    /**
+     * Spaces ja' construidos neste pedido, por utilizador/tenant/painel.
+     *
+     * @var array<string, array<LaunchpadSpace>>
+     */
+    protected array $spacesEmMemoria = [];
+
+    /** Sobe a cada alteracao aos modelos do launchpad; invalida a memoria. */
+    protected static int $geracao = 0;
+
     protected ?string $brandLogo = null;
 
     protected ?string $brandInitials = null;
@@ -816,7 +826,29 @@ class LaunchpadPlugin implements Plugin
             return $this->spaces;
         }
 
-        return $this->getSpacesFromDatabase();
+        // Um pedido chama isto varias vezes — o mount(), o getTitle(), o
+        // render, cada widget. Sem memoria, cada chamada reconstruia a arvore
+        // inteira: no portal da ENH davam SETE construcoes e 636 consultas
+        // numa so' pagina. A memoria e' por pedido e por utilizador, e cai
+        // assim que qualquer modelo do launchpad muda (ver esquecerSpaces).
+        $chave = implode('|', [
+            static::$geracao,
+            (string) (auth()->id() ?? 'visitante'),
+            (string) LaunchpadTenant::id(),
+            (string) LaunchpadPanel::id(),
+        ]);
+
+        return $this->spacesEmMemoria[$chave] ??= $this->getSpacesFromDatabase();
+    }
+
+    /**
+     * Invalida o que esta' em memoria em TODAS as instancias do plugin. Chamado
+     * pelos eventos dos modelos do launchpad: quem edita um space tem de ver a
+     * edicao, mesmo no mesmo pedido.
+     */
+    public static function esquecerSpaces(): void
+    {
+        static::$geracao++;
     }
 
     /**
@@ -871,10 +903,17 @@ class LaunchpadPlugin implements Plugin
             $query->effectiveForTenant($tenantId);
         }
 
+        // A visibilidade por papel vem toda de uma vez. Sem isto, cada space,
+        // pagina, seccao e card fazia o seu proprio SELECT EXISTS: 532 numa so'
+        // pagina do portal da ENH. Ver HasLaunchpadVisibility::isRestricted(),
+        // que passa a ler da relacao carregada quando ela ca' esta'.
+        $comPapeis = LaunchpadVisibility::spatieAvailable() ? ['visibilityRoles'] : [];
+
         return $query
-            ->with([
+            ->with(array_merge($comPapeis, [
                 'pages' => fn ($query) => $query
-                    ->when($tenantAware, fn ($q) => $q->effectiveForTenant($tenantId)),
+                    ->when($tenantAware, fn ($q) => $q->effectiveForTenant($tenantId))
+                    ->with($comPapeis),
                 'pages.sections' => fn ($query) => $query
                     ->where(function ($query) use ($userId) {
                         $query->whereNull('user_id')
@@ -892,8 +931,8 @@ class LaunchpadPlugin implements Plugin
                     ->reorder()
                     ->orderByRaw($this->sectionLayerOrdering($tenantAware))
                     ->orderBy('sort')
-                    ->with([
-                        'cards',
+                    ->with(array_merge($comPapeis, [
+                        'cards' => fn ($query) => $query->with($comPapeis),
                         // The overlay rows that apply to this viewer: their
                         // tenant's layer plus their own. Tombstones come along
                         // too — they are subtracted in mapSectionToDto().
@@ -907,9 +946,9 @@ class LaunchpadPlugin implements Plugin
                                     fn ($q) => $q->whereRaw('1 = 0'),
                                 ),
                             )
-                            ->with('card'),
-                    ]),
-            ])
+                            ->with(['card' => fn ($query) => $query->with($comPapeis)]),
+                    ])),
+            ]))
             ->get()
             ->map(fn (SpaceModel $space): ?LaunchpadSpace => $this->mapSpaceToDto($space))
             ->filter()

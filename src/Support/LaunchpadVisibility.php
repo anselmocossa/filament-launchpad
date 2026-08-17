@@ -114,12 +114,41 @@ class LaunchpadVisibility
             return [];
         }
 
+        // Os papeis de quem esta' a ver nao mudam a meio de um pedido, e isto
+        // era chamado uma vez por CARD.
+        //
+        // A chave e' a INSTANCIA, nao o id: num pedido o auth()->user() devolve
+        // sempre o mesmo objecto, portanto guarda-se na mesma; entre testes (ou
+        // entre pedidos) o objecto e' outro, e nao ha' resposta de um a servir
+        // ao seguinte. Com o id, o utilizador 1 de um teste respondia pelo
+        // utilizador 1 do teste a seguir.
+        $chave = (string) spl_object_id($user);
+
+        if (array_key_exists($chave, static::$papeisPorUtilizador)) {
+            return static::$papeisPorUtilizador[$chave];
+        }
+
         try {
             $relation = $user->roles();
 
-            return $relation->pluck($relation->getRelated()->getQualifiedKeyName())->all();
+            return static::$papeisPorUtilizador[$chave] = $relation
+                ->pluck($relation->getRelated()->getQualifiedKeyName())
+                ->all();
         } catch (Throwable) {
             return [];
         }
+    }
+
+    /**
+     * Papeis ja' lidos neste pedido, por utilizador.
+     *
+     * @var array<string, array<int, int|string>>
+     */
+    protected static array $papeisPorUtilizador = [];
+
+    /** Esquece os papeis em memoria — usado pelos testes e por quem muda papeis. */
+    public static function esquecerPapeis(): void
+    {
+        static::$papeisPorUtilizador = [];
     }
 }

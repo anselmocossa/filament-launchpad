@@ -10,6 +10,7 @@ use Filament\Launchpad\Models\Card;
 use Filament\Launchpad\Models\Page;
 use Filament\Launchpad\Models\Section;
 use Filament\Launchpad\Models\Space;
+use Filament\Launchpad\Models\UserCard;
 use Filament\Launchpad\Policies\CardPolicy;
 use Filament\Launchpad\Policies\PagePolicy;
 use Filament\Launchpad\Policies\SectionPolicy;
@@ -69,6 +70,21 @@ class LaunchpadServiceProvider extends PackageServiceProvider
         parent::packageBooted();
 
         $this->registerLaunchpadPolicies();
+        $this->esquecerSpacesQuandoAlgoMuda();
+    }
+
+    /**
+     * O getSpaces() guarda em memoria o que construiu, para nao reconstruir a
+     * arvore inteira a cada chamada dentro do mesmo pedido. Quem edita um
+     * space, uma pagina, uma seccao ou um card tem de ver a edicao — mesmo
+     * nesse pedido. Estes eventos deitam a memoria fora.
+     */
+    protected function esquecerSpacesQuandoAlgoMuda(): void
+    {
+        foreach ([Space::class, Page::class, Section::class, Card::class, UserCard::class] as $modelo) {
+            $modelo::saved(fn () => LaunchpadPlugin::esquecerSpaces());
+            $modelo::deleted(fn () => LaunchpadPlugin::esquecerSpaces());
+        }
     }
 
     /**

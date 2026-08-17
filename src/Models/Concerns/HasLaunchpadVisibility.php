@@ -40,6 +40,13 @@ trait HasLaunchpadVisibility
             return false;
         }
 
+        // Quem carregou a relacao ja' tem a resposta em memoria. Sem isto, cada
+        // space, pagina, seccao e card fazia o seu proprio SELECT EXISTS — 532
+        // consultas numa unica pagina do portal da ENH, todas iguais.
+        if ($this->relationLoaded('visibilityRoles')) {
+            return $this->visibilityRoles->isNotEmpty();
+        }
+
         return $this->visibilityRoles()->exists();
     }
 
@@ -53,6 +60,10 @@ trait HasLaunchpadVisibility
         }
 
         $relation = $this->visibilityRoles();
+
+        if ($this->relationLoaded('visibilityRoles')) {
+            return $this->visibilityRoles->pluck($relation->getRelated()->getKeyName())->all();
+        }
 
         return $relation->pluck($relation->getRelated()->getQualifiedKeyName())->all();
     }
