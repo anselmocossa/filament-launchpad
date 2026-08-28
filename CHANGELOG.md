@@ -4,6 +4,18 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+### Added
+- **The host panel can now choose where Launchpad navigation is rendered.**
+  `->subNavigation(false)` removes the full-width secondary navigation bar,
+  while `->topbarNavigation()` renders the spaces and pages beside the native
+  Filament logo using Filament's own topbar items and dropdowns. This is useful
+  for portals that need a single, conventional topbar without losing access to
+  Launchpad navigation.
+
+  Both options preserve the previous behaviour by default: the secondary bar
+  remains enabled and topbar navigation remains disabled until explicitly
+  configured.
+
 ## [1.8.2] - 2026-08-17
 
 ### Fixed

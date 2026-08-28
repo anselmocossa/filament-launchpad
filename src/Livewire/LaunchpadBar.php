@@ -24,12 +24,16 @@ use Livewire\Component;
  */
 class LaunchpadBar extends Component
 {
+    public bool $topbarOnly = false;
+
     public string $activeSpace = '';
 
     public string $activePage = '';
 
-    public function mount(): void
+    public function mount(bool $topbarOnly = false): void
     {
+        $this->topbarOnly = $topbarOnly;
+
         $space = $this->findSpace((string) request()->query('space')) ?? ($this->getPlugin()->getSpaces()[0] ?? null);
         $pageId = (string) request()->query('page');
 

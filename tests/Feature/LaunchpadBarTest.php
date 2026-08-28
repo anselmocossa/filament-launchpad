@@ -81,6 +81,17 @@ it('renders a "Todos os Spaces" shell menu button that lists every space and its
         ->assertSee('Vendas');
 });
 
+it('can render spaces as native Filament navigation beside the panel logo', function () {
+    Livewire::test(LaunchpadBar::class, ['topbarOnly' => true])
+        ->assertSet('topbarOnly', true)
+        ->assertSeeHtml('fi-launchpad-topbar-navigation')
+        ->assertSee('Início')
+        ->assertSee('Clientes')
+        ->assertDontSee('Todos os Spaces')
+        ->assertDontSeeHtml('fi-launchpad-bar-nav')
+        ->assertDontSee('Mais');
+});
+
 it('renders a "Mais" overflow button and a measurable, non-scrolling tabs container for priority-nav collapsing', function () {
     Livewire::test(LaunchpadBar::class)
         ->assertSeeHtml('m19.5 8.25-7.5 7.5-7.5-7.5') // heroicon-o-chevron-down's path data

@@ -30,6 +30,20 @@ it('falls back to fixed tile sizing for unknown values', function () {
     expect($plugin->getTileSizing())->toBe('fixed');
 });
 
+it('allows the host panel to replace the complete sub-navigation with native topbar navigation', function () {
+    $plugin = LaunchpadPlugin::make();
+
+    expect($plugin->hasSubNavigation())->toBeTrue()
+        ->and($plugin->hasTopbarNavigation())->toBeFalse();
+
+    $plugin
+        ->subNavigation(false)
+        ->topbarNavigation();
+
+    expect($plugin->hasSubNavigation())->toBeFalse()
+        ->and($plugin->hasTopbarNavigation())->toBeTrue();
+});
+
 it('applies theming overrides fluently', function () {
     $plugin = LaunchpadPlugin::make()
         ->accentColor('#0a6ed1')

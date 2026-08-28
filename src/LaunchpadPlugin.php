@@ -49,7 +49,7 @@ class LaunchpadPlugin implements Plugin
     protected string $brandName = 'Launchpad';
 
     /** Ver title() / resolveTitle(). Null = escrever onde a pessoa esta'. */
-    protected Closure | string | null $title = null;
+    protected Closure|string|null $title = null;
 
     /** Ver getSpacesFromDatabase(): trava contra reentrancia. */
     protected bool $aConstruirSpaces = false;
@@ -80,6 +80,12 @@ class LaunchpadPlugin implements Plugin
      * the row width via auto-fit minmax.
      */
     protected string $tileSizing = 'fixed';
+
+    /** Whether the full-width spaces/pages bar is rendered below the topbar. */
+    protected bool|Closure $subNavigation = true;
+
+    /** Whether spaces/pages are rendered as native items beside the panel logo. */
+    protected bool|Closure $topbarNavigation = false;
 
     /**
      * @var array<LaunchpadSpace>
@@ -400,7 +406,16 @@ class LaunchpadPlugin implements Plugin
 
         FilamentView::registerRenderHook(
             PanelsRenderHook::CONTENT_BEFORE,
-            fn () => $inThisPanel() ? view('launchpad::hooks.launchpad-bar') : null,
+            fn () => $inThisPanel() && $this->hasSubNavigation()
+                ? view('launchpad::hooks.launchpad-bar')
+                : null,
+        );
+
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::TOPBAR_LOGO_AFTER,
+            fn () => $inThisPanel() && $this->hasTopbarNavigation()
+                ? view('launchpad::hooks.launchpad-topbar-navigation')
+                : null,
         );
 
         // A "‹" back control placed right before the brand in the native
@@ -423,6 +438,37 @@ class LaunchpadPlugin implements Plugin
     public function isEnabled(): bool
     {
         return $this->enabled;
+    }
+
+    /**
+     * Shows or hides the complete Launchpad sub-navigation bar.
+     */
+    public function subNavigation(bool|Closure $condition = true): static
+    {
+        $this->subNavigation = $condition;
+
+        return $this;
+    }
+
+    public function hasSubNavigation(): bool
+    {
+        return (bool) value($this->subNavigation);
+    }
+
+    /**
+     * Places spaces and pages beside the logo using Filament's native topbar
+     * item and dropdown components.
+     */
+    public function topbarNavigation(bool|Closure $condition = true): static
+    {
+        $this->topbarNavigation = $condition;
+
+        return $this;
+    }
+
+    public function hasTopbarNavigation(): bool
+    {
+        return (bool) value($this->topbarNavigation);
     }
 
     /**
@@ -461,7 +507,7 @@ class LaunchpadPlugin implements Plugin
      * Exemplo:
      *   ->title(fn (?LaunchpadSpace $s, ?LaunchpadPage $p) => $p?->getLabel() ?? 'Portal')
      */
-    public function title(Closure | string | null $title): static
+    public function title(Closure|string|null $title): static
     {
         $this->title = $title;
 
