@@ -275,6 +275,18 @@ Open the builder from a Page's **Build** action (Spaces → a Space → Pages �
 
 Cards are registered as globally searchable (by title and subtitle) through Filament's built-in global search. A result shows which Section/Page/Space the Card lives in, and navigates to whatever the Card's target resolves to.
 
+### Navigation placement
+
+By default the spaces and pages live in a full-width bar below the Filament topbar. Move them into the topbar itself — beside the panel logo, as native Filament topbar items and dropdowns — and drop the secondary bar:
+
+```php
+LaunchpadPlugin::make()
+    ->subNavigation(false)   // hide the full-width bar below the topbar
+    ->topbarNavigation();    // render spaces/pages beside the logo
+```
+
+Both accept a `bool` or a `Closure`. Left unset, the secondary bar stays on and the topbar navigation stays off, exactly as before.
+
 ## Configuration
 
 The published config file (`config/launchpad.php`) exposes `branding`, `accent_color`, `dark_header`, and `tile_sizing`:

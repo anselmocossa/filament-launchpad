@@ -4,6 +4,8 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.9.0] - 2026-09-26
+
 ### Added
 - **The host panel can now choose where Launchpad navigation is rendered.**
   `->subNavigation(false)` removes the full-width secondary navigation bar,
