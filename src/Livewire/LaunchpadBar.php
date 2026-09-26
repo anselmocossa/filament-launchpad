@@ -218,7 +218,9 @@ class LaunchpadBar extends Component
 
     public function render(): View
     {
-        return view('launchpad::livewire.launchpad-bar', [
+        // Two views, not one @if: Livewire needs a single root element, and a
+        // conditional at the top of the template leaves only its marker there.
+        return view($this->topbarOnly ? 'launchpad::livewire.launchpad-topbar' : 'launchpad::livewire.launchpad-bar', [
             'spaces' => $this->getSpacesData(),
         ]);
     }

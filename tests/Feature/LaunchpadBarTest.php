@@ -1,5 +1,6 @@
 <?php
 
+use Filament\Launchpad\LaunchpadPlugin;
 use Filament\Launchpad\Livewire\LaunchpadBar;
 use Livewire\Livewire;
 
@@ -90,6 +91,20 @@ it('can render spaces as native Filament navigation beside the panel logo', func
         ->assertDontSee('Todos os Spaces')
         ->assertDontSeeHtml('fi-launchpad-bar-nav')
         ->assertDontSee('Mais');
+});
+
+it('keeps the topbar list as the component root, even with no spaces to show', function () {
+    // Livewire hangs wire:id on the first element of the template. With the
+    // topbar markup behind an @if, that first element was the marker comment:
+    // an empty list threw RootTagMissingFromViewException on every page, and a
+    // full one put wire:id on a nested item instead of the list.
+    $root = '/^\s*(?:<!--.*?-->\s*)*<ul wire:/s';
+
+    expect(Livewire::test(LaunchpadBar::class, ['topbarOnly' => true])->html())->toMatch($root);
+
+    LaunchpadPlugin::get()->spaces([]);
+
+    expect(Livewire::test(LaunchpadBar::class, ['topbarOnly' => true])->html())->toMatch($root);
 });
 
 it('renders a "Mais" overflow button and a measurable, non-scrolling tabs container for priority-nav collapsing', function () {

@@ -4,6 +4,16 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.9.1] - 2026-09-26
+
+### Fixed
+- **Topbar navigation no longer breaks a page when the user has no spaces.**
+  The topbar markup sat behind an `@if` at the top of the bar's template, so
+  Livewire found no root element: with nothing to list it threw
+  `RootTagMissingFromViewException` on every panel page, and with spaces it
+  attached `wire:id` to a nested item instead of the list. The topbar now has
+  its own view (`launchpad::livewire.launchpad-topbar`) whose root is the list.
+
 ## [1.9.0] - 2026-09-26
 
 ### Added
