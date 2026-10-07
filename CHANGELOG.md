@@ -4,6 +4,17 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.10.6] - 2026-10-07
+
+### Fixed
+- **No flicker when picking a space.** The topbar used to show every space for a
+  moment before collapsing again (on each page load and on each re-measure). Now the
+  list is rendered hidden on the first page load and revealed once laid out (with a
+  1 s CSS fallback), widths are measured once and reused, and a morph of the list is
+  laid out before the browser paints. Livewire updates never re-hide it.
+- «Mais» no longer disappears after a re-measure: it was forced to `display: none`
+  while measuring and x-show did not restore it when its value had not changed.
+
 ## [1.10.5] - 2026-10-07
 
 ### Fixed

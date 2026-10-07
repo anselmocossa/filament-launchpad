@@ -8,7 +8,9 @@
     data-launchpad-bar
     x-data="launchpadTopbarOverflow()"
     x-init="init()"
-    style="flex:1 1 0%;min-width:0;flex-wrap:nowrap;overflow:hidden"
+    {{-- Hidden on the first page load until laid out (1 s CSS fallback); never on a
+         Livewire update, or the morph would hide the bar again. --}}
+    style="flex:1 1 0%;min-width:0;flex-wrap:nowrap;overflow:hidden{{ \Livewire\Livewire::isLivewireRequest() ? '' : ';visibility:hidden;animation:fi-launchpad-reveal 0s linear 1s forwards' }}"
 >
     {{-- Small screens (< 1024 px): only this ☰, listing every space and its pages
          (the "Todos os Spaces" shell menu of the sub-navigation bar). From 1024 px it
@@ -209,6 +211,12 @@
 @once
     @push('styles')
         <style>
+            @keyframes fi-launchpad-reveal {
+                to {
+                    visibility: visible;
+                }
+            }
+
             .fi-launchpad-topbar-navigation [x-cloak] {
                 display: none !important;
             }
@@ -262,6 +270,11 @@
                 return {
                     hidden: [],
                     activeSpace: null,
+                    // Natural width of each space (by id) and of «Mais», measured once:
+                    // later layouts reuse them, so the bar never has to show every space
+                    // again just to measure (that was the flicker after picking from «Mais»).
+                    sizes: {},
+                    moreWidth: null,
                     debounceTimer: null,
 
                     init() {
@@ -279,14 +292,28 @@
 
                         this.$nextTick(() => this.measure());
 
-                        // Labels change width once the web font arrives: measure again.
+                        // Labels change width once the web font arrives: measure afresh.
                         if (document.fonts && document.fonts.ready) {
-                            document.fonts.ready.then(() => this.debouncedMeasure());
+                            document.fonts.ready.then(() => {
+                                this.sizes = {};
+                                this.moreWidth = null;
+                                this.debouncedMeasure();
+                            });
                         }
 
                         new ResizeObserver(() => this.debouncedMeasure()).observe(this.$el);
                         window.addEventListener('resize', () => this.debouncedMeasure());
-                        Livewire.hook('morph.updated', () => this.debouncedMeasure());
+                        // A morph of this list (a space picked in the bar or in «Mais»)
+                        // lays out at once, before the browser paints; others debounce.
+                        Livewire.hook('morph.updated', ({ el }) => {
+                            if (el === this.$el || this.$el.contains(el)) {
+                                this.measure();
+
+                                return;
+                            }
+
+                            this.debouncedMeasure();
+                        });
                     },
 
                     debouncedMeasure() {
@@ -294,67 +321,108 @@
                         this.debounceTimer = setTimeout(() => this.measure(), 50);
                     },
 
+                    items() {
+                        return Array.from(this.$el.querySelectorAll(':scope > [data-space-id]'));
+                    },
+
                     measure() {
                         const list = this.$el;
+                        const items = this.items();
 
-                        // Reset first, so every space is measured at its natural width.
+                        if (! items.length) {
+                            this.reveal();
+
+                            return;
+                        }
+
+                        const known = this.moreWidth !== null && items.every((item) => item.dataset.spaceId in this.sizes);
+
+                        if (known) {
+                            this.layout(items);
+
+                            return;
+                        }
+
+                        // First time (or new fonts): every space at its natural width, with
+                        // the list invisible — it keeps its layout, but nothing flashes.
+                        list.style.animation = 'none';
+                        list.style.visibility = 'hidden';
                         this.hidden = [];
 
                         this.$nextTick(() => {
-                            const items = Array.from(list.querySelectorAll(':scope > [data-space-id]'));
-
-                            if (! items.length) {
-                                return;
-                            }
-
-                            const activeIndex = items.findIndex((item) => item.matches('.fi-active') || item.querySelector('.fi-active'));
-                            this.activeSpace = activeIndex >= 0 ? items[activeIndex].dataset.spaceId : null;
-
-                            const style = window.getComputedStyle(list);
-                            const gap = parseFloat(style.columnGap || style.gap || '0') || 0;
-                            const widths = items.map((item) => Math.ceil(item.getBoundingClientRect().width) + gap);
-                            const total = widths.reduce((sum, width) => sum + width, 0);
-
-                            // Generous room — about one space — so «Mais» and its chevron are
-                            // never clipped: better one more space inside «Mais» than a
-                            // squeezed bar (rounding, hover background, late fonts).
-                            const slack = 120;
-
-                            if (total + slack / 2 <= list.clientWidth) {
-                                return;
-                            }
-
-                            // Room for the "Mais" button itself, measured while visible.
-                            const more = this.$refs.more;
-                            more.style.display = '';
-                            const moreWidth = Math.ceil(more.getBoundingClientRect().width) + gap;
-                            more.style.display = 'none';
-
-                            // The active space always stays in the bar: its width is reserved
-                            // first, and the spaces before "Mais" give way to it instead. Picking
-                            // a space from "Mais" brings it into the bar and pushes the last
-                            // visible one into "Mais".
-                            const available = list.clientWidth - moreWidth - slack;
-                            let used = activeIndex >= 0 ? widths[activeIndex] : 0;
-                            let full = false;
-                            const overflowing = [];
-
-                            items.forEach((item, index) => {
-                                if (index === activeIndex) {
-                                    return;
-                                }
-
-                                if (! full && used + widths[index] <= available) {
-                                    used += widths[index];
-
-                                    return;
-                                }
-
-                                full = true;
-                                overflowing.push(item.dataset.spaceId);
+                            items.forEach((item) => {
+                                this.sizes[item.dataset.spaceId] = Math.ceil(item.getBoundingClientRect().width);
                             });
 
-                            this.hidden = overflowing;
+                            // «Mais» measured while showing, then left exactly as x-show had it
+                            // (forcing `none` hid it for good when x-show's value didn't change).
+                            const more = this.$refs.more;
+                            const display = more.style.display;
+                            more.style.display = '';
+                            this.moreWidth = Math.ceil(more.getBoundingClientRect().width);
+                            more.style.display = display;
+
+                            this.layout(items);
+                        });
+                    },
+
+                    layout(items) {
+                        const list = this.$el;
+
+                        const activeIndex = items.findIndex((item) => item.matches('.fi-active') || item.querySelector('.fi-active'));
+                        this.activeSpace = activeIndex >= 0 ? items[activeIndex].dataset.spaceId : null;
+
+                        const style = window.getComputedStyle(list);
+                        const gap = parseFloat(style.columnGap || style.gap || '0') || 0;
+                        const widths = items.map((item) => (this.sizes[item.dataset.spaceId] || 0) + gap);
+                        const total = widths.reduce((sum, width) => sum + width, 0);
+
+                        // Generous room — about one space — so «Mais» and its chevron are
+                        // never clipped: better one more space inside «Mais» than a
+                        // squeezed bar (rounding, hover background, late fonts).
+                        const slack = 120;
+
+                        if (total + slack / 2 <= list.clientWidth) {
+                            this.hidden = [];
+                            this.reveal();
+
+                            return;
+                        }
+
+                        // The active space always stays in the bar: its width is reserved
+                        // first, and the spaces before «Mais» give way to it instead. Picking
+                        // a space from «Mais» brings it into the bar and pushes the last
+                        // visible one into «Mais».
+                        const available = list.clientWidth - (this.moreWidth + gap) - slack;
+                        let used = activeIndex >= 0 ? widths[activeIndex] : 0;
+                        let full = false;
+                        const overflowing = [];
+
+                        items.forEach((item, index) => {
+                            if (index === activeIndex) {
+                                return;
+                            }
+
+                            if (! full && used + widths[index] <= available) {
+                                used += widths[index];
+
+                                return;
+                            }
+
+                            full = true;
+                            overflowing.push(item.dataset.spaceId);
+                        });
+
+                        this.hidden = overflowing;
+                        this.reveal();
+                    },
+
+                    // Shown only once laid out (the server renders it hidden, with a 1 s
+                    // CSS fallback in case this script never runs).
+                    reveal() {
+                        this.$nextTick(() => {
+                            this.$el.style.animation = 'none';
+                            this.$el.style.visibility = 'visible';
                         });
                     },
                 };
