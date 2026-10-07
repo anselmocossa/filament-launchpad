@@ -4,6 +4,13 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.10.5] - 2026-10-07
+
+### Fixed
+- The topbar dropdowns (☰, «Mais» and spaces with pages) fit the viewport and
+  scroll: with many spaces the ☰ ran past the bottom of a phone screen and the last
+  ones could not be reached (Filament dropdown `size`).
+
 ## [1.10.4] - 2026-10-07
 
 ### Fixed

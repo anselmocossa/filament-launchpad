@@ -17,6 +17,7 @@
         <x-filament::dropdown
             placement="bottom-start"
             teleport
+            size
         >
             <x-slot name="trigger">
                 <button
@@ -74,6 +75,7 @@
             <x-filament::dropdown
                 placement="bottom-start"
                 teleport
+                size
                 data-space-id="{{ $space['id'] }}"
                 x-bind:class="{ 'fi-launchpad-hidden': hidden.includes('{{ $space['id'] }}') }"
                 style="flex:0 0 auto"
@@ -146,6 +148,7 @@
         <x-filament::dropdown
             placement="bottom-end"
             teleport
+            size
         >
             <x-slot name="trigger">
                 <button
