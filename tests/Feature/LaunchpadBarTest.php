@@ -88,9 +88,28 @@ it('can render spaces as native Filament navigation beside the panel logo', func
         ->assertSeeHtml('fi-launchpad-topbar-navigation')
         ->assertSee('Início')
         ->assertSee('Clientes')
-        ->assertDontSee('Todos os Spaces')
-        ->assertDontSeeHtml('fi-launchpad-bar-nav')
-        ->assertDontSee('Mais');
+        ->assertDontSeeHtml('fi-launchpad-bar-nav');
+});
+
+it('offers only a ☰ with every space in the topbar on small screens', function () {
+    Livewire::test(LaunchpadBar::class, ['topbarOnly' => true])
+        ->assertSeeHtml('fi-launchpad-topbar-menu')
+        ->assertSeeHtml('aria-label="Todos os Spaces"')
+        ->assertSee('Visão Geral');
+});
+
+it('collapses topbar spaces that do not fit into a "Mais" dropdown', function () {
+    Livewire::test(LaunchpadBar::class, ['topbarOnly' => true])
+        // The list only takes the room left beside the logo and never wraps…
+        ->assertSeeHtml('x-data="launchpadTopbarOverflow()"')
+        ->assertSeeHtml('flex:1 1 0%;min-width:0;flex-wrap:nowrap;overflow:hidden')
+        // …each space is measurable and can be hidden…
+        ->assertSeeHtml('data-space-id=')
+        ->assertSeeHtml("hidden.includes(")
+        // …and the hidden ones move to "Mais", shown only when something overflows.
+        ->assertSeeHtml('x-ref="more"')
+        ->assertSeeHtml('x-show="hidden.length > 0"')
+        ->assertSee('Mais');
 });
 
 it('keeps the topbar list as the component root, even with no spaces to show', function () {

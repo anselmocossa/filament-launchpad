@@ -4,6 +4,21 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.10.0] - 2026-10-07
+
+### Added
+- **The topbar navigation collapses into «Mais».** With `topbarNavigation()`, the
+  spaces take only the room left between the logo and the topbar end, keep their
+  natural width and never wrap: the ones that don't fit move to a «Mais» dropdown at
+  the end of the list (same shapes as the sub-navigation bar). Measured on load, on
+  resize and after every Livewire update.
+- **The active space always stays in the bar.** Picking a space from «Mais» brings it
+  into the bar and pushes the last visible one into «Mais»; «Mais» is marked active
+  while the current space is inside it.
+- **Small screens get a ☰.** Below 1024 px, where Filament hides the topbar
+  navigation, the list shows only a ☰ (before the logo) with every space and its pages,
+  so a panel can drop both the sub-navigation bar and Filament's own navigation.
+
 ## [1.9.1] - 2026-09-26
 
 ### Fixed

@@ -287,6 +287,14 @@ LaunchpadPlugin::make()
 
 Both accept a `bool` or a `Closure`. Left unset, the secondary bar stays on and the topbar navigation stays off, exactly as before.
 
+The topbar navigation collapses on its own: spaces that don't fit beside the logo move to a «Mais» dropdown, the active space always stays visible, and below 1024 px the list becomes a single ☰ with every space and its pages. With both options above, a panel can also turn off Filament's own navigation (`->navigation(false)`); if it does, keep the topbar start visible on small screens so the logo and the ☰ show:
+
+```css
+@media (max-width: 63.999rem) {
+    .fi-topbar-start { display: flex; }
+}
+```
+
 ## Configuration
 
 The published config file (`config/launchpad.php`) exposes `branding`, `accent_color`, `dark_header`, and `tile_sizing`:
