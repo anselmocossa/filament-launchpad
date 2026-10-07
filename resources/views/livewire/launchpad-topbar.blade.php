@@ -231,6 +231,11 @@
                 .fi-launchpad-topbar-navigation > :not(.fi-launchpad-topbar-menu) {
                     display: none !important;
                 }
+
+                /* ☰ + logo only: the "‹" back control would sit between them. */
+                .fi-topbar .fi-launchpad-back {
+                    display: none;
+                }
             }
 
             @media (min-width: 64rem) {
@@ -262,6 +267,11 @@
 
                         this.$nextTick(() => this.measure());
 
+                        // Labels change width once the web font arrives: measure again.
+                        if (document.fonts && document.fonts.ready) {
+                            document.fonts.ready.then(() => this.debouncedMeasure());
+                        }
+
                         new ResizeObserver(() => this.debouncedMeasure()).observe(this.$el);
                         window.addEventListener('resize', () => this.debouncedMeasure());
                         Livewire.hook('morph.updated', () => this.debouncedMeasure());
@@ -290,24 +300,28 @@
 
                             const style = window.getComputedStyle(list);
                             const gap = parseFloat(style.columnGap || style.gap || '0') || 0;
-                            const widths = items.map((item) => item.offsetWidth + gap);
+                            const widths = items.map((item) => Math.ceil(item.getBoundingClientRect().width) + gap);
                             const total = widths.reduce((sum, width) => sum + width, 0);
 
-                            if (total <= list.clientWidth) {
+                            // Generous room, so the last space and «Mais» are never clipped
+                            // by a few pixels (rounding, hover background, late fonts).
+                            const slack = 40;
+
+                            if (total + slack / 2 <= list.clientWidth) {
                                 return;
                             }
 
                             // Room for the "Mais" button itself, measured while visible.
                             const more = this.$refs.more;
                             more.style.display = '';
-                            const moreWidth = more.offsetWidth + gap;
+                            const moreWidth = Math.ceil(more.getBoundingClientRect().width) + gap;
                             more.style.display = 'none';
 
                             // The active space always stays in the bar: its width is reserved
                             // first, and the spaces before "Mais" give way to it instead. Picking
                             // a space from "Mais" brings it into the bar and pushes the last
                             // visible one into "Mais".
-                            const available = list.clientWidth - moreWidth;
+                            const available = list.clientWidth - moreWidth - slack;
                             let used = activeIndex >= 0 ? widths[activeIndex] : 0;
                             let full = false;
                             const overflowing = [];

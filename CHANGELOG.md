@@ -4,6 +4,13 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.10.1] - 2026-10-07
+
+### Fixed
+- «Mais» always keeps generous room (40 px of slack, sub-pixel widths rounded up,
+  measured again once web fonts load), so neither it nor the last space gets clipped.
+- On small screens the "‹" back control hides, leaving just the ☰ and the logo.
+
 ## [1.10.0] - 2026-10-07
 
 ### Added
