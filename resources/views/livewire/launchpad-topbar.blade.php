@@ -305,9 +305,10 @@
                             const widths = items.map((item) => Math.ceil(item.getBoundingClientRect().width) + gap);
                             const total = widths.reduce((sum, width) => sum + width, 0);
 
-                            // Generous room, so the last space and «Mais» are never clipped
-                            // by a few pixels (rounding, hover background, late fonts).
-                            const slack = 40;
+                            // Generous room — about one space — so «Mais» and its chevron are
+                            // never clipped: better one more space inside «Mais» than a
+                            // squeezed bar (rounding, hover background, late fonts).
+                            const slack = 120;
 
                             if (total + slack / 2 <= list.clientWidth) {
                                 return;

@@ -4,6 +4,12 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.10.3] - 2026-10-07
+
+### Changed
+- The topbar keeps about one space of slack (120 px, up from 40) before «Mais»:
+  another space moves into «Mais» rather than the bar ending tight against it.
+
 ## [1.10.2] - 2026-10-07
 
 ### Fixed
