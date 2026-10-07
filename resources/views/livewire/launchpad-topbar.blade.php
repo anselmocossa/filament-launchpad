@@ -236,6 +236,13 @@
                 .fi-topbar .fi-launchpad-back {
                     display: none;
                 }
+
+                /* The start zone grows with a zero basis on wide screens (set inline in
+                   init()); here it keeps the ☰'s size, or the topbar end covers it. */
+                .fi-topbar .fi-topbar-start {
+                    flex: 0 0 auto !important;
+                    min-width: auto !important;
+                }
             }
 
             @media (min-width: 64rem) {

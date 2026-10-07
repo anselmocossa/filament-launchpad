@@ -4,6 +4,12 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.10.4] - 2026-10-07
+
+### Fixed
+- On small screens the topbar start zone keeps the ☰'s size: the zero-basis flex
+  used on wide screens let the global search and the topbar end cover the ☰.
+
 ## [1.10.3] - 2026-10-07
 
 ### Changed
