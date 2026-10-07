@@ -4,6 +4,15 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.10.2] - 2026-10-07
+
+### Fixed
+- **«Mais» clipped after navigating.** The topbar start zone grew with the list's
+  content (`flex: 1 1 auto`), so the room was measured with every space showing and
+  shrank once some were hidden; with a long active space (e.g. «Recursos Humanos»)
+  «Mais» lost its chevron. The zone now takes the free room with a zero basis, so
+  the list has the same width before and after collapsing.
+
 ## [1.10.1] - 2026-10-07
 
 ### Fixed

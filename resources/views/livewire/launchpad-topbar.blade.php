@@ -256,12 +256,14 @@
 
                     init() {
                         // The list sits inside the topbar's start zone, next to the logo.
-                        // Let that zone take the room up to the topbar end, so the list
-                        // gets everything that is left and nothing more.
+                        // That zone takes the free room up to the topbar end with a ZERO
+                        // basis: with `auto` its width followed the list's content, so the
+                        // list was measured wider (all spaces showing) than it ended up
+                        // (some hidden) and «Mais» got clipped.
                         const start = this.$el.parentElement;
 
                         if (start) {
-                            start.style.flex = '1 1 auto';
+                            start.style.flex = '1 1 0%';
                             start.style.minWidth = '0';
                         }
 
