@@ -6,6 +6,7 @@ use Filament\Launchpad\Models\Section;
 use Filament\Launchpad\Models\Space;
 use Filament\Launchpad\Models\UserCard;
 use Filament\Launchpad\Pages\EditHome;
+use Filament\Launchpad\Pages\Launchpad;
 use Filament\Launchpad\Tests\Support\TestUser;
 use Livewire\Livewire;
 
@@ -60,7 +61,7 @@ function editHomeSectionTitles(object $component): array
         ->all();
 }
 
-it('renders the standalone Edit Home page with no resource breadcrumb', function () {
+it('renders the standalone Edit Home page with a Home › Edit Home breadcrumb', function () {
     $page = homePage();
     $section = Section::query()->create(['page_id' => $page->id, 'title' => 'Favoritos', 'sort' => 0]);
     $section->cards()->create(['title' => 'Aulas', 'type' => 'kpi'], ['sort' => 0, 'is_pinned' => false]);
@@ -70,8 +71,9 @@ it('renders the standalone Edit Home page with no resource breadcrumb', function
         ->assertSee('Cards e Widgets Disponíveis')
         ->assertSee('Favoritos');
 
-    expect($component->instance()->getBreadcrumbs())->toBe([])
-        ->and($component->instance()->getTitle())->toBe('Edit Home');
+    expect(array_values($component->instance()->getBreadcrumbs()))->toBe(['Início', 'Editar início'])
+        ->and(array_key_first($component->instance()->getBreadcrumbs()))->toBe(Launchpad::getUrl())
+        ->and($component->instance()->getTitle())->toBe('Editar início');
 });
 
 it('operates on the home page personal layer when adding an available card', function () {

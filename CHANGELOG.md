@@ -4,6 +4,16 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.11.1] - 2026-10-10
+
+### Changed
+- «Edit Home» now shows a breadcrumb (Home › Edit Home) like every other page, linking back to
+  the launchpad home it edits.
+
+### Fixed
+- Portuguese locales (pt, pt_BR, pt_PT) translate the page title: «Editar início» instead of
+  «Edit Home».
+
 ## [1.11.0] - 2026-10-10
 
 ### Added

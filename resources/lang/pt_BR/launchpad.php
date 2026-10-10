@@ -133,7 +133,8 @@ return [
         'paginas' => 'Páginas',
         'cards' => 'Cards',
         'construtor' => 'Construtor',
-        'editar_inicio' => 'Edit Home',
+        'inicio' => 'Início',
+        'editar_inicio' => 'Editar início',
         'spaces' => 'Spaces',
     ],
 

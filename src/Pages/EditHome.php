@@ -164,14 +164,18 @@ class EditHome extends Page
     }
 
     /**
-     * No breadcrumb trail at all — this page is a direct shortcut, not part
-     * of the Spaces/Pages management tree.
+     * «Início › Editar início»: the page is a direct shortcut (not part of the
+     * Spaces/Pages management tree), but every page shows where it sits and
+     * how to go back — here, to the launchpad home it edits.
      *
      * @return array<string, string>
      */
     public function getBreadcrumbs(): array
     {
-        return [];
+        return [
+            Launchpad::getUrl() => __('launchpad::launchpad.nav.inicio'),
+            __('launchpad::launchpad.nav.editar_inicio'),
+        ];
     }
 
     protected function builderPage(): PageModel
