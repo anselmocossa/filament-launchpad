@@ -4,11 +4,14 @@ namespace Filament\Launchpad\Livewire;
 
 use Filament\Launchpad\Launchpad\LaunchpadPage;
 use Filament\Launchpad\Launchpad\LaunchpadSpace;
+use Filament\Launchpad\Launchpad\Tile;
 use Filament\Launchpad\LaunchpadPlugin;
+use Filament\Launchpad\Support\LaunchpadPanel;
 use Filament\Launchpad\Support\LaunchpadUrl;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Throwable;
 
 /**
  * Owns the launchpad sub-nav state (the active space + active page inside
@@ -24,6 +27,12 @@ use Livewire\Component;
  */
 class LaunchpadBar extends Component
 {
+    /**
+     * Session key (suffixed with the panel id) holding the space the user last
+     * chose. It breaks ties when one URL has a card in several spaces.
+     */
+    public const SESSION_KEY = 'launchpad.last_space';
+
     public bool $topbarOnly = false;
 
     public string $activeSpace = '';
@@ -34,8 +43,24 @@ class LaunchpadBar extends Component
     {
         $this->topbarOnly = $topbarOnly;
 
-        $space = $this->findSpace((string) request()->query('space')) ?? ($this->getPlugin()->getSpaces()[0] ?? null);
+        $spaceId = (string) request()->query('space');
         $pageId = (string) request()->query('page');
+
+        $space = $this->findSpace($spaceId);
+
+        if ($space instanceof LaunchpadSpace) {
+            $this->rememberSpace($space->getId());
+        } elseif (blank($spaceId)) {
+            // Outside the launchpad (a page opened from a card): keep the space
+            // whose card links here selected, on the page that holds that card.
+            [$space, $matchedPageId] = $this->resolveSpaceFromCurrentPath();
+
+            if ($space instanceof LaunchpadSpace) {
+                $pageId = $matchedPageId;
+            }
+        }
+
+        $space ??= $this->getPlugin()->getSpaces()[0] ?? null;
 
         $this->activeSpace = $space?->getId() ?? '';
         $this->activePage = $this->pageBelongsToSpace($space, $pageId) ? $pageId : $this->firstPageId($space);
@@ -82,6 +107,143 @@ class LaunchpadBar extends Component
     }
 
     /**
+     * Finds the space whose card links to the page being served, for requests
+     * that carry no `?space=`.
+     *
+     * Runs once per request, from mount(), over the spaces the plugin already
+     * built and memoised for this user (so only spaces, pages, sections and
+     * tiles the user may see take part, and no query is added). A tile matches
+     * when its URL path equals the request path or is an ancestor of it
+     * (`/store/documentos` matches `/store/documentos/5/edit`); the query string
+     * is ignored. Tiles pointing at the panel root, or above it, never match,
+     * or they would match every page.
+     *
+     * Per space, its longest matching tile path counts. Then:
+     *   1. the space the user last chose wins whenever it has a matching tile
+     *      (this keeps the space visible while the user works inside a page
+     *      opened from one of its cards, even if another space also links
+     *      to a deeper URL);
+     *   2. otherwise the space with the longest matching path wins;
+     *   3. ties go to a space other than the first one (the first is "Início",
+     *      whose cards are mostly shortcuts to other spaces' pages), and only if
+     *      none exists to the first.
+     *
+     * @return array{0: ?LaunchpadSpace, 1: string} the space and the id of the page that holds the matching tile
+     */
+    protected function resolveSpaceFromCurrentPath(): array
+    {
+        $current = rtrim('/'.request()->path(), '/');
+        $root = $this->panelRootPath();
+
+        // The host root, or the panel root itself: nothing can match.
+        if ($current === '' || $current === $root) {
+            return [null, ''];
+        }
+
+        $spaces = $this->getPlugin()->getSpaces();
+
+        // space index => the longest matching tile path and the page holding it.
+        $matches = [];
+
+        foreach ($spaces as $index => $space) {
+            foreach ($space->getPages() as $page) {
+                foreach ($page->getSections() as $section) {
+                    foreach ($section->getTiles() as $tile) {
+                        $path = $this->tilePath($tile);
+
+                        if ($path === null || str_starts_with($root.'/', $path.'/')) {
+                            continue;
+                        }
+
+                        if ($current !== $path && ! str_starts_with($current, $path.'/')) {
+                            continue;
+                        }
+
+                        if (strlen($path) > ($matches[$index]['length'] ?? 0)) {
+                            $matches[$index] = ['length' => strlen($path), 'page' => $page->getId()];
+                        }
+                    }
+                }
+            }
+        }
+
+        if ($matches === []) {
+            return [null, ''];
+        }
+
+        $remembered = $this->rememberedSpaceId();
+
+        foreach ($matches as $index => $match) {
+            if ($remembered !== null && $spaces[$index]->getId() === $remembered) {
+                return [$spaces[$index], $match['page']];
+            }
+        }
+
+        $longest = max(array_column($matches, 'length'));
+        $tied = array_keys(array_filter($matches, fn (array $match): bool => $match['length'] === $longest));
+        $index = collect($tied)->first(fn (int $index): bool => $index !== 0) ?? $tied[0];
+
+        return [$spaces[$index], $matches[$index]['page']];
+    }
+
+    /**
+     * The tile's URL path without query or trailing slash, or null when the
+     * tile has no local path to compare (widgets, inert tiles, non-path URLs).
+     */
+    protected function tilePath(Tile $tile): ?string
+    {
+        if ($tile->isWidget()) {
+            return null;
+        }
+
+        $url = $tile->getUrl();
+
+        if (! is_string($url) || $url === '') {
+            return null;
+        }
+
+        $path = parse_url($url, PHP_URL_PATH);
+
+        if (! is_string($path) || ! str_starts_with($path, '/')) {
+            return null;
+        }
+
+        $path = rtrim($path, '/');
+
+        return $path === '' ? null : $path;
+    }
+
+    protected function panelRootPath(): string
+    {
+        return rtrim((string) parse_url(LaunchpadUrl::panelHome(), PHP_URL_PATH), '/');
+    }
+
+    protected function sessionKey(): string
+    {
+        return self::SESSION_KEY.'.'.(LaunchpadPanel::id() ?? 'default');
+    }
+
+    protected function rememberSpace(string $spaceId): void
+    {
+        try {
+            session([$this->sessionKey() => $spaceId]);
+        } catch (Throwable) {
+            // No session available (e.g. a stateless request): nothing to remember.
+        }
+    }
+
+    protected function rememberedSpaceId(): ?string
+    {
+        try {
+            $spaceId = session($this->sessionKey());
+        } catch (Throwable) {
+            return null;
+        }
+
+        return is_string($spaceId) && $spaceId !== '' ? $spaceId : null;
+    }
+
+    /**
      * Activates a space and its first page (the default entry point when a
      * space is chosen from the sub-nav directly, rather than via its
      * dropdown).
@@ -90,6 +252,7 @@ class LaunchpadBar extends Component
     {
         $this->activeSpace = $spaceId;
         $this->activePage = $this->firstPageId($this->findSpace($spaceId));
+        $this->rememberChosenSpace($spaceId);
 
         $this->dispatch('launchpad-page-selected', space: $this->activeSpace, page: $this->activePage);
         $this->redirectToLaunchpadWhenNeeded();
@@ -103,9 +266,21 @@ class LaunchpadBar extends Component
     {
         $this->activeSpace = $spaceId;
         $this->activePage = $pageId;
+        $this->rememberChosenSpace($spaceId);
 
         $this->dispatch('launchpad-page-selected', space: $spaceId, page: $pageId);
         $this->redirectToLaunchpadWhenNeeded();
+    }
+
+    /**
+     * Only an id that names a space the user can see is remembered: the id
+     * arrives from the browser.
+     */
+    protected function rememberChosenSpace(string $spaceId): void
+    {
+        if ($this->findSpace($spaceId) instanceof LaunchpadSpace) {
+            $this->rememberSpace($spaceId);
+        }
     }
 
     protected function redirectToLaunchpadWhenNeeded(): void

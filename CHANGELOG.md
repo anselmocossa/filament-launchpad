@@ -4,6 +4,12 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.11.0] - 2026-10-10
+
+### Added
+- The topbar keeps the space you came from: on pages outside the launchpad, the active
+  space is the one whose card links to the current page (last chosen space wins ties).
+
 ## [1.10.6] - 2026-10-07
 
 ### Fixed
