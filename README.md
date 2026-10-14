@@ -39,13 +39,14 @@ Turn your Filament panel's homepage into a SAP Fiori-style launchpad: Spaces, Pa
 - **Fiori-style launchpad home page** — sub-nav tabs, grouped sections, and a grid of clickable cards, rendered inside the native Filament page shell (topbar, sidebar, breadcrumbs and dark mode stay untouched).
 - **Space → Page → Section → Card hierarchy** — manage everything through dedicated Filament Resources and nested relation managers.
 - **Sub-nav navigation** — "☰ All Spaces" menu, a per-space Pages dropdown, and an automatic "More ▾" overflow (priority-nav) so the tab bar never scrolls.
+- **Topbar navigation** — optionally render spaces and pages beside the panel logo; the list collapses into «Mais» and, on small screens, a single ☰, and it keeps the space you came from while you work in a page opened from one of its cards.
 - **Three card types** — KPI (live value from a `KpiSource` class), Shortcut (link to a Resource, Page or URL), and Widget (renders a native `StatsOverviewWidget`/`ChartWidget` in place of the card).
 - **Class-based KPI engine** — a `KpiSource` returns a rich `KpiResult` (value + unit + trend + badge) from one query; auto-discovered under `app/Filament/Launchpad`, resolved lazily with per-request memoization and an optional (tenant-safe) cached TTL, and scopeable per panel. Legacy closure sources still supported; a throwing source degrades the tile to `—`. Never `eval`'d, never user-controlled.
 - **Artisan generators** — `make:launchpad-kpi`, `make:launchpad-widget` and `make:launchpad-card` scaffold KPI/widget/card-preset classes (auto `Kpi`/`Widget`/`Card` suffix, optional `--model=` subfolder).
 - **Reusable card library** — draggable presets for the builder, defined once and dropped into as many sections as needed.
 - **Auto-discovered widget library** — widgets already registered on the panel are available in the builder out of the box; override label/icon/column span or add extra ones only when needed.
 - **Drag-and-drop layout builder** — native HTML5 Drag and Drop (Alpine-driven, no external JS library), with a searchable Card Library and Widgets panel.
-- **"Edit Home" shortcut** — a one-click entry in the account/user menu straight into the builder for the home page, without navigating the Spaces/Pages tree.
+- **"Edit Home" shortcut** — a one-click entry in the account/user menu straight into the builder for the home page, without navigating the Spaces/Pages tree; the builder shows a *Home › Edit Home* breadcrumb back to the launchpad.
 - **Global search** — Cards are searchable from Filament's built-in global search, with the Section/Page/Space they live in shown as result details.
 - **Role-based visibility (Fiori-style permissions)** — a "Permission" field on every Space/Page/Section/Card, softly integrated with `bezhansalleh/filament-shield` and `spatie/laravel-permission`.
 - **Localization** — English, European Portuguese, Brazilian Portuguese and generic Portuguese translations included, fully overridable.
@@ -294,6 +295,14 @@ The topbar navigation collapses on its own: spaces that don't fit beside the log
     .fi-topbar-start { display: flex; }
 }
 ```
+
+#### The active space outside the launchpad
+
+On the launchpad itself the active space comes from `?space=`. On any other page — a resource opened from a card, say — the bar keeps the space you came from instead of falling back to the first one: the active space is the one with a card linking to the current page, and the open page is the one that holds that card.
+
+- A card matches when its URL path equals the current path or is a parent of it (`/admin/orders` matches `/admin/orders/5/edit`); the query string is ignored, and cards pointing at the panel root never match.
+- When several spaces have a matching card, the space you last chose wins (remembered in the session per panel); otherwise the longest matching path wins, and a tie goes to a space other than the first one.
+- Only spaces, pages and cards the user may see take part, and no extra query is run.
 
 ## Configuration
 
