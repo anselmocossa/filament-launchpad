@@ -4,6 +4,15 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.14.0] - 2026-10-14
+
+### Added
+- Personal bookmarks — Fiori's "Save as Tile": `LaunchpadPlugin::make()->bookmarks()` adds a
+  **Save to Home** button to every page header. It pins the page (URL with its query string,
+  title and icon) to a personal **My shortcuts** section of the user's home; pressing it again
+  removes it. Bookmarks render only for their owner and stay out of the shared card catalog,
+  the Cards resource and the global search. Off by default.
+
 ## [1.13.0] - 2026-10-14
 
 ### Added

@@ -35,8 +35,11 @@ use Filament\Widgets\WidgetConfiguration;
 use FilesystemIterator;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
@@ -93,6 +96,12 @@ class LaunchpadPlugin implements Plugin
 
     /** Whether spaces/pages are rendered as native items beside the panel logo. */
     protected bool|Closure $topbarNavigation = false;
+
+    /**
+     * "Save to Home" (Fiori's bookmark tile) in every page header of the panel.
+     * Off by default.
+     */
+    protected bool|Closure $bookmarks = false;
 
     /**
      * @var array<LaunchpadSpace>
@@ -433,6 +442,38 @@ class LaunchpadPlugin implements Plugin
             PanelsRenderHook::TOPBAR_LOGO_BEFORE,
             fn () => $inThisPanel() ? view('launchpad::hooks.back-button') : null,
         );
+
+        // "Save to Home" beside the page's own header actions. Not on the
+        // launchpad home itself (bookmarking home makes no sense), and only for a
+        // signed-in user. The header re-renders on every Livewire update of the
+        // page, so the button must render then too: the path comes from the
+        // Referer there (the request goes to /livewire/update), and Livewire keeps
+        // the already-mounted button by its key anyway.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::PAGE_HEADER_ACTIONS_BEFORE,
+            function () use ($inThisPanel, $panel): ?\Illuminate\Contracts\Support\Htmlable {
+                if (! $inThisPanel() || ! $this->hasBookmarks() || ! auth()->check()) {
+                    return null;
+                }
+
+                if (Livewire::isLivewireRequest()) {
+                    $referer = (string) request()->header('Referer');
+                    $query = parse_url($referer, PHP_URL_QUERY);
+                    $path = (parse_url($referer, PHP_URL_PATH) ?: '/').($query ? '?'.$query : '');
+                } else {
+                    $path = request()->getRequestUri();
+                }
+
+                if (rtrim(parse_url($path, PHP_URL_PATH) ?? '', '/') === '/'.trim($panel->getPath(), '/')) {
+                    return null;
+                }
+
+                return new HtmlString(Blade::render(
+                    '@livewire(\\Filament\\Launchpad\\Livewire\\BookmarkButton::class, [\'path\' => $path], key(\'lp-bookmark-\'.md5($path)))',
+                    ['path' => $path],
+                ));
+            },
+        );
     }
 
     public function enabled(bool $enabled = true): static
@@ -476,6 +517,23 @@ class LaunchpadPlugin implements Plugin
     public function hasTopbarNavigation(): bool
     {
         return (bool) value($this->topbarNavigation);
+    }
+
+    /**
+     * Adds a "Save to Home" button to every page header of the panel: the user
+     * pins the page they are on to their own home, in a personal "My shortcuts"
+     * section only they see (see Support\LaunchpadBookmarks).
+     */
+    public function bookmarks(bool|Closure $condition = true): static
+    {
+        $this->bookmarks = $condition;
+
+        return $this;
+    }
+
+    public function hasBookmarks(): bool
+    {
+        return (bool) value($this->bookmarks);
     }
 
     /**

@@ -190,4 +190,13 @@ return [
         'title' => 'Launchpad',
         'empty' => 'No tiles configured yet.',
     ],
+
+    'bookmarks' => [
+        'save' => 'Save to Home',
+        'in_home' => 'In Home',
+        'section' => 'My shortcuts',
+        'saved' => 'Saved to your Home.',
+        'removed' => 'Removed from your Home.',
+        'no_home' => 'There is no Home to save to yet.',
+    ],
 ];

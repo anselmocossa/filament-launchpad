@@ -4,6 +4,7 @@ namespace Filament\Launchpad\Models;
 
 use Filament\Launchpad\Models\Concerns\BelongsToLaunchpadTenant;
 use Filament\Launchpad\Models\Concerns\HasLaunchpadVisibility;
+use Filament\Launchpad\Support\LaunchpadBookmarks;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -50,5 +51,16 @@ class Card extends Model
     public function userCards(): HasMany
     {
         return $this->hasMany(UserCard::class, 'card_id');
+    }
+
+    /**
+     * Leaves out personal bookmarks (Support\LaunchpadBookmarks): they belong to
+     * one user and must not show up in shared listings, catalogs or searches.
+     */
+    public function scopeWithoutBookmarks($query)
+    {
+        return $query->where(fn ($query) => $query
+            ->whereNull('library_key')
+            ->orWhere('library_key', 'not like', LaunchpadBookmarks::KEY_PREFIX.'%'));
     }
 }

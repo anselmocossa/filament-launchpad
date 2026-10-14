@@ -495,6 +495,8 @@ trait InteractsWithLaunchpadBuilder
         $search = trim($this->catalogSearch);
 
         $query = Card::query()
+            // Personal bookmarks are one user's own, never catalog items.
+            ->withoutBookmarks()
             // Only the template's cards plus this layer's own — never another
             // tenant's, which would leak its private cards into this catalog.
             ->when(

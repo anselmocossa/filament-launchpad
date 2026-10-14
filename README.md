@@ -335,6 +335,18 @@ The topbar navigation collapses on its own: spaces that don't fit beside the log
 }
 ```
 
+### Personal bookmarks ("Save to Home")
+
+Let users pin any page of the panel to their own home — Fiori's "Save as Tile":
+
+```php
+LaunchpadPlugin::make()->bookmarks();
+```
+
+Every page header then shows a **Save to Home** button (★). It adds a shortcut card to a personal **My shortcuts** section at the end of the user's home, named after the page and with its icon; on a saved page the button reads **In Home**, and pressing it again removes the card. The URL is kept with its query string, so a filtered list can be saved as it is.
+
+Bookmarks are one user's own: the personal section only renders for its owner, and bookmark cards stay out of the shared card catalog, the Cards resource and the global search. The button is not shown on the launchpad home itself. Off by default.
+
 #### The active space outside the launchpad
 
 On the launchpad itself the active space comes from `?space=`. On any other page — a resource opened from a card, say — the bar keeps the space you came from instead of falling back to the first one: the active space is the one with a card linking to the current page, and the open page is the one that holds that card.

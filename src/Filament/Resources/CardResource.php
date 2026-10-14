@@ -16,6 +16,7 @@ use Filament\Resources\Resource;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Throwable;
 
@@ -37,7 +38,11 @@ class CardResource extends Resource
     use GatedByResourceAccess;
     use HasCardForm;
     use HasLaunchpadIconOptions;
-    use ScopesToLaunchpadTenant;
+    use ScopesToLaunchpadTenant {
+        // Aliased so getEloquentQuery() below can add to the tenant scope
+        // instead of replacing it (a class method wins over a trait's).
+        getEloquentQuery as tenantScopedEloquentQuery;
+    }
 
     protected static ?string $model = Card::class;
 
@@ -53,6 +58,15 @@ class CardResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('launchpad::launchpad.models.cards');
+    }
+
+    /**
+     * Personal bookmarks are one user's own (LaunchpadBookmarks): never in the
+     * shared Cards list nor in anyone's global search.
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return static::tenantScopedEloquentQuery()->withoutBookmarks();
     }
 
     public static function getGloballySearchableAttributes(): array

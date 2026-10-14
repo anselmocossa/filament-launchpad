@@ -190,4 +190,13 @@ return [
         'title' => 'Launchpad',
         'empty' => 'Ainda não há tiles configurados.',
     ],
+
+    'bookmarks' => [
+        'save' => 'Guardar no Início',
+        'in_home' => 'No Início',
+        'section' => 'Os meus atalhos',
+        'saved' => 'Guardado no seu Início.',
+        'removed' => 'Retirado do seu Início.',
+        'no_home' => 'Ainda não há um Início onde guardar.',
+    ],
 ];
