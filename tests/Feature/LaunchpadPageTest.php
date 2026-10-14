@@ -53,6 +53,17 @@ it('mounts with the first space and its first page active, rendering its section
         ->assertDontSee('Clientes Activos');
 });
 
+it('wraps fixed-size tiles onto the next row on narrow screens instead of squeezing six per row', function () {
+    // Regression: 'fixed' used repeat(6,1fr), which always crammed six tiles per
+    // row — titles broke into several lines and a wide KPI value pushed its tile
+    // past the right edge. Now at most six per row on wide screens, but never
+    // narrower than the configured tile width.
+    Livewire::test(Launchpad::class)
+        ->assertOk()
+        ->assertSeeHtml('grid-template-columns:repeat(auto-fill,minmax(max(176px,calc((100% - 70px) / 6 - 1px)),1fr))')
+        ->assertDontSeeHtml('repeat(6,1fr)');
+});
+
 it('actually compiles the heroicon svg for both tile variants without erroring', function () {
     // Regression: @svg() was called with a named `style:` argument, which the
     // blade-icons svg(string $name, $class = '', array $attributes = []) helper

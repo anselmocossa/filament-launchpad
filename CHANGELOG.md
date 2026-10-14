@@ -4,6 +4,12 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+### Fixed
+- Fixed-size tiles (`tileSizing('fixed')`, the default) wrap onto the next row on narrow
+  screens instead of squeezing six per row: titles no longer break into several lines and a
+  wide KPI value no longer pushes its tile past the right edge. Wide screens still show at
+  most six tiles per row.
+
 ## [1.11.1] - 2026-10-10
 
 ### Changed

@@ -182,9 +182,14 @@
                         @php
                             $tileSizing = $theme['tileSizing'] ?? 'fixed';
                             $tileW = $theme['tileW'];
+                            // 'fixed': no maximo 6 por fila (como antes, em ecra largo), mas
+                            // cada tile nunca abaixo de tileW — num ecra estreito passam para
+                            // a fila seguinte. O antigo repeat(6,1fr) espremia sempre 6 por
+                            // fila: os titulos partiam e um KPI largo saia pela direita.
+                            // (6 colunas = 5 gaps de 14px; o -1px evita cair para 5 por arredondamento.)
                             $gridColumns = $tileSizing === 'fluid'
                                 ? "repeat(auto-fit,minmax({$tileW}px,1fr))"
-                                : "repeat(6,1fr)";
+                                : "repeat(auto-fill,minmax(max({$tileW}px,calc((100% - 70px) / 6 - 1px)),1fr))";
                             $tileWidth = '100%';
                         @endphp
                         <div style="display:grid;grid-template-columns:{{ $gridColumns }};gap:14px;margin-bottom:14px">
