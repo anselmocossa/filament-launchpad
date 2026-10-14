@@ -16,11 +16,33 @@ Turn your Filament panel's homepage into a SAP Fiori-style launchpad: Spaces, Pa
 ![Launchpad — dark mode](art/launchpad-dark.png)
 *The same home page in dark mode — panel chrome (topbar, sidebar) stays native.*
 
+![Spaces in the topbar](art/topbar-navigation.png)
+*`->topbarNavigation()`: the spaces sit beside the panel logo, with no bar below the topbar. KPI tiles draw a chart of their last twelve months.*
+
+![A space's pages](art/topbar-pages.png)
+*A space with several pages opens a dropdown of its pages.*
+
+![Spaces that don't fit](art/topbar-more.png)
+*Spaces that don't fit beside the logo move to a "More" dropdown («Mais» in Portuguese).*
+
+![The space you came from](art/topbar-keeps-space.png)
+*A resource opened from a card keeps its space active: Products, opened from Shop › Catalog, still shows Shop.*
+
+<img src="art/topbar-mobile.png" alt="Topbar navigation on a phone" width="320">
+
+*Below 1024 px the list becomes a single ☰ with every space and its pages.*
+
+![KPI tiles with sparklines](art/kpi-sparkline.png)
+*KPI tiles with a sparkline: an area in the default accent color, bars, or an area in a color of your choice.*
+
 ![Drag-and-drop builder](art/builder.png)
 *The layout builder: drag cards from the library or existing sections to rearrange the page.*
 
 ![Edit Home menu entry](art/user-menu.png)
 *"Edit Home" in the account/user menu — a one-click shortcut into the builder for the home page.*
+
+![Edit Home](art/edit-home.png)
+*Edit Home: each user arranges their own home — adds available cards and drags them into place; cards fixed by the administrators show a lock. The breadcrumb leads back to the launchpad.*
 
 ![Role-based permissions](art/permissions.png)
 *The "Permission" field on a Space/Page/Section/Card, restricting visibility to selected roles.*
@@ -39,9 +61,9 @@ Turn your Filament panel's homepage into a SAP Fiori-style launchpad: Spaces, Pa
 - **Fiori-style launchpad home page** — sub-nav tabs, grouped sections, and a grid of clickable cards, rendered inside the native Filament page shell (topbar, sidebar, breadcrumbs and dark mode stay untouched).
 - **Space → Page → Section → Card hierarchy** — manage everything through dedicated Filament Resources and nested relation managers.
 - **Sub-nav navigation** — "☰ All Spaces" menu, a per-space Pages dropdown, and an automatic "More ▾" overflow (priority-nav) so the tab bar never scrolls.
-- **Topbar navigation** — optionally render spaces and pages beside the panel logo; the list collapses into «Mais» and, on small screens, a single ☰, and it keeps the space you came from while you work in a page opened from one of its cards.
+- **Topbar navigation** — optionally render spaces and pages beside the panel logo; the list collapses into a "More" dropdown and, on small screens, a single ☰, and it keeps the space you came from while you work in a page opened from one of its cards.
 - **Three card types** — KPI (live value from a `KpiSource` class), Shortcut (link to a Resource, Page or URL), and Widget (renders a native `StatsOverviewWidget`/`ChartWidget` in place of the card).
-- **Class-based KPI engine** — a `KpiSource` returns a rich `KpiResult` (value + unit + trend + badge) from one query; auto-discovered under `app/Filament/Launchpad`, resolved lazily with per-request memoization and an optional (tenant-safe) cached TTL, and scopeable per panel. Legacy closure sources still supported; a throwing source degrades the tile to `—`. Never `eval`'d, never user-controlled.
+- **Class-based KPI engine** — a `KpiSource` returns a rich `KpiResult` (value + unit + trend + badge, and optionally an area or bar sparkline) from one query; auto-discovered under `app/Filament/Launchpad`, resolved lazily with per-request memoization and an optional (tenant-safe) cached TTL, and scopeable per panel. Legacy closure sources still supported; a throwing source degrades the tile to `—`. Never `eval`'d, never user-controlled.
 - **Artisan generators** — `make:launchpad-kpi`, `make:launchpad-widget` and `make:launchpad-card` scaffold KPI/widget/card-preset classes (auto `Kpi`/`Widget`/`Card` suffix, optional `--model=` subfolder).
 - **Reusable card library** — draggable presets for the builder, defined once and dropped into as many sections as needed.
 - **Auto-discovered widget library** — widgets already registered on the panel are available in the builder out of the box; override label/icon/column span or add extra ones only when needed.
@@ -198,13 +220,15 @@ A KPI tile can draw a small chart in place of its trend line — an area (a line
 ```php
 return KpiResult::make(Candidate::count())
     ->trend("+{$thisMonth} this month")
-    ->sparkline($lastTwelveMonths);                    // area, in the panel's accent color
+    ->sparkline($lastTwelveMonths);                    // area, in the launchpad accent color
 
 return KpiResult::make($open)
     ->sparkline($applicationsPerWeek, 'bar', '#16a34a'); // bars, in a color of your choice
 ```
 
-The chart is inline SVG — no chart library, no JavaScript — and stretches to the tile's width. The trend text, when set, becomes the chart's tooltip. Only live sources draw one: a series isn't something an editor types into the card form.
+![KPI tiles with sparklines](art/kpi-sparkline.png)
+
+The chart is inline SVG — no chart library, no JavaScript — and stretches to the tile's width. Without a color it uses the launchpad accent color (`accent_color` in `config/launchpad.php` or `->accentColor()`, green by default). The trend text, when set, becomes the chart's tooltip. Only live sources draw one: a series isn't something an editor types into the card form.
 
 ### Card library
 
@@ -303,7 +327,7 @@ LaunchpadPlugin::make()
 
 Both accept a `bool` or a `Closure`. Left unset, the secondary bar stays on and the topbar navigation stays off, exactly as before.
 
-The topbar navigation collapses on its own: spaces that don't fit beside the logo move to a «Mais» dropdown, the active space always stays visible, and below 1024 px the list becomes a single ☰ with every space and its pages. With both options above, a panel can also turn off Filament's own navigation (`->navigation(false)`); if it does, keep the topbar start visible on small screens so the logo and the ☰ show:
+The topbar navigation collapses on its own: spaces that don't fit beside the logo move to a "More" dropdown («Mais» in Portuguese), the active space always stays visible, and below 1024 px the list becomes a single ☰ with every space and its pages. With both options above, a panel can also turn off Filament's own navigation (`->navigation(false)`); if it does, keep the topbar start visible on small screens so the logo and the ☰ show:
 
 ```css
 @media (max-width: 63.999rem) {
