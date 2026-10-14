@@ -77,14 +77,14 @@
                                         @endif
                                     </div>
                                     @if ($tile['icon'])
-                                        @svg($tile['icon'], '', ['style' => 'width:20px;height:20px;flex:none;color:var(--lp-icon-muted)'])
+                                        @svg($tile['icon'], '', ['style' => 'width:20px;height:20px;flex:none;color:var(--lp-tile-icon, var(--lp-icon-muted))'])
                                     @endif
                                 </div>
                             @else
                                 {{-- Variante só-ícone --}}
                                 <div style="display:flex;align-items:flex-end;justify-content:space-between">
                                     @if ($tile['icon'])
-                                        @svg($tile['icon'], '', ['style' => 'width:28px;height:28px;color:var(--lp-icon-muted)'])
+                                        @svg($tile['icon'], '', ['style' => 'width:28px;height:28px;color:var(--lp-tile-icon, var(--lp-icon-muted))'])
                                     @endif
                                     @if ($tile['nota'])
                                         <span style="font-size:10.5px;color:var(--lp-icon-muted)">{{ $tile['nota'] }}</span>

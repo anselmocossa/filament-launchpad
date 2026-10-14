@@ -64,6 +64,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Tile icon tone
+    |--------------------------------------------------------------------------
+    |
+    | Color of the icons drawn on the tiles: 'muted' keeps them pale gray,
+    | 'strong' draws them dark, close to the tile text. The fluent setting
+    | wins over this value. Prefer: LaunchpadPlugin::make()->tileIconTone('strong')
+    |
+    */
+    'tile_icon_tone' => 'muted',
+
+    /*
+    |--------------------------------------------------------------------------
     | Tabs, groups & tiles
     |--------------------------------------------------------------------------
     |

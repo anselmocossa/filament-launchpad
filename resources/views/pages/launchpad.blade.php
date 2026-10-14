@@ -15,17 +15,19 @@
         :root{
             --lp-surface:#ffffff; --lp-border:rgba(3,7,18,.05); --lp-text:#111827; --lp-muted:#6b7280;
             --lp-badge-bg:#f3f4f6; --lp-badge-text:#374151; --lp-hover-shadow:rgba(17,24,39,.10);
-            --lp-hover-border:rgba(3,7,18,.1); --lp-icon-muted:#9ca3af;
+            --lp-hover-border:rgba(3,7,18,.1); --lp-icon-muted:#9ca3af; --lp-icon-strong:#374151;
             --lp-shadow:0 0 0 1px rgba(3,7,18,.05),0 1px 3px 0 rgba(0,0,0,.1),0 1px 2px -1px rgba(0,0,0,.1);
             --lp-shadow-hover:0 0 0 1px rgba(3,7,18,.08),0 4px 12px -2px rgba(0,0,0,.12),0 2px 6px -2px rgba(0,0,0,.1);
         }
         html.dark{
             --lp-surface:#18181b; --lp-border:rgba(255,255,255,.1); --lp-text:#f4f4f5; --lp-muted:#a1a1aa;
             --lp-badge-bg:rgba(255,255,255,.08); --lp-badge-text:#d4d4d8; --lp-hover-shadow:rgba(0,0,0,.4);
-            --lp-hover-border:rgba(255,255,255,.18); --lp-icon-muted:#a1a1aa;
+            --lp-hover-border:rgba(255,255,255,.18); --lp-icon-muted:#a1a1aa; --lp-icon-strong:#e4e4e7;
             --lp-shadow:0 0 0 1px rgba(255,255,255,.1),0 1px 3px 0 rgba(0,0,0,.3);
             --lp-shadow-hover:0 0 0 1px rgba(255,255,255,.16),0 6px 16px -4px rgba(0,0,0,.5);
         }
+        {{-- Tile icons: 'muted' (pale gray) or 'strong' (dark), see LaunchpadPlugin::tileIconTone(). --}}
+        :root{--lp-tile-icon:var(--lp-icon-{{ $theme['tileIconTone'] ?? 'muted' }})}
         .lp-widget-row{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;margin-bottom:14px}
         .lp-widget-wrap{min-width:0}
         @media (max-width: 768px){.lp-widget-wrap{grid-column:1 / -1 !important}}

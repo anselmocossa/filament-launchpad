@@ -81,6 +81,13 @@ class LaunchpadPlugin implements Plugin
      */
     protected string $tileSizing = 'fixed';
 
+    /**
+     * Color of the icons drawn on the tiles: 'muted' (pale gray) or 'strong'
+     * (dark, close to the tile text). Null falls back to
+     * config('launchpad.tile_icon_tone'), then to 'muted'.
+     */
+    protected ?string $tileIconTone = null;
+
     /** Whether the full-width spaces/pages bar is rendered below the topbar. */
     protected bool|Closure $subNavigation = true;
 
@@ -585,6 +592,27 @@ class LaunchpadPlugin implements Plugin
     public function getTileSizing(): string
     {
         return $this->tileSizing;
+    }
+
+    /**
+     * Color of the tile icons: 'muted' keeps them pale gray (the default),
+     * 'strong' draws them dark, close to the tile text. Unknown values fall
+     * back to 'muted'.
+     *
+     * Prefer: LaunchpadPlugin::make()->tileIconTone('strong')
+     */
+    public function tileIconTone(string $tone): static
+    {
+        $this->tileIconTone = in_array($tone, ['muted', 'strong'], true) ? $tone : 'muted';
+
+        return $this;
+    }
+
+    public function getTileIconTone(): string
+    {
+        $tone = $this->tileIconTone ?? config('launchpad.tile_icon_tone');
+
+        return in_array($tone, ['muted', 'strong'], true) ? $tone : 'muted';
     }
 
     /**

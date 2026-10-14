@@ -1,5 +1,6 @@
 <?php
 
+use Filament\Launchpad\LaunchpadPlugin;
 use Filament\Launchpad\Models\Card;
 use Filament\Launchpad\Models\Page;
 use Filament\Launchpad\Models\Section;
@@ -307,4 +308,13 @@ it('keeps Edit Home personal per authenticated user, including super admins', fu
 it('does not crash when only the seeded home page exists', function () {
     Livewire::test(EditHome::class)
         ->assertOk();
+});
+
+it('previews the cards with the same icon tone as the launchpad', function () {
+    homePage();
+
+    LaunchpadPlugin::get()->tileIconTone('strong');
+
+    Livewire::test(EditHome::class)
+        ->assertSeeHtml('--lp-tile-icon:var(--lp-icon-strong)');
 });

@@ -20,14 +20,16 @@
     <style>
         :root{
             --lp-surface:#ffffff; --lp-border:#e5e7eb; --lp-text:#111827; --lp-muted:#6b7280;
-            --lp-badge-bg:#f3f4f6; --lp-badge-text:#374151; --lp-icon-muted:#9ca3af;
+            --lp-badge-bg:#f3f4f6; --lp-badge-text:#374151; --lp-icon-muted:#9ca3af; --lp-icon-strong:#374151;
             --lp-canvas-bg:#f9fafb; --lp-drop:#16a34a;
         }
         html.dark{
             --lp-surface:#18181b; --lp-border:rgba(255,255,255,.1); --lp-text:#f4f4f5; --lp-muted:#a1a1aa;
-            --lp-badge-bg:rgba(255,255,255,.08); --lp-badge-text:#d4d4d8; --lp-icon-muted:#a1a1aa;
+            --lp-badge-bg:rgba(255,255,255,.08); --lp-badge-text:#d4d4d8; --lp-icon-muted:#a1a1aa; --lp-icon-strong:#e4e4e7;
             --lp-canvas-bg:#111113; --lp-drop:#22c55e;
         }
+        {{-- Card previews use the same icon tone as the launchpad (LaunchpadPlugin::tileIconTone()). --}}
+        :root{--lp-tile-icon:var(--lp-icon-{{ \Filament\Launchpad\LaunchpadPlugin::get()->getTileIconTone() }})}
         .lp-build{display:flex;gap:20px;align-items:flex-start}
         .lp-build__canvas{flex:1;min-width:0;display:flex;flex-direction:column;gap:18px}
         .lp-build__library{width:280px;flex:none;position:sticky;top:16px}
@@ -256,7 +258,7 @@
                                 @if ($isWidget)
                                     <div style="display:flex;align-items:flex-end;justify-content:space-between">
                                         @if (filled($card['icon'] ?? null))
-                                            @svg($card['icon'], '', ['style' => 'width:24px;height:24px;color:var(--lp-icon-muted)'])
+                                            @svg($card['icon'], '', ['style' => 'width:24px;height:24px;color:var(--lp-tile-icon, var(--lp-icon-muted))'])
                                         @endif
                                         <span class="lp-lib__tag lp-lib__tag--widget lp-tile__widget-tag">{{ __('launchpad::launchpad.card_types.widget') }}</span>
                                     </div>
@@ -274,13 +276,13 @@
                                             @endif
                                         </div>
                                         @if (filled($card['icon'] ?? null))
-                                            @svg($card['icon'], '', ['style' => 'width:20px;height:20px;flex:none;color:var(--lp-icon-muted)'])
+                                            @svg($card['icon'], '', ['style' => 'width:20px;height:20px;flex:none;color:var(--lp-tile-icon, var(--lp-icon-muted))'])
                                         @endif
                                     </div>
                                 @else
                                     <div style="display:flex;align-items:flex-end;justify-content:space-between">
                                         @if (filled($card['icon'] ?? null))
-                                            @svg($card['icon'], '', ['style' => 'width:28px;height:28px;color:var(--lp-icon-muted)'])
+                                            @svg($card['icon'], '', ['style' => 'width:28px;height:28px;color:var(--lp-tile-icon, var(--lp-icon-muted))'])
                                         @endif
                                     </div>
                                 @endif

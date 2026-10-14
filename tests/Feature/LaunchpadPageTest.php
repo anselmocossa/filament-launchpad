@@ -1,5 +1,6 @@
 <?php
 
+use Filament\Launchpad\LaunchpadPlugin;
 use Filament\Launchpad\Pages\Launchpad;
 use Livewire\Livewire;
 
@@ -74,8 +75,8 @@ it('actually compiles the heroicon svg for both tile variants without erroring',
     Livewire::test(Launchpad::class)
         ->assertOk()
         ->assertSeeHtml('<svg')
-        ->assertSeeHtml('width:20px;height:20px;flex:none;color:var(--lp-icon-muted)') // KPI variant icon
-        ->assertSeeHtml('width:28px;height:28px;color:var(--lp-icon-muted)');          // icon-only variant icon
+        ->assertSeeHtml('width:20px;height:20px;flex:none;color:var(--lp-tile-icon, var(--lp-icon-muted))') // KPI variant icon
+        ->assertSeeHtml('width:28px;height:28px;color:var(--lp-tile-icon, var(--lp-icon-muted))');          // icon-only variant icon
 });
 
 it('renders the kpi variant for tiles with a kpi and the icon-only variant otherwise', function () {
@@ -192,4 +193,16 @@ it('polls on an explicit interval, so refreshes cannot pile up on each other', f
         ->assertOk()
         ->assertSeeHtml('wire:poll.60s.keep-alive')
         ->assertDontSeeHtml('wire:poll.keep-alive="$refresh"');
+});
+
+it('paints the tile icons pale by default and dark when the plugin asks for a strong tone', function () {
+    Livewire::test(Launchpad::class)
+        ->assertSeeHtml('--lp-tile-icon:var(--lp-icon-muted)')
+        ->assertSeeHtml('color:var(--lp-tile-icon, var(--lp-icon-muted))');
+
+    LaunchpadPlugin::get()->tileIconTone('strong');
+
+    Livewire::test(Launchpad::class)
+        ->assertSeeHtml('--lp-tile-icon:var(--lp-icon-strong)')
+        ->assertDontSeeHtml('--lp-tile-icon:var(--lp-icon-muted)');
 });

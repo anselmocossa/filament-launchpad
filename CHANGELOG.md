@@ -4,6 +4,14 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.13.0] - 2026-10-14
+
+### Added
+- Tile icons can be dark instead of pale gray: `LaunchpadPlugin::make()->tileIconTone('strong')`
+  (or `tile_icon_tone` in `config/launchpad.php`). `'muted'`, the default, keeps them as before.
+  The tone follows light and dark mode and also applies to the card previews in the builder and
+  in Edit Home.
+
 ## [1.12.1] - 2026-10-14
 
 ### Changed

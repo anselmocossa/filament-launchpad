@@ -147,3 +147,20 @@ it('merges card library presets across calls, overriding the default', function 
     expect($library)->toHaveCount(2)
         ->and(array_column($library, 'key'))->toBe(['vendas', 'clientes']);
 });
+
+it('draws the tile icons pale by default and dark when the tone is strong', function () {
+    expect(LaunchpadPlugin::make()->getTileIconTone())->toBe('muted')
+        ->and(LaunchpadPlugin::make()->tileIconTone('strong')->getTileIconTone())->toBe('strong')
+        ->and(LaunchpadPlugin::make()->tileIconTone('invalid')->getTileIconTone())->toBe('muted');
+});
+
+it('reads the tile icon tone from the config unless it is set on the plugin', function () {
+    config(['launchpad.tile_icon_tone' => 'strong']);
+
+    expect(LaunchpadPlugin::make()->getTileIconTone())->toBe('strong')
+        ->and(LaunchpadPlugin::make()->tileIconTone('muted')->getTileIconTone())->toBe('muted');
+
+    config(['launchpad.tile_icon_tone' => 'loud']);
+
+    expect(LaunchpadPlugin::make()->getTileIconTone())->toBe('muted');
+});

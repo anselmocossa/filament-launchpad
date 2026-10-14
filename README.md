@@ -356,6 +356,7 @@ return [
     'accent_color' => '#16a34a',
     'dark_header' => false,
     'tile_sizing' => 'fluid', // 'fixed' (6 equal columns, 1/6 row width each) or 'fluid' (auto-fit, minmax 176px)
+    'tile_icon_tone' => 'muted', // 'muted' (pale gray icons) or 'strong' (dark icons)
 ];
 ```
 
@@ -365,6 +366,23 @@ return [
 Both modes use `auto-fit` so empty grid tracks collapse when fewer tiles than columns.
 
 Prefer the fluent plugin API for anything beyond these — `LaunchpadPlugin::make()->accentColor('#16a34a')->tileSizing('fixed')` — since the config file cannot express closures (live KPIs, widget mappings).
+
+### Tile icon tone
+
+The icons on the tiles are pale gray by default, so they stay in the background. Make them dark — close to the tile text — with `'strong'`:
+
+```php
+LaunchpadPlugin::make()
+    ->tileIconTone('strong'); // 'muted' (default) or 'strong'
+```
+
+![Pale tile icons (muted, the default)](art/tile-icons-muted.png)
+*`'muted'` — the default.*
+
+![Dark tile icons (strong)](art/tile-icons-strong.png)
+*`'strong'`.*
+
+The tone follows light and dark mode, applies to every KPI and shortcut tile and to the card previews in the builder and in Edit Home. Without a fluent call, `tile_icon_tone` in `config/launchpad.php` decides; unknown values fall back to `'muted'`.
 
 ## Permissions & Shield
 
