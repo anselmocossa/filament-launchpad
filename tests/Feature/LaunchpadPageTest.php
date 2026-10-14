@@ -206,3 +206,15 @@ it('paints the tile icons pale by default and dark when the plugin asks for a st
         ->assertSeeHtml('--lp-tile-icon:var(--lp-icon-strong)')
         ->assertDontSeeHtml('--lp-tile-icon:var(--lp-icon-muted)');
 });
+
+it('lays fluid tiles out in even rows through a container query grid', function () {
+    Livewire::test(Launchpad::class)
+        ->assertDontSeeHtml('container-type:inline-size');
+
+    LaunchpadPlugin::get()->tileSizing('fluid');
+
+    Livewire::test(Launchpad::class)
+        ->assertSeeHtml('container-type:inline-size')
+        ->assertSeeHtml('class="lp-fluid-')
+        ->assertSeeHtml('@container (min-width:');
+});

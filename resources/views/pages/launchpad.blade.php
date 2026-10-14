@@ -193,12 +193,27 @@
                                 ? "repeat(auto-fit,minmax({$tileW}px,1fr))"
                                 : "repeat(auto-fill,minmax(max({$tileW}px,calc((100% - 70px) / 6 - 1px)),1fr))";
                             $tileWidth = '100%';
+                            // 'fluid' com mais de um tile: filas equilibradas (9 num ecra
+                            // que leva 8 ficam 5 + 4, nao 8 + 1) — ver BalancedGrid.
+                            $balancedCount = count($row['items']);
+                            $balanced = $tileSizing === 'fluid' && $balancedCount > 1;
                         @endphp
+                        @if ($balanced)
+                            <style>{!! \Filament\Launchpad\Support\BalancedGrid::css($balancedCount, (int) $tileW) !!}</style>
+                            <div style="container-type:inline-size">
+                                <div class="{{ \Filament\Launchpad\Support\BalancedGrid::className($balancedCount, (int) $tileW) }}" style="display:grid;gap:14px;margin-bottom:14px">
+                                    @foreach ($row['items'] as $item)
+                                        @include('launchpad::pages.partials.tile')
+                                    @endforeach
+                                </div>
+                            </div>
+                        @else
                         <div style="display:grid;grid-template-columns:{{ $gridColumns }};gap:14px;margin-bottom:14px">
                     @foreach ($row['items'] as $item)
                         @include('launchpad::pages.partials.tile')
                     @endforeach
                         </div>
+                        @endif
                     @endif
                 @endforeach
             </section>

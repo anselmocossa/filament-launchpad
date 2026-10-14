@@ -367,7 +367,7 @@ return [
     ],
     'accent_color' => '#16a34a',
     'dark_header' => false,
-    'tile_sizing' => 'fluid', // 'fixed' (6 equal columns, 1/6 row width each) or 'fluid' (auto-fit, minmax 176px)
+    'tile_sizing' => 'fluid', // 'fixed' (up to 6 per row, never below the tile width) or 'fluid' (stretched to fill, in even rows: 9 tiles = 5 + 4)
     'tile_icon_tone' => 'muted', // 'muted' (pale gray icons) or 'strong' (dark icons)
 ];
 ```

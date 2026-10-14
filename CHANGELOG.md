@@ -4,6 +4,14 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.15.0] - 2026-10-14
+
+### Changed
+- `tileSizing('fluid')` spreads tiles over even rows instead of filling each row to the brim:
+  nine tiles on a screen that fits eight are now laid out 5 + 4, not 8 + 1 with one left alone.
+  It is pure CSS (container queries), so tiles never shrink below the tile width and the number
+  of rows stays the same. `'fixed'` is unchanged.
+
 ## [1.14.0] - 2026-10-14
 
 ### Added
