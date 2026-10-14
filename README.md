@@ -30,7 +30,7 @@ Turn your Filament panel's homepage into a SAP Fiori-style launchpad: Spaces, Pa
 
 <img src="art/topbar-mobile.png" alt="Topbar navigation on a phone" width="320">
 
-*Below 1024 px the list becomes a single ☰ with every space and its pages.*
+*Below 768 px the list becomes a single ☰ with every space and its pages.*
 
 ![KPI tiles with sparklines](art/kpi-sparkline.png)
 *KPI tiles with a sparkline: an area in the default accent color, bars, or an area in a color of your choice.*
@@ -327,7 +327,7 @@ LaunchpadPlugin::make()
 
 Both accept a `bool` or a `Closure`. Left unset, the secondary bar stays on and the topbar navigation stays off, exactly as before.
 
-The topbar navigation collapses on its own: spaces that don't fit beside the logo move to a "More" dropdown («Mais» in Portuguese), the active space always stays visible, and below 1024 px the list becomes a single ☰ with every space and its pages. With both options above, a panel can also turn off Filament's own navigation (`->navigation(false)`); if it does, keep the topbar start visible on small screens so the logo and the ☰ show:
+The topbar navigation collapses on its own: spaces that don't fit beside the logo move to a "More" dropdown («Mais» in Portuguese), the active space always stays visible, and below 768 px the list becomes a single ☰ with every space and its pages. With both options above, a panel can also turn off Filament's own navigation (`->navigation(false)`); if it does, keep the topbar start visible on small screens so the logo and the ☰ show:
 
 ```css
 @media (max-width: 63.999rem) {

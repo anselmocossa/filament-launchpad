@@ -4,6 +4,13 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.12.1] - 2026-10-14
+
+### Changed
+- Topbar navigation keeps the spaces in the bar down to 768 px (was 1024 px): a laptop window
+  around 900 px no longer drops them into the ☰ while there is room; «Mais» takes whatever
+  doesn't fit. Below 768 px the single ☰ stays.
+
 ## [1.12.0] - 2026-10-14
 
 ### Added

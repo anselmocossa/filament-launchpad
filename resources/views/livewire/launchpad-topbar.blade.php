@@ -12,9 +12,9 @@
          Livewire update, or the morph would hide the bar again. --}}
     style="flex:1 1 0%;min-width:0;flex-wrap:nowrap;overflow:hidden{{ \Livewire\Livewire::isLivewireRequest() ? '' : ';visibility:hidden;animation:fi-launchpad-reveal 0s linear 1s forwards' }}"
 >
-    {{-- Small screens (< 1024 px): only this ☰, listing every space and its pages
-         (the "Todos os Spaces" shell menu of the sub-navigation bar). From 1024 px it
-         hides and the spaces themselves show. --}}
+    {{-- Small screens (< 768 px): only this ☰, listing every space and its pages
+         (the "Todos os Spaces" shell menu of the sub-navigation bar). From 768 px it
+         hides and the spaces themselves show (overflow goes to «Mais»). --}}
     <li class="fi-topbar-item fi-launchpad-topbar-menu" style="flex:0 0 auto">
         <x-filament::dropdown
             placement="bottom-start"
@@ -229,9 +229,16 @@
                 white-space: nowrap;
             }
 
-            /* Filament hides the topbar navigation below 1024 px; the ☰ stays, before
-               the logo, and the spaces wait for the wider layout. */
-            @media (max-width: 63.999rem) {
+            /* Filament hides its topbar navigation below 1024 px. The spaces show from
+               768 px anyway — «Mais» takes whatever doesn't fit — so a laptop window at
+               900 px keeps them in the bar; below 768 px only the ☰ stays, before the logo. */
+            @media (min-width: 48rem) and (max-width: 63.999rem) {
+                .fi-topbar .fi-launchpad-topbar-navigation {
+                    display: flex;
+                }
+            }
+
+            @media (max-width: 47.999rem) {
                 .fi-topbar .fi-launchpad-topbar-navigation {
                     display: flex;
                     flex: 0 0 auto !important;
@@ -256,7 +263,7 @@
                 }
             }
 
-            @media (min-width: 64rem) {
+            @media (min-width: 48rem) {
                 .fi-launchpad-topbar-navigation > .fi-launchpad-topbar-menu {
                     display: none !important;
                 }
