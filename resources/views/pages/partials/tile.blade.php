@@ -45,14 +45,34 @@
                             @if ($tile['hasKpi'])
                                 {{-- Variante KPI --}}
                                 <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px">
-                                    <div style="min-width:0">
+                                    <div style="min-width:0{{ $tile['sparkline'] ? ';flex:1' : '' }}">
                                         <div style="display:flex;align-items:baseline;gap:4px">
                                             <span style="font-size:26px;font-weight:700;color:var(--lp-text);letter-spacing:-.02em">{{ $tile['kpi'] }}</span>
                                             @if ($tile['unit'])
                                                 <span style="font-size:12px;font-weight:600;color:var(--lp-muted)">{{ $tile['unit'] }}</span>
                                             @endif
                                         </div>
-                                        @if ($tile['trend'])
+                                        @if ($tile['sparkline'])
+                                            {{-- Mini-grafico no lugar da linha de tendencia; o texto
+                                                 da tendencia passa a ser a dica (title) do grafico. --}}
+                                            @php
+                                                $sparkline = $tile['sparkline'];
+                                                $sparklineColor = $sparkline['color'] ?? $theme['accent'];
+                                            @endphp
+                                            <svg class="lp-sparkline" viewBox="0 0 {{ \Filament\Launchpad\Support\Sparkline::WIDTH }} {{ \Filament\Launchpad\Support\Sparkline::HEIGHT }}" preserveAspectRatio="none" role="img" aria-label="{{ $tile['trend'] ?? $tile['t'] }}" style="display:block;width:100%;height:28px;margin-top:6px;overflow:visible">
+                                                @if ($tile['trend'])
+                                                    <title>{{ $tile['trend'] }}</title>
+                                                @endif
+                                                @if ($sparkline['type'] === 'bar')
+                                                    @foreach ($sparkline['bars'] as $bar)
+                                                        <rect x="{{ $bar['x'] }}" y="{{ $bar['y'] }}" width="{{ $bar['w'] }}" height="{{ $bar['h'] }}" rx="0.8" fill="{{ $sparklineColor }}" fill-opacity="0.85"/>
+                                                    @endforeach
+                                                @else
+                                                    <path d="{{ $sparkline['area'] }}" fill="{{ $sparklineColor }}" fill-opacity="0.15"/>
+                                                    <path d="{{ $sparkline['line'] }}" fill="none" stroke="{{ $sparklineColor }}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+                                                @endif
+                                            </svg>
+                                        @elseif ($tile['trend'])
                                             <div style="font-size:10.5px;font-weight:500;color:{{ $tile['trendColor'] }};margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ $tile['trend'] }}</div>
                                         @endif
                                     </div>

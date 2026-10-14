@@ -191,6 +191,21 @@ public function cacheKey(): string
 }
 ```
 
+#### Sparkline
+
+A KPI tile can draw a small chart in place of its trend line — an area (a line with a filled area) or bars. Pass the series, oldest value first:
+
+```php
+return KpiResult::make(Candidate::count())
+    ->trend("+{$thisMonth} this month")
+    ->sparkline($lastTwelveMonths);                    // area, in the panel's accent color
+
+return KpiResult::make($open)
+    ->sparkline($applicationsPerWeek, 'bar', '#16a34a'); // bars, in a color of your choice
+```
+
+The chart is inline SVG — no chart library, no JavaScript — and stretches to the tile's width. The trend text, when set, becomes the chart's tooltip. Only live sources draw one: a series isn't something an editor types into the card form.
+
 ### Card library
 
 Card Library presets show up in the builder's "Card Library" panel, ready to be dragged into any Section. Define each as a **`CardPreset` class** (auto-discovered under `app/Filament/Launchpad`) — scaffold one with artisan:

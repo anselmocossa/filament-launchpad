@@ -4,6 +4,13 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.12.0] - 2026-10-14
+
+### Added
+- KPI tiles can draw a small chart in place of the trend line: `KpiResult::sparkline($values,
+  'area'|'bar', $color)`. Inline SVG stretched to the tile's width, in the panel's accent color
+  by default; the trend text becomes the chart's tooltip.
+
 ### Fixed
 - Fixed-size tiles (`tileSizing('fixed')`, the default) wrap onto the next row on narrow
   screens instead of squeezing six per row: titles no longer break into several lines and a

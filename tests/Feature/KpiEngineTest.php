@@ -1,5 +1,6 @@
 <?php
 
+use Filament\Launchpad\Launchpad\Tile;
 use Filament\Launchpad\LaunchpadPlugin;
 use Filament\Launchpad\Models\Page;
 use Filament\Launchpad\Models\Section;
@@ -8,6 +9,7 @@ use Filament\Launchpad\Tests\Support\Kpis\BadgeShortcutSource;
 use Filament\Launchpad\Tests\Support\Kpis\CachedSource;
 use Filament\Launchpad\Tests\Support\Kpis\CountingSource;
 use Filament\Launchpad\Tests\Support\Kpis\RestrictedSource;
+use Filament\Launchpad\Tests\Support\Kpis\SparklineSource;
 use Filament\Launchpad\Tests\Support\Kpis\ThrowingSource;
 use Filament\Launchpad\Tests\Support\Kpis\VendasHoje;
 use Illuminate\Support\Facades\Cache;
@@ -294,4 +296,58 @@ it('a class-based registration overrides a same-keyed legacy closure, regardless
 
     expect($plugin->getKpiSource(VendasHoje::key()))->toBeNull()
         ->and($plugin->getKpiSourceOptions())->toHaveKey(VendasHoje::key(), 'Vendas de Hoje');
+});
+
+it('passes the live source\'s sparkline to the tile, keeping the trend text for its tooltip', function () {
+    $section = createEngineSection();
+    $section->cards()->create([
+        'title' => 'Candidatos',
+        'type' => 'kpi',
+        'kpi_source' => SparklineSource::key(),
+        'sort' => 1,
+    ]);
+
+    $plugin = LaunchpadPlugin::make()->kpis([SparklineSource::class]);
+    $tile = $plugin->getSpaces()[0]->getPages()[0]->getSections()[0]->getTiles()[0]->toArray();
+
+    expect($tile['sparkline']['type'])->toBe('bar')
+        ->and($tile['sparkline']['bars'])->toHaveCount(4)
+        ->and($tile['sparkline']['color'])->toBe('#16a34a')
+        ->and($tile['trend'])->toBe('+20 este mês');
+});
+
+it('leaves the tile without a sparkline when the source returns none', function () {
+    $section = createEngineSection();
+    $section->cards()->create([
+        'title' => 'Vendas',
+        'type' => 'kpi',
+        'kpi_source' => VendasHoje::key(),
+        'sort' => 1,
+    ]);
+
+    $plugin = LaunchpadPlugin::make()->kpis([VendasHoje::class]);
+    $tile = $plugin->getSpaces()[0]->getPages()[0]->getSections()[0]->getTiles()[0]->toArray();
+
+    expect($tile['sparkline'])->toBeNull();
+});
+
+it('draws the sparkline as inline svg in place of the trend line, with the trend as its tooltip', function () {
+    $tile = Tile::make('Candidatos')
+        ->kpi('120')
+        ->trend('+20 este mês', 'success')
+        ->sparkline([1, 3, 2])
+        ->toArray();
+
+    $html = view('launchpad::pages.partials.tile', [
+        'item' => ['tile' => $tile, 'tileIndex' => 0],
+        'groupIndex' => 0,
+        'theme' => ['accent' => '#0a6ed1', 'tileW' => 176],
+        'tileW' => 176,
+        'tileWidth' => '100%',
+    ])->render();
+
+    expect($html)->toContain('class="lp-sparkline"')
+        ->and($html)->toContain('<title>+20 este mês</title>')
+        ->and($html)->toContain('stroke="#0a6ed1"')
+        ->and($html)->not->toContain('text-overflow:ellipsis">+20 este mês</div>');
 });

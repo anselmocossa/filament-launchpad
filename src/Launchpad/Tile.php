@@ -3,6 +3,7 @@
 namespace Filament\Launchpad\Launchpad;
 
 use Closure;
+use Filament\Launchpad\Support\Sparkline;
 use Filament\Pages\Page;
 use Throwable;
 
@@ -27,6 +28,13 @@ class Tile
     protected ?string $trendText = null;
 
     protected string $trendColor = 'gray';
+
+    /** @var list<int|float>|null */
+    protected ?array $sparkline = null;
+
+    protected string $sparklineType = 'area';
+
+    protected ?string $sparklineColor = null;
 
     protected ?string $note = null;
 
@@ -107,6 +115,21 @@ class Tile
     {
         $this->trendText = $text;
         $this->trendColor = $color;
+
+        return $this;
+    }
+
+    /**
+     * A small 'area' or 'bar' chart drawn in place of the trend line (see
+     * KpiResult::sparkline()).
+     *
+     * @param  array<int|float>  $values
+     */
+    public function sparkline(array $values, string $type = 'area', ?string $color = null): static
+    {
+        $this->sparkline = array_values($values);
+        $this->sparklineType = in_array($type, Sparkline::TYPES, true) ? $type : 'area';
+        $this->sparklineColor = $color;
 
         return $this;
     }
@@ -274,6 +297,20 @@ class Tile
         }
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function resolveSparkline(): ?array
+    {
+        if ($this->sparkline === null) {
+            return null;
+        }
+
+        $geometry = Sparkline::geometry($this->sparkline, $this->sparklineType);
+
+        return $geometry === null ? null : [...$geometry, 'color' => $this->sparklineColor];
+    }
+
     protected function resolveTrendColor(): string
     {
         return self::TREND_COLORS[$this->trendColor] ?? self::TREND_COLORS['gray'];
@@ -296,6 +333,7 @@ class Tile
             'unit' => $this->unit,
             'trend' => $this->trendText,
             'trendColor' => $this->resolveTrendColor(),
+            'sparkline' => $this->resolveSparkline(),
             'nota' => $this->note,
             'href' => $this->getUrl(),
             'isWidget' => $this->isWidget,

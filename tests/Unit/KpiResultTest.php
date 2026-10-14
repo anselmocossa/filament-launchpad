@@ -59,3 +59,14 @@ it('returns the same instance (static/fluent) from every setter, mirroring Tile/
         ->and($result->trend('+1'))->toBe($result)
         ->and($result->badge('novo'))->toBe($result);
 });
+
+it('carries an optional sparkline series, falling back to an area chart for unknown types', function () {
+    expect(KpiResult::make(1)->getSparkline())->toBeNull();
+
+    $result = KpiResult::make(1)->sparkline([1, 2, 3], 'bar', '#16a34a');
+
+    expect($result->getSparkline())->toBe([1, 2, 3])
+        ->and($result->getSparklineType())->toBe('bar')
+        ->and($result->getSparklineColor())->toBe('#16a34a')
+        ->and(KpiResult::make(1)->sparkline([1], 'pie')->getSparklineType())->toBe('area');
+});

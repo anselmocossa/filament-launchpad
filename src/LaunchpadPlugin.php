@@ -1209,6 +1209,12 @@ class LaunchpadPlugin implements Plugin
             $tile->trend($card->trend, $card->trend_color ?? 'gray');
         }
 
+        // The sparkline only comes from a live source: it is a series, not a
+        // value an editor types into the card form.
+        if (filled($kpiResult?->getSparkline())) {
+            $tile->sparkline($kpiResult->getSparkline(), $kpiResult->getSparklineType(), $kpiResult->getSparklineColor());
+        }
+
         $sourceBadge = $kpiResult?->getBadge();
 
         if (filled($sourceBadge)) {
