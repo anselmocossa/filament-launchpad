@@ -785,6 +785,9 @@ trait InteractsWithLaunchpadBuilder
             'badge' => $preset['badge'] ?? null,
             'target_type' => $preset['target_type'] ?? 'none',
             'target_value' => $preset['target_value'] ?? null,
+            // A preset may come already wired to a live source or a widget.
+            'kpi_source' => $preset['kpi_source'] ?? null,
+            'widget_key' => $preset['widget_key'] ?? null,
         ]);
 
         $this->attachCardAt($section->id, $card->id, $index);

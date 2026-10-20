@@ -222,6 +222,15 @@ class LaunchpadPlugin implements Plugin
      */
     protected array $kpiSourceRegistry = [];
 
+    /**
+     * KPI sources and card presets handed over by other packages through
+     * provide(). Static: a package registers once, from its service provider,
+     * before (or after) the panels are built.
+     *
+     * @var array{kpis: array<int, class-string<KpiSource>>, cards: array<int, class-string<CardPreset>|array<string, mixed>|Closure>}
+     */
+    protected static array $provided = ['kpis' => [], 'cards' => []];
+
     protected ?KpiResolver $kpiResolver = null;
 
     /**
@@ -312,6 +321,31 @@ class LaunchpadPlugin implements Plugin
         $this->autoDiscoverCards = $enabled;
 
         return $this;
+    }
+
+    /**
+     * Lets another package bring its own KPI sources and card presets, e.g. an
+     * assistant that offers a "pending approvals" tile. Unlike kpis()/cards(),
+     * this never turns the app's own auto-discovery off. Cards may be
+     * CardPreset class-strings, preset arrays, or a closure returning preset
+     * arrays (called when the library is shown, so it can depend on the
+     * current panel or user).
+     *
+     * @param  array<int, class-string<KpiSource>>  $kpis
+     * @param  array<int, class-string<CardPreset>|array<string, mixed>|Closure>  $cards
+     */
+    public static function provide(array $kpis = [], array $cards = []): void
+    {
+        static::$provided['kpis'] = array_values(array_unique([...static::$provided['kpis'], ...$kpis]));
+        static::$provided['cards'] = [...static::$provided['cards'], ...$cards];
+    }
+
+    /**
+     * Forgets everything provide() received (tests).
+     */
+    public static function forgetProvided(): void
+    {
+        static::$provided = ['kpis' => [], 'cards' => []];
     }
 
     public static function make(): static
@@ -1752,6 +1786,8 @@ class LaunchpadPlugin implements Plugin
      */
     public function getRegisteredKpiSource(string $key): ?KpiSource
     {
+        $this->absorbProvidedKpis();
+
         $entry = $this->kpiSourceRegistry[$key] ?? null;
 
         $source = match (true) {
@@ -1816,6 +1852,8 @@ class LaunchpadPlugin implements Plugin
      */
     public function getKpiSourceOptions(): array
     {
+        $this->absorbProvidedKpis();
+
         $options = [];
 
         foreach (array_keys($this->kpiSourceRegistry) as $key) {
@@ -1845,6 +1883,51 @@ class LaunchpadPlugin implements Plugin
     protected function resolveKpiResult(string $key): ?KpiResult
     {
         return $this->kpiResolver()->resolve($key, fn (): ?KpiSource => $this->getRegisteredKpiSource($key));
+    }
+
+    /**
+     * Folds the KPI sources other packages provided into the registry. The
+     * app's own registration wins on a key collision.
+     */
+    protected function absorbProvidedKpis(): void
+    {
+        foreach (static::$provided['kpis'] as $class) {
+            if (class_exists($class) && is_subclass_of($class, KpiSource::class) && ! array_key_exists($class::key(), $this->kpiSourceRegistry)) {
+                $this->registerKpiClass($class);
+            }
+        }
+    }
+
+    /**
+     * Card presets other packages provided, as preset arrays.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function providedCardPresets(): array
+    {
+        $presets = [];
+
+        foreach (static::$provided['cards'] as $entry) {
+            try {
+                $items = match (true) {
+                    $entry instanceof Closure => (array) $entry(),
+                    is_string($entry) => [$this->instantiateCardPresetClass($entry)?->toArray()],
+                    default => [$entry],
+                };
+            } catch (Throwable $e) {
+                report($e);
+
+                continue;
+            }
+
+            foreach ($items as $item) {
+                if (is_array($item) && filled($item['key'] ?? null)) {
+                    $presets[] = $item;
+                }
+            }
+        }
+
+        return $presets;
     }
 
     protected function kpiResolver(): KpiResolver
@@ -1999,6 +2082,9 @@ class LaunchpadPlugin implements Plugin
     public function getCardLibrary(): array
     {
         $legacy = filled($this->cardLibrary) ? $this->cardLibrary : $this->getDefaultCardLibrary();
+
+        // Other packages' presets first, so the app's own win a key collision.
+        $legacy = collect($this->providedCardPresets())->concat($legacy)->keyBy('key')->values()->all();
 
         if (blank($this->cardPresetRegistry)) {
             return $legacy;

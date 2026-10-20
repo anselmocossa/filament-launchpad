@@ -272,7 +272,27 @@ LaunchpadPlugin::make()->cardLibrary([
 ]);
 ```
 
-Presets are reusable — dropping the same preset into several Sections is expected; wire a `kpi_source` (or edit the value) on the created Card afterwards.
+Presets are reusable — dropping the same preset into several Sections is expected. A preset that names a `kpi_source` keeps it on the created Card, so the value is live straight away; otherwise wire one (or edit the value) afterwards.
+
+#### Cards from other packages
+
+A package can bring its own KPI sources and presets with `LaunchpadPlugin::provide()`, usually from its service provider's `boot()`. Unlike `->kpis()` / `->cards()`, it never turns the app's auto-discovery off, and on a key collision the app's own source or preset wins:
+
+```php
+use Filament\Launchpad\LaunchpadPlugin;
+
+if (class_exists(LaunchpadPlugin::class)) {
+    LaunchpadPlugin::provide(
+        kpis: [\Vendor\Package\Launchpad\PendingKpi::class],
+        cards: [
+            \Vendor\Package\Launchpad\PendingCard::class,   // a CardPreset class
+            fn (): array => [/* preset arrays, built when the library is shown */],
+        ],
+    );
+}
+```
+
+A closure is called each time the library is shown, so it can depend on the current panel or user; one that throws is reported and skipped. [Filament ChatAI](https://github.com/anselmocossa/filament-chatai) uses this to offer its assistant tiles.
 
 ### Widgets
 

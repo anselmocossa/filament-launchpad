@@ -1,6 +1,7 @@
 <?php
 
 use Filament\Launchpad\Filament\Resources\PageResource\Pages\BuildLayout;
+use Filament\Launchpad\LaunchpadPlugin;
 use Filament\Launchpad\Models\Card;
 use Filament\Launchpad\Models\Page;
 use Filament\Launchpad\Models\Section;
@@ -89,6 +90,19 @@ it('adds a card from a library preset carrying its fields', function () {
         ->and($card->subtitle)->toBe('Ponto de Venda')
         ->and($card->unit)->toBe('un')
         ->and(pivotSort($section, $card))->toBe(0);
+});
+
+it('adds a card already wired to the live source its preset names', function () {
+    LaunchpadPlugin::provide(cards: [['key' => 'wired', 'title' => 'Wired', 'type' => 'kpi', 'kpi_source' => 'vendas_hoje']]);
+    $page = buildLayoutPage();
+    $section = Section::query()->create(['page_id' => $page->id, 'title' => 'S', 'sort' => 0]);
+
+    Livewire::test(BuildLayout::class, ['record' => $page->id])
+        ->call('addCardFromLibrary', $section->id, 'wired', null);
+
+    expect($section->cards()->first()->kpi_source)->toBe('vendas_hoje');
+
+    LaunchpadPlugin::forgetProvided();
 });
 
 it('adds a card at a specific index and shifts the rest', function () {

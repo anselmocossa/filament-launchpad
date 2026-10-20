@@ -4,6 +4,18 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+## [1.16.0] - 2026-10-20
+
+### Added
+- `LaunchpadPlugin::provide(kpis: [...], cards: [...])` lets other packages bring their own KPI sources and card presets
+  without turning the app's auto-discovery off. Cards may be `CardPreset` classes, preset arrays or a closure called
+  when the library is shown. On a key collision the app's own source or preset wins, and a closure that throws is
+  reported and skipped. Filament ChatAI uses it to offer its assistant tiles.
+
+### Fixed
+- A card added from the library in the builder now keeps its preset's `kpi_source` and `widget_key`, so a KPI preset
+  shows its live value straight away. Before, the card was created without its source.
+
 ## [1.15.0] - 2026-10-14
 
 ### Changed
