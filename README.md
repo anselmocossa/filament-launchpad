@@ -545,7 +545,10 @@ Issues and pull requests are welcome. Please run `composer lint` and `composer t
 
 ## Security Vulnerabilities
 
-If you discover any security-related issues, please email anselmokossa.apk@gmail.com instead of using the issue tracker.
+Please do not use the issue tracker for a security problem. Report it through
+[a private advisory](https://github.com/anselmocossa/filament-launchpad/security/advisories/new)
+or by e-mail to anselmokossa.apk@gmail.com. [SECURITY.md](SECURITY.md) says what is in scope,
+what to include and what to expect.
 
 ## Credits
 

@@ -4,6 +4,9 @@ All notable changes to `filament-launchpad` will be documented in this file, fol
 
 ## Unreleased
 
+### Security
+- A security policy in [SECURITY.md](SECURITY.md): private advisory reporting, and what counts as a vulnerability in a launchpad, where a tile may reveal a figure or a destination the viewer may not reach.
+
 ## [1.16.0] - 2026-10-20
 
 ### Added
