@@ -86,7 +86,9 @@ class LaunchpadBookmarks
         $space = Space::query()
             ->where(fn (Builder $query) => $query->where('panel_id', $panelId)->orWhereNull('panel_id'))
             ->where('is_default', true)
-            ->orderByRaw('panel_id is null')
+            // Panel-specific space first. `panel_id is null` as an ORDER BY
+            // expression is rejected by SQL Server; CASE is portable.
+            ->orderByRaw('case when panel_id is null then 1 else 0 end')
             ->first();
 
         $page = $space === null ? null : Page::query()

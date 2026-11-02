@@ -2,7 +2,12 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Unreleased
+## [1.16.1] - 2026-11-02
+
+### Fixed
+- Save to Home (`bookmarks()`) failed with a 500 on SQL Server: finding the user's home space ordered by
+  `panel_id is null`, which SQL Server rejects ("Incorrect syntax near the keyword 'is'"). It now orders by a
+  `case when` expression that every supported database accepts.
 
 ### Security
 - A security policy in [SECURITY.md](SECURITY.md): private advisory reporting, and what counts as a vulnerability in a launchpad, where a tile may reveal a figure or a destination the viewer may not reach.
