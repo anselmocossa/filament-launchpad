@@ -36,7 +36,6 @@ use FilesystemIterator;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -44,6 +43,7 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
 use Throwable;
+use Filament\Launchpad\Support\LaunchpadSchema;
 
 class LaunchpadPlugin implements Plugin
 {
@@ -422,7 +422,7 @@ class LaunchpadPlugin implements Plugin
      */
     protected function getHomeBuilderUrl(): string
     {
-        if (Schema::hasTable('launchpad_pages') && Schema::hasTable('launchpad_spaces')) {
+        if (LaunchpadSchema::hasTable('launchpad_pages') && LaunchpadSchema::hasTable('launchpad_spaces')) {
             return EditHome::getUrl();
         }
 
@@ -1022,7 +1022,7 @@ class LaunchpadPlugin implements Plugin
      */
     protected function getSpacesFromDatabase(): array
     {
-        if (! Schema::hasTable('launchpad_spaces')) {
+        if (! LaunchpadSchema::hasTable('launchpad_spaces')) {
             return [];
         }
 
@@ -1055,11 +1055,11 @@ class LaunchpadPlugin implements Plugin
         // Phase H: null on a single-tenant install (no resolver wired), which
         // makes every tenant filter below a no-op against all-null columns.
         $tenantId = LaunchpadTenant::id();
-        $tenantAware = Schema::hasColumn('launchpad_spaces', 'tenant_id');
+        $tenantAware = LaunchpadSchema::hasColumn('launchpad_spaces', 'tenant_id');
 
         $query = SpaceModel::query()->orderBy('sort');
 
-        if (Schema::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
+        if (LaunchpadSchema::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
             $query->forPanel($panelId);
         }
 

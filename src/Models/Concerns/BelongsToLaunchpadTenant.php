@@ -4,6 +4,7 @@ namespace Filament\Launchpad\Models\Concerns;
 
 use Filament\Launchpad\Support\LaunchpadOverride;
 use Filament\Launchpad\Support\LaunchpadTenant;
+use Filament\Launchpad\Support\LaunchpadSchema;
 
 /**
  * Phase H tenant scoping for the structural models (Space / Page / Section).
@@ -125,11 +126,11 @@ trait BelongsToLaunchpadTenant
 
     protected function launchpadHasOverrideColumns(): bool
     {
-        return $this->getConnection()->getSchemaBuilder()->hasColumn($this->getTable(), 'origin_id');
+        return LaunchpadSchema::hasColumn($this->getTable(), 'origin_id', $this->getConnectionName());
     }
 
     protected function launchpadHasHiddenColumn(): bool
     {
-        return $this->getConnection()->getSchemaBuilder()->hasColumn($this->getTable(), 'is_hidden');
+        return LaunchpadSchema::hasColumn($this->getTable(), 'is_hidden', $this->getConnectionName());
     }
 }

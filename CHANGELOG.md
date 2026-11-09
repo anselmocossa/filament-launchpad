@@ -2,6 +2,14 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.16.2] - 2026-11-09
+
+### Changed
+- Schema checks (does `launchpad_spaces` have `tenant_id`? `origin_id`?) are remembered in the application cache instead
+  of asking the database catalog every time. On SQL Server each check joined `sys.columns` and friends, and one home
+  page made five of them on every request; now it is one cache read. The cache is forgotten when migrations finish
+  (`MigrationsEnded`); call `LaunchpadSchema::flush()` after changing a launchpad table outside a migration.
+
 ## [1.16.1] - 2026-11-02
 
 ### Fixed

@@ -19,6 +19,9 @@ use Illuminate\Support\Facades\Gate;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Database\Events\MigrationsEnded;
+use Filament\Launchpad\Support\LaunchpadSchema;
 
 class LaunchpadServiceProvider extends PackageServiceProvider
 {
@@ -71,6 +74,10 @@ class LaunchpadServiceProvider extends PackageServiceProvider
 
         $this->registerLaunchpadPolicies();
         $this->esquecerSpacesQuandoAlgoMuda();
+
+        // A estrutura das tabelas so muda com migrations: e' ai que a cache do
+        // LaunchpadSchema deixa de valer.
+        Event::listen(MigrationsEnded::class, fn () => LaunchpadSchema::flush());
     }
 
     /**

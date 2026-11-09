@@ -13,7 +13,7 @@ use Filament\Launchpad\Support\LaunchpadScope;
 use Filament\Launchpad\Support\LaunchpadTenant;
 use Filament\Launchpad\Support\LaunchpadUrl;
 use Filament\Pages\Page;
-use Illuminate\Support\Facades\Schema;
+use Filament\Launchpad\Support\LaunchpadSchema;
 
 /**
  * A standalone shortcut to the drag&drop Builder, always bound to the HOME
@@ -198,12 +198,12 @@ class EditHome extends Page
     {
         $query = SpaceModel::query()->orderBy('sort');
 
-        if (Schema::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
+        if (LaunchpadSchema::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
             $query->forPanel($panelId);
         }
 
         // Never resolve "home" to a Space belonging to another tenant.
-        if (Schema::hasColumn('launchpad_spaces', 'tenant_id')) {
+        if (LaunchpadSchema::hasColumn('launchpad_spaces', 'tenant_id')) {
             $query->forTenant(LaunchpadTenant::id());
         }
 
@@ -236,7 +236,7 @@ class EditHome extends Page
             'sort' => 0,
         ];
 
-        if (Schema::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
+        if (LaunchpadSchema::hasColumn('launchpad_spaces', 'panel_id') && filled($panelId = LaunchpadPanel::id())) {
             $spaceData['panel_id'] = $panelId;
         }
 

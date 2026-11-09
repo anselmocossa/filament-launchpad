@@ -27,7 +27,7 @@ class LaunchpadOverride
         }
 
         return $mode === 'fork'
-            && $record->getConnection()->getSchemaBuilder()->hasColumn($record->getTable(), 'origin_id');
+            && LaunchpadSchema::hasColumn($record->getTable(), 'origin_id', $record->getConnectionName());
     }
 
     /**
@@ -90,9 +90,7 @@ class LaunchpadOverride
      */
     protected static function newForkFrom(Model $record, string $tenantId, array $overrides = []): Model
     {
-        $columns = $record->getConnection()
-            ->getSchemaBuilder()
-            ->getColumnListing($record->getTable());
+        $columns = LaunchpadSchema::columns($record->getTable(), $record->getConnectionName()) ?? [];
 
         $data = array_intersect_key(
             $record->getAttributes(),
@@ -217,6 +215,6 @@ class LaunchpadOverride
 
     protected static function hasColumn(Model $model, string $column): bool
     {
-        return $model->getConnection()->getSchemaBuilder()->hasColumn($model->getTable(), $column);
+        return LaunchpadSchema::hasColumn($model->getTable(), $column, $model->getConnectionName());
     }
 }

@@ -7,6 +7,7 @@ use Filament\Launchpad\Support\LaunchpadPermission;
 use Filament\Launchpad\Support\LaunchpadTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Filament\Launchpad\Support\LaunchpadSchema;
 
 /**
  * Phase H.2 — makes a management Resource tenant-aware, so a tenant may run the
@@ -115,10 +116,8 @@ trait ScopesToLaunchpadTenant
 
     protected static function tenantColumnExists(): bool
     {
-        $model = static::getModel();
+        $model = new (static::getModel());
 
-        return (new $model)->getConnection()
-            ->getSchemaBuilder()
-            ->hasColumn((new $model)->getTable(), 'tenant_id');
+        return LaunchpadSchema::hasColumn($model->getTable(), 'tenant_id', $model->getConnectionName());
     }
 }

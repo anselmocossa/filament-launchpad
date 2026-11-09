@@ -26,7 +26,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Schema as SchemaFacade;
+use Filament\Launchpad\Support\LaunchpadSchema;
 
 class SpaceResource extends Resource
 {
@@ -144,14 +144,14 @@ class SpaceResource extends Resource
         // can never list another panel's spaces.
         $browsingPanel = LaunchpadPanel::browsing();
 
-        if (SchemaFacade::hasColumn('launchpad_spaces', 'panel_id') && filled($browsingPanel)) {
+        if (LaunchpadSchema::hasColumn('launchpad_spaces', 'panel_id') && filled($browsingPanel)) {
             $query->forPanel($browsingPanel);
         }
 
         // Phase H.3: the tenant's effective set under copy-on-write — the
         // template it hasn't diverged, plus its own overrides and new spaces.
         // Never another tenant's rows.
-        if (SchemaFacade::hasColumn('launchpad_spaces', 'tenant_id')) {
+        if (LaunchpadSchema::hasColumn('launchpad_spaces', 'tenant_id')) {
             $query->effectiveForTenant(LaunchpadTenant::id());
         }
 

@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Filament\Launchpad\Support\LaunchpadSchema;
 
 /**
  * The drag&drop "Construtor de Layout" behaviour: a canvas showing every
@@ -225,7 +226,7 @@ trait InteractsWithLaunchpadBuilder
 
     protected function sectionsAreTenantAware(): bool
     {
-        return Schema::hasColumn('launchpad_sections', 'tenant_id');
+        return LaunchpadSchema::hasColumn('launchpad_sections', 'tenant_id');
     }
 
     /**
@@ -500,7 +501,7 @@ trait InteractsWithLaunchpadBuilder
             // Only the template's cards plus this layer's own — never another
             // tenant's, which would leak its private cards into this catalog.
             ->when(
-                Schema::hasColumn('launchpad_cards', 'tenant_id'),
+                LaunchpadSchema::hasColumn('launchpad_cards', 'tenant_id'),
                 fn ($query) => $query->forTenant($this->builderTenantId()),
             )
             ->when($search !== '', function ($query) use ($search) {

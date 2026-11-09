@@ -68,6 +68,10 @@ it('nao pergunta a cada card se esta restrito — a visibilidade vem toda de uma
 
     auth()->login(TestUser::create(['name' => 'Quem Ve']));
 
+    // A estrutura das tabelas e' lida uma vez e fica em cache (LaunchpadSchema):
+    // aquecer antes de contar, para comparar so' o custo da arvore.
+    LaunchpadPlugin::make()->getSpaces();
+
     $comDoze = contarConsultas(fn () => LaunchpadPlugin::make()->getSpaces());
 
     // Com o dobro dos cards, o numero de consultas nao pode acompanhar.
