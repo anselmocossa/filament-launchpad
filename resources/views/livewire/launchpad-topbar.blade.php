@@ -7,7 +7,6 @@
     class="fi-topbar-nav-groups fi-launchpad-topbar-navigation"
     data-launchpad-bar
     x-data="launchpadTopbarOverflow()"
-    x-init="init()"
     {{-- Hidden on the first page load until laid out (1 s CSS fallback); never on a
          Livewire update, or the morph would hide the bar again. --}}
     style="flex:1 1 0%;min-width:0;flex-wrap:nowrap;overflow:hidden{{ \Livewire\Livewire::isLivewireRequest() ? '' : ';visibility:hidden;animation:fi-launchpad-reveal 0s linear 1s forwards' }}"
@@ -15,7 +14,7 @@
     {{-- Small screens (< 768 px): only this ☰, listing every space and its pages
          (the "Todos os Spaces" shell menu of the sub-navigation bar). From 768 px it
          hides and the spaces themselves show (overflow goes to «Mais»). --}}
-    <li class="fi-topbar-item fi-launchpad-topbar-menu" style="flex:0 0 auto">
+    <li class="fi-topbar-item fi-launchpad-topbar-menu" x-ref="compactMenu" style="flex:0 0 auto">
         <x-filament::dropdown
             placement="bottom-start"
             teleport
@@ -229,18 +228,37 @@
                 white-space: nowrap;
             }
 
-            /* Filament hides its topbar navigation below 1024 px. The spaces show from
-               768 px anyway — «Mais» takes whatever doesn't fit — so a laptop window at
-               900 px keeps them in the bar; below 768 px only the ☰ stays, before the logo. */
-            @media (min-width: 48rem) and (max-width: 63.999rem) {
-                .fi-topbar .fi-launchpad-topbar-navigation {
-                    display: flex;
-                }
+            /* Filament hides the start zone below 1024 px. Keep the logo and spaces
+               visible when Launchpad provides the panel's topbar navigation. */
+            .fi-topbar > .fi-topbar-start:has(> .fi-launchpad-topbar-navigation) {
+                display: flex;
+                flex: 1 1 0%;
+                min-width: 0;
             }
 
-            @media (max-width: 47.999rem) {
+            .fi-topbar .fi-launchpad-topbar-navigation {
+                display: flex;
+            }
+
+            @media (width < 48rem) {
+                /* Let the toolbar wrap when search and the brand can't share one row. */
+                .fi-topbar:has(> .fi-topbar-start > .fi-launchpad-topbar-navigation) {
+                    flex-wrap: wrap;
+                    row-gap: 0.5rem;
+                    padding-block: 0.5rem;
+                }
+
+                .fi-topbar > .fi-topbar-start:has(> .fi-launchpad-topbar-navigation) {
+                    flex: 0 0 auto;
+                    margin-inline-end: 0.5rem;
+                    max-width: 100%;
+                }
+
+                .fi-topbar-start:has(> .fi-launchpad-topbar-navigation) > .fi-launchpad-back {
+                    display: none;
+                }
+
                 .fi-topbar .fi-launchpad-topbar-navigation {
-                    display: flex;
                     flex: 0 0 auto !important;
                     order: -1;
                     margin-inline: 0;
@@ -248,18 +266,6 @@
 
                 .fi-launchpad-topbar-navigation > :not(.fi-launchpad-topbar-menu) {
                     display: none !important;
-                }
-
-                /* ☰ + logo only: the "‹" back control would sit between them. */
-                .fi-topbar .fi-launchpad-back {
-                    display: none;
-                }
-
-                /* The start zone grows with a zero basis on wide screens (set inline in
-                   init()); here it keeps the ☰'s size, or the topbar end covers it. */
-                .fi-topbar .fi-topbar-start {
-                    flex: 0 0 auto !important;
-                    min-width: auto !important;
                 }
             }
 
@@ -285,18 +291,6 @@
                     debounceTimer: null,
 
                     init() {
-                        // The list sits inside the topbar's start zone, next to the logo.
-                        // That zone takes the free room up to the topbar end with a ZERO
-                        // basis: with `auto` its width followed the list's content, so the
-                        // list was measured wider (all spaces showing) than it ended up
-                        // (some hidden) and «Mais» got clipped.
-                        const start = this.$el.parentElement;
-
-                        if (start) {
-                            start.style.flex = '1 1 0%';
-                            start.style.minWidth = '0';
-                        }
-
                         this.$nextTick(() => this.measure());
 
                         // Labels change width once the web font arrives: measure afresh.
@@ -336,7 +330,7 @@
                         const list = this.$el;
                         const items = this.items();
 
-                        if (! items.length) {
+                        if (! items.length || this.isCompact()) {
                             this.reveal();
 
                             return;
@@ -357,6 +351,12 @@
                         this.hidden = [];
 
                         this.$nextTick(() => {
+                            if (this.isCompact()) {
+                                this.reveal();
+
+                                return;
+                            }
+
                             items.forEach((item) => {
                                 this.sizes[item.dataset.spaceId] = Math.ceil(item.getBoundingClientRect().width);
                             });
@@ -373,6 +373,10 @@
                         });
                     },
 
+                    isCompact() {
+                        return getComputedStyle(this.$refs.compactMenu).display !== 'none';
+                    },
+
                     layout(items) {
                         const list = this.$el;
 
@@ -381,36 +385,30 @@
 
                         const style = window.getComputedStyle(list);
                         const gap = parseFloat(style.columnGap || style.gap || '0') || 0;
-                        const widths = items.map((item) => (this.sizes[item.dataset.spaceId] || 0) + gap);
+                        const widths = items.map((item) => this.sizes[item.dataset.spaceId] + gap);
                         const total = widths.reduce((sum, width) => sum + width, 0);
+                        const available = list.clientWidth - 1;
+                        const spaceBudget = available - this.moreWidth;
 
-                        // Generous room — about one space — so «Mais» and its chevron are
-                        // never clipped: better one more space inside «Mais» than a
-                        // squeezed bar (rounding, hover background, late fonts).
-                        const slack = 120;
-
-                        if (total + slack / 2 <= list.clientWidth) {
+                        if (total - gap <= available) {
                             this.hidden = [];
                             this.reveal();
 
                             return;
                         }
 
-                        // The active space always stays in the bar: its width is reserved
-                        // first, and the spaces before «Mais» give way to it instead. Picking
-                        // a space from «Mais» brings it into the bar and pushes the last
-                        // visible one into «Mais».
-                        const available = list.clientWidth - (this.moreWidth + gap) - slack;
-                        let used = activeIndex >= 0 ? widths[activeIndex] : 0;
+                        // Keep the active space in the bar whenever it fits next to «Mais».
+                        const keepActive = activeIndex >= 0 && widths[activeIndex] <= spaceBudget;
+                        let used = keepActive ? widths[activeIndex] : 0;
                         let full = false;
                         const overflowing = [];
 
                         items.forEach((item, index) => {
-                            if (index === activeIndex) {
+                            if (keepActive && index === activeIndex) {
                                 return;
                             }
 
-                            if (! full && used + widths[index] <= available) {
+                            if (! full && used + widths[index] <= spaceBudget) {
                                 used += widths[index];
 
                                 return;

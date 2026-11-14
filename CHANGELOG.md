@@ -2,6 +2,13 @@
 
 All notable changes to `filament-launchpad` will be documented in this file, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.16.3] - 2026-11-14
+
+### Fixed
+- Topbar navigation keeps the panel logo and spaces visible below 1024 px. The "Mais" menu
+  takes the spaces that do not fit from 768 px, and the compact menu lists all spaces on
+  smaller screens. Resizing from the compact menu remeasures the spaces before laying them out.
+
 ## [1.16.2] - 2026-11-09
 
 ### Changed
